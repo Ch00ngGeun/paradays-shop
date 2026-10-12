@@ -1,0 +1,16 @@
+/* 역할: 레퍼런스처럼 제품 사이에 넓은 여백을 둔 홈 카탈로그 레이아웃을 설정합니다. */
+
+/* .catalog — Sign/Login~언어 안쪽 폭과 맞춤 (--page-body-max) */
+.catalog {
+  margin: 0 auto;
+  max-width: var(--page-body-max);
+  padding: clamp(2.75rem, 6vw, 5.5rem) clamp(1.25rem, 3.5vw, 3.5rem) 7rem;
+  width: 100%;
+}
+
+@media (max-width: 767px) {
+  .catalog {
+    /* 고정 헤더 아래에서 레퍼런스와 같은 첫 제품 시작 지점을 만듭니다. */
+    padding-top: 2.8rem;
+  }
+}

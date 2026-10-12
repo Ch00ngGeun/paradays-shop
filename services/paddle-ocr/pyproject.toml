@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools==79.0.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "paradays-paddle-ocr"
+version = "0.1.0"
+description = "Private PaddleOCR provider service for the Paradays commerce API"
+requires-python = ">=3.11,<3.12"
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: POSIX :: Linux",
+]
+dependencies = [
+    "fastapi==0.142.2",
+    "uvicorn[standard]==0.54.0",
+    "pydantic==2.13.5",
+    "pydantic-settings==2.15.0",
+    "paddleocr==3.7.0",
+    "paddlex==3.7.2",
+    "paddlepaddle==3.3.1; platform_system == 'Linux' and platform_machine == 'x86_64'",
+    "numpy==2.3.5",
+    "opencv-contrib-python==4.10.0.84",
+    "opencv-python-headless==4.14.0.94",
+]
+
+[project.scripts]
+paddle-ocr-api = "app.main:main"
+paddle-ocr-smoke = "app.smoke:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+namespaces = true

@@ -1,0 +1,24 @@
+/* 역할: Hosted UI callback의 최소 진행·오류 상태를 기존 흰 여백과 회색 타이포로 표시합니다. */
+
+.callback {
+  align-items: center;
+  color: var(--color-muted);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  gap: 1rem;
+  justify-content: center;
+  min-height: 55vh;
+  padding: var(--page-gutter);
+  text-align: center;
+}
+
+.callback p {
+  margin: 0;
+}
+
+.callback a {
+  text-decoration: underline;
+  text-underline-offset: 0.25rem;
+}

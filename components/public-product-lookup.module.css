@@ -1,0 +1,40 @@
+/* 역할: API 기반 상품 상세의 짧은 loading/not-found 상태를 스토어 톤으로 유지합니다. */
+.status,
+.unavailable {
+  color: var(--color-muted);
+  font-family: var(--font-display);
+  margin: 0 auto;
+  max-width: 48rem;
+  padding: clamp(8rem, 16vw, 14rem) var(--page-gutter);
+  text-align: center;
+}
+
+.unavailable h1 {
+  font-family: var(--font-nav-product);
+  font-size: clamp(2.2rem, 6vw, 4.5rem);
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+  margin: 0.5rem 0 1rem;
+}
+
+.unavailable p:not(.eyebrow) {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  margin: 0 auto 2rem;
+  max-width: 34rem;
+}
+
+.eyebrow {
+  font-family: var(--font-nav-product);
+  font-size: 0.85rem;
+  letter-spacing: 0.09em;
+  margin: 0;
+}
+
+.unavailable a {
+  border-bottom: 1px solid currentcolor;
+  color: inherit;
+  font-family: var(--font-nav-product);
+  font-size: 1.1rem;
+  padding-bottom: 0.15rem;
+}

@@ -1,0 +1,5 @@
+<!-- Role: Supplies a compact PARADAYS placeholder favicon for the app shell. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" fill="#111111"/>
+  <path d="m7 23 8-14m2 14 8-14" stroke="#ff1b1b" stroke-width="3"/>
+</svg>

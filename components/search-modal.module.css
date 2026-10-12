@@ -1,0 +1,81 @@
+/* 역할: 흰 화면 위 밑줄 입력 + 돋보기 Search 오버레이를 스타일링합니다. */
+
+/* .overlay — 검색 열릴 때 본문 희미하게 (메뉴 스크림보다 더 진한 흰 톤) */
+.overlay {
+  background: rgb(255 255 255 / 80%);
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: fixed;
+  transition: opacity var(--ui-fade-duration) ease-out;
+  z-index: 40;
+}
+
+:global(:root[data-theme="dark"]) .overlay {
+  background: rgb(0 0 0 / 72%);
+}
+
+.overlayVisible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* .dialog — 검색 입력 폼을 담는 상단 중앙 영역 */
+.dialog {
+  margin: clamp(4.5rem, 14vh, 9rem) auto 0;
+  padding: 0 var(--page-gutter);
+  width: min(36rem, 100%);
+}
+
+.dialog form {
+  align-items: center;
+  border-bottom: 1px solid var(--color-line);
+  display: flex;
+  gap: 0.75rem;
+}
+
+.dialog input {
+  background: transparent;
+  border: 0;
+  color: var(--color-ink);
+  flex: 1;
+  font-family: var(--font-body);
+  font-size: clamp(1rem, 2vw, 1.15rem);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+  min-width: 0;
+  outline: 0;
+  padding: 0.55rem 0 0.65rem;
+  width: 100%;
+}
+
+.dialog input::placeholder {
+  color: var(--color-placeholder);
+  opacity: 1;
+}
+
+/* WebKit 기본 search 취소 버튼 숨김 */
+.dialog input::-webkit-search-cancel-button,
+.dialog input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* .searchIcon — 우측 얇은 돋보기 */
+.searchIcon {
+  align-items: center;
+  color: var(--color-line);
+  display: flex;
+  flex-shrink: 0;
+  height: 1.35rem;
+  justify-content: center;
+  padding: 0 0 0.15rem;
+  width: 1.35rem;
+}
+
+.searchIcon svg {
+  display: block;
+  height: 100%;
+  width: 100%;
+}

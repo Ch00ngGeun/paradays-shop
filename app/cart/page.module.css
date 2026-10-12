@@ -1,0 +1,31 @@
+/* 역할: 레퍼런스의 중앙 Cart 제목과 여유 있는 흰 여백을 설정합니다. */
+
+/* .cartPage — 장바구니 페이지 섹션 폭·여백 (좁은 칼럼으로 한눈에 들어오게) */
+.cartPage {
+  margin: 0 auto;
+  max-width: 44rem;
+  padding: clamp(4.5rem, 9vw, 7rem) var(--page-gutter) 5rem;
+}
+
+/* .heading — Your Cart 제목 + 무료배송 안내 */
+.heading {
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.heading h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 4.5vw, 3.4rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin: 0;
+}
+
+.heading p {
+  font-family: var(--font-display);
+  font-size: clamp(0.85rem, 1.4vw, 1rem);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  margin: 1.35rem 0 2.75rem;
+}

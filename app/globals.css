@@ -1,0 +1,113 @@
+/* 역할: 전역 리셋, 타이포그래피, 컬러 토큰, 재사용 가능한 접근성 유틸리티를 정의합니다. */
+
+/* :root — 브랜드 컬러·여백·폰트 토큰 (라이트 기본) */
+:root {
+  --color-paper: #ffffff;
+  --color-ink: #171717;
+  --color-muted: #747474;
+  --color-rule: #dddddd;
+  --color-red: #ff1b1b;
+  --color-drawer: #171717;
+  --color-scrim: rgb(255 255 255 / 40%);
+  --color-wash: #ffffff;
+  --color-line: #2a2a2a;
+  --color-placeholder: #a3a3a3;
+  /* 상품 호버 화이트 워시·메뉴 스크림 페이드 공통 시간 */
+  --ui-fade-duration: 0.28s;
+  --page-gutter: clamp(1rem, 2.1vw, 2.5rem);
+  /* 홈·상세 공통. chrome(Sign/언어)은 content-max 안쪽 gutter에, 본문은 그 사이 폭으로 고정 */
+  --page-content-max: 78rem;
+  --page-body-max: calc(var(--page-content-max) - 2 * var(--page-gutter));
+  --header-chrome-max: var(--page-content-max);
+  /* 상단 내비·상품명 전용 */
+  --font-nav-product:
+    "Tablet Gothic Compressed", "TabletGothicCompressed", "Roboto Condensed",
+    "Arial Narrow", "Helvetica Neue Condensed", sans-serif;
+  --font-display:
+    "Roboto Condensed", "Arial Narrow", "Helvetica Neue Condensed", sans-serif;
+  --font-body: Arial, Helvetica, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  color-scheme: light;
+}
+
+/* Tablet Gothic Compressed — public/fonts 에 woff2 두면 로드, 없으면 local/폴백 */
+@font-face {
+  font-display: swap;
+  font-family: "Tablet Gothic Compressed";
+  font-style: normal;
+  font-weight: 100 900;
+  src:
+    local("Tablet Gothic Compressed"),
+    local("TabletGothicCompressed"),
+    url("/fonts/TabletGothicCompressed.woff2") format("woff2");
+}
+
+/* 다크 모드 — 동일 토큰을 어두운 팔레트로 덮어씁니다 */
+:root[data-theme="dark"] {
+  --color-paper: #121212;
+  --color-ink: #f2f2f2;
+  --color-muted: #a3a3a3;
+  --color-rule: #3a3a3a;
+  --color-red: #ff1b1b;
+  --color-drawer: #0a0a0a;
+  --color-scrim: rgb(0 0 0 / 36%);
+  --color-wash: #121212;
+  --color-line: #e8e8e8;
+  --color-placeholder: #7a7a7a;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* 포커스 시 기본 브라우저 아웃라인·빨간 링 제거 */
+button:focus,
+button:focus-visible,
+a:focus,
+a:focus-visible,
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible {
+  outline: none;
+}
+
+/* .srOnly — 시각적으로 숨기고 스크린리더에만 노출 */
+.srOnly {
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}

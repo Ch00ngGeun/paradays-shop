@@ -1,0 +1,291 @@
+/* 역할: 로그인·회원가입 패널 */
+
+.panel {
+  color: var(--color-muted);
+  margin: 0 auto;
+  max-width: 28rem;
+  padding: clamp(4.5rem, 9vw, 7rem) var(--page-gutter) 5rem;
+}
+
+.panel h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin: 0;
+}
+
+.lead,
+.status,
+.hint,
+.switch {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.lead {
+  margin: 0.75rem 0 1.5rem;
+}
+
+.status {
+  margin: 4rem auto;
+  text-align: center;
+}
+
+.form {
+  display: grid;
+  gap: 1rem;
+}
+
+.form label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.form label > span {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.form input[type="email"],
+.form input[type="password"],
+.form input[type="tel"],
+.form input[type="text"],
+.form input:not([type]) {
+  background: transparent;
+  border: 1px solid var(--color-rule);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  padding: 0.65rem 0.7rem;
+}
+
+.form em {
+  color: var(--color-red);
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-style: normal;
+}
+
+.passwordRules {
+  display: grid;
+  gap: 0.3rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.passwordRules li {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+}
+
+.ruleMet {
+  color: var(--color-ink);
+}
+
+.consents {
+  border: 1px solid var(--color-rule);
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0.85rem;
+}
+
+.identityMethods {
+  border: 1px solid var(--color-rule);
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.85rem;
+}
+
+.identityMethods legend,
+.consents legend {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0 0.25rem;
+}
+
+.identityOption {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  gap: 0.45rem;
+  white-space: nowrap;
+}
+
+/* .form label { display:grid } 보다 우선해 라디오+글자를 한 줄로 유지 */
+.form .identityOption {
+  display: flex;
+  flex-direction: row;
+  gap: 0.45rem;
+}
+
+.identityOption input[type="radio"] {
+  accent-color: var(--color-muted);
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.identityOption > span {
+  font-weight: 400;
+}
+
+.setupNotice {
+  border-left: 3px solid var(--color-red);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  margin: 0;
+  padding-left: 0.65rem;
+}
+
+.consentRow {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.consentRow label {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: row;
+  gap: 0.45rem;
+}
+
+.consentRow input {
+  margin-top: 0.2rem;
+}
+
+.consentRow button {
+  background: transparent;
+  border: 0;
+  color: var(--color-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  text-decoration: underline;
+}
+
+.submit,
+.socialActions button,
+.primaryLink {
+  background: var(--color-muted);
+  border: 0;
+  color: var(--color-paper);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 0.75rem 1rem;
+  text-align: center;
+}
+
+.submit:disabled,
+.socialActions button:disabled,
+.secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.secondaryButton {
+  background: transparent;
+  border: 1px solid var(--color-rule);
+  color: var(--color-muted);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.7rem 1rem;
+}
+
+.textButton {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+}
+
+.error {
+  color: var(--color-red);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.recovery {
+  border-top: 1px solid var(--color-rule);
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+}
+
+.recoveryTrigger {
+  background: transparent;
+  border: 1px solid var(--color-rule);
+  color: var(--color-muted);
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 2.75rem;
+  width: 100%;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.7rem 1rem;
+}
+
+.recoveryTrigger:focus-visible {
+  outline: 3px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+.social {
+  border-top: 1px solid var(--color-rule);
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+}
+
+.social p {
+  margin: 0 0 0.75rem;
+}
+
+.socialActions {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: 1fr 1fr;
+}
+
+.hint {
+  color: var(--color-muted);
+  margin-top: 0.75rem !important;
+  opacity: 0.85;
+}
+
+.switch {
+  margin-top: 1.5rem;
+}
+
+.switch a,
+.primaryLink {
+  color: inherit;
+  display: inline-block;
+  text-decoration: underline;
+}
+
+.primaryLink {
+  margin-top: 1rem;
+  text-decoration: none;
+}

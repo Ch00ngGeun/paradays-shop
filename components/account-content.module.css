@@ -1,0 +1,271 @@
+/* 역할: 계정·프로필·주문 내역을 기존 PARADAYS의 얇은 선과 회색 타이포 중심으로 표시합니다. */
+
+.account,
+.guest {
+  color: var(--color-muted);
+  margin: 0 auto;
+  max-width: 44rem;
+  padding: clamp(4.5rem, 9vw, 7rem) var(--page-gutter) 5rem;
+}
+
+.guest {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-display);
+  gap: 1.25rem;
+  min-height: 24rem;
+  justify-content: center;
+  text-align: center;
+}
+
+.guest h1,
+.account h1,
+.orders h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  margin: 0;
+}
+
+.guest h1,
+.account h1 {
+  font-size: clamp(2.25rem, 4.5vw, 3.25rem);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.authenticationActions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.authenticationActions button,
+.authenticationActions a,
+.titleRow > button,
+.profileActions > button {
+  background: var(--color-muted);
+  border: 0;
+  color: var(--color-paper);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 0.7rem 1rem;
+  text-decoration: none;
+}
+
+.profileActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.profileActions > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.secondaryAction {
+  background: transparent !important;
+  border: 1px solid var(--color-rule) !important;
+  color: var(--color-muted) !important;
+}
+
+.profileForm input:disabled,
+.profileForm input:read-only {
+  background: color-mix(in srgb, var(--color-rule) 18%, var(--color-paper));
+  color: var(--color-muted);
+  cursor: default;
+}
+
+.marketingConsent input:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.modalOverlay {
+  inset: 0;
+  position: fixed;
+  z-index: 60;
+}
+
+.modalScrim {
+  background: var(--color-scrim);
+  border: 0;
+  cursor: pointer;
+  inset: 0;
+  padding: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.modalDialog {
+  background: var(--color-paper);
+  color: var(--color-muted);
+  display: grid;
+  gap: 1.25rem;
+  inset: 30vh var(--page-gutter) auto;
+  margin: 0 auto;
+  max-width: 22rem;
+  padding: 1.5rem 1.25rem;
+  position: relative;
+  text-align: center;
+  width: min(22rem, 100%);
+  z-index: 1;
+}
+
+.modalDialog h2 {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.modalDialog button {
+  background: var(--color-muted);
+  border: 0;
+  color: var(--color-paper);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  justify-self: center;
+  padding: 0.7rem 1.25rem;
+}
+
+.titleRow {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--color-muted);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding-bottom: 1.15rem;
+}
+
+.titleRow p {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  margin: 0.45rem 0 0;
+}
+
+.feedbackError,
+.feedbackSuccess {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  margin: 1rem 0 0;
+}
+
+.feedbackError {
+  color: var(--color-red);
+}
+
+.feedbackSuccess {
+  color: var(--color-muted);
+}
+
+.profileForm {
+  display: grid;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.profileForm label:not(.marketingConsent) {
+  display: grid;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  gap: 0.4rem;
+}
+
+.profileForm input[type="text"],
+.profileForm input[type="tel"],
+.profileForm input:not([type]) {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  color: var(--color-ink);
+  min-height: 2.8rem;
+  padding: 0.45rem 0.65rem;
+}
+
+.marketingConsent {
+  align-items: center;
+  display: flex;
+  font-family: var(--font-display);
+  gap: 0.55rem;
+}
+
+.marketingConsent input {
+  accent-color: var(--color-muted);
+  height: 1rem;
+  width: 1rem;
+}
+
+.profileForm > button {
+  justify-self: start;
+}
+
+.profileForm > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.orders {
+  border-top: 1px solid var(--color-muted);
+  margin-top: 2.75rem;
+  padding-top: 1.35rem;
+}
+
+.orders h2 {
+  font-size: clamp(1.5rem, 2.8vw, 2rem);
+}
+
+.orders > p {
+  font-family: var(--font-display);
+  margin: 1rem 0 0;
+}
+
+.orders ul {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+.orders li {
+  align-items: baseline;
+  border-top: 1px solid var(--color-rule);
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: 0.8rem 0;
+}
+
+.orders li div {
+  display: grid;
+  font-family: var(--font-display);
+  gap: 0.15rem;
+}
+
+.orders li strong {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.orders li span,
+.orders li time {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 520px) {
+  .orders li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .orders li time {
+    grid-column: 1;
+  }
+
+  .orders li > strong {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+}

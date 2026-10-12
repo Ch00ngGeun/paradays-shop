@@ -1,0 +1,23 @@
+{
+  "app": "npx tsx --tsconfig tsconfig.json bin/paradays-commerce.ts",
+  "context": {
+    "appName": "paradays",
+    "stage": "dev",
+    "managedLoginDomainPrefix": "paradays-dev-login",
+    "allowedOrigins": [
+      "http://localhost:3010",
+      "https://paradays.web.app",
+      "https://paradays.firebaseapp.com"
+    ],
+    "callbackUrls": [
+      "http://localhost:3010/auth/callback",
+      "https://paradays.web.app/auth/callback",
+      "https://paradays.firebaseapp.com/auth/callback"
+    ],
+    "logoutUrls": [
+      "http://localhost:3010",
+      "https://paradays.web.app",
+      "https://paradays.firebaseapp.com"
+    ]
+  }
+}

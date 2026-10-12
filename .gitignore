@@ -1,0 +1,45 @@
+# Role: Excludes generated dependencies, builds, and test output from source control.
+node_modules/
+.next/
+out/
+coverage/
+playwright-report/
+test-results/
+tsconfig.tsbuildinfo
+.env*
+
+# Local credentials, internal notes, and assistant history are never uploaded.
+*.pem
+*.key
+*.log
+agent.md
+AGENTS.md
+CLAUDE.md
+PROJECT_STATUS.md
+.codex-sessions/
+.claude/
+.cursor/
+.firebase/
+.tmp*
+docs/
+_backup/
+.DS_Store
+
+# Generated infrastructure, OCR models, private fixtures, and Python caches.
+dist/
+cdk.out*/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+*.tsbuildinfo
+.paddlex/
+.paddleocr/
+official_models/
+models/
+fixtures/
+
+# The user approved this submission guide and its designated test account.
+!/RUN_TEST_FLOW.md

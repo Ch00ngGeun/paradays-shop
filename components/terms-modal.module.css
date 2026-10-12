@@ -1,0 +1,76 @@
+/* 역할: 약관 전문 모달 */
+
+.overlay {
+  inset: 0;
+  position: fixed;
+  z-index: 50;
+}
+
+.scrim {
+  background: var(--color-scrim);
+  border: 0;
+  cursor: pointer;
+  inset: 0;
+  padding: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.dialog {
+  background: var(--color-paper);
+  color: var(--color-muted);
+  display: flex;
+  flex-direction: column;
+  inset: 10vh var(--page-gutter) auto;
+  margin: 0 auto;
+  max-height: 80vh;
+  max-width: 36rem;
+  position: relative;
+  width: min(36rem, 100%);
+  z-index: 1;
+}
+
+.header {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--color-rule);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  justify-content: space-between;
+  padding: 1rem 1.1rem;
+}
+
+.header h2 {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.version {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  margin: 0;
+}
+
+.header button {
+  background: transparent;
+  border: 0;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.body {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  overflow: auto;
+  padding: 1.1rem;
+}
+
+.body p {
+  margin: 0;
+}

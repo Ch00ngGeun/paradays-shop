@@ -1,0 +1,34 @@
+/* 역할: 내비게이션에서 임시 브랜드 에셋 슬롯 크기를 일정하게 맞춥니다. */
+
+/* .mark / .compact — Next/Image에 붙는 로고 크기 변형 */
+.mark,
+.compact {
+  display: block;
+  height: auto;
+  object-fit: contain;
+  object-position: center;
+  width: auto;
+}
+
+:global(:root[data-theme="dark"]) .mark,
+:global(:root[data-theme="dark"]) .compact {
+  filter: invert(1);
+}
+
+/* .mark — 데스크톱 헤더 중앙 로고 */
+.mark {
+  height: 1.85rem;
+  width: auto;
+}
+
+/* .compact — 좁은 슬롯용 작은 로고 */
+.compact {
+  height: 1.35rem;
+  width: auto;
+}
+
+@media (max-width: 767px) {
+  .mark {
+    height: 1.55rem;
+  }
+}

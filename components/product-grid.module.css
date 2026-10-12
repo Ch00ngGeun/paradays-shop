@@ -1,0 +1,234 @@
+/* 역할: 흰 캔버스 위 제품 이미지와 중앙 정렬 정보만 남기는 카탈로그 카드를 스타일링합니다. */
+
+/* .grid — 홈 카탈로그 목록 (기본 1열, 768px+ 3열) */
+.grid {
+  display: grid;
+  gap: clamp(3rem, 8vw, 6.5rem) clamp(1.25rem, 4vw, 4.5rem);
+  grid-template-columns: 1fr;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* .gridPending — 최종 상품 목록 확정 전 빈 자리 (푸터가 위로 튀지 않게 높이만 확보) */
+.gridPending {
+  min-height: 70vh;
+}
+
+/* .card / .cardLink — 그리드 셀과 전체 클릭 가능 링크 */
+.card,
+.cardLink {
+  min-width: 0;
+}
+
+/* QUASI 참고: 상품이 위에서부터 순차 fade-in + 살짝 위로 떠오르며 나타남 */
+.card {
+  animation: productReveal 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--reveal-index, 0) * 85ms);
+  will-change: opacity, transform;
+}
+
+@keyframes productReveal {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 1.2rem, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.cardLink {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* .empty — 필터 결과 없음 */
+.empty {
+  color: var(--color-muted);
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 2.5vw, 1.75rem);
+  font-weight: 700;
+  margin: 2rem 0 0;
+  text-align: center;
+}
+
+/* .media — 모든 카드가 같은 크기의 이미지 슬롯 (비율 고정). 라이트는 흰 박스 */
+.media {
+  aspect-ratio: 3 / 4;
+  background: #ffffff;
+  margin: 0 auto;
+  max-width: min(22rem, 78%);
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+/* 다크모드: 흰 여백 눈부심 완화 — 슬롯 회색 + 이미지 회색 필터 */
+:global(:root[data-theme="dark"]) .media {
+  background: #3a3a3a;
+}
+
+:global(:root[data-theme="dark"]) .media::before {
+  background: #9a9a9a;
+  content: "";
+  inset: 0;
+  mix-blend-mode: multiply;
+  opacity: 0.72;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+/* 호버 시 이미지만 하얗게 덮이는 워시 (메뉴 스크림과 같은 fade 시간) */
+.media::after {
+  background: var(--color-wash);
+  content: "";
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity var(--ui-fade-duration) ease-out;
+  z-index: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cardLink:hover .media:not(.mediaSoldOut)::after {
+    opacity: 0.4;
+  }
+}
+
+/* soldout: 참고보다 밝은 옅은 워시 + 중앙 빨간 SOLD OUT (호버와 무관하게 유지) */
+.mediaSoldOut::after {
+  background: color-mix(in srgb, var(--color-wash) 70%, transparent);
+  opacity: 1;
+}
+
+.soldOutBadge {
+  align-items: center;
+  color: var(--color-red);
+  display: flex;
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 3.2vw, 1.85rem);
+  font-weight: 800;
+  inset: 0;
+  justify-content: center;
+  letter-spacing: 0.12em;
+  pointer-events: none;
+  position: absolute;
+  text-transform: uppercase;
+  z-index: 2;
+}
+
+/* New: 이미지 박스 좌상단 오버레이. 다크/라이트 모두 검정 배경·흰 글씨 고정 */
+.newBadge {
+  background: #171717;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 800;
+  left: 0.6rem;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  padding: 0.35rem 0.45rem;
+  pointer-events: none;
+  position: absolute;
+  top: 0.6rem;
+  z-index: 3;
+}
+
+.detailsSoldOut h2 {
+  opacity: 0.38;
+}
+
+.detailsSoldOut .price {
+  opacity: 0.55;
+}
+
+/* .mediaImage — 슬롯 안에 원본 비율로 중앙 배치 */
+.mediaImage {
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  width: 100%;
+}
+
+/* .details — 이미지 아래 이름·가격 중앙 정렬 영역 */
+.details {
+  color: var(--color-muted);
+  padding-top: 1.1rem;
+  text-align: center;
+}
+
+.details h2,
+.details p {
+  margin: 0;
+}
+
+.details h2 {
+  font-family: var(--font-nav-product);
+  font-size: clamp(1.1375rem, 1.575vw, 1.3375rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+  margin: 0 auto;
+  max-width: 22ch;
+  overflow-wrap: break-word;
+}
+
+/* .price — 상품 가격 줄 (이름과 동일 톤) */
+.price {
+  font-family: var(--font-display);
+  font-size: clamp(1.1375rem, 1.575vw, 1.3375rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  margin-top: 0.35rem !important;
+}
+
+/* 태블릿 이상부터 레퍼런스와 같은 3열 카탈로그를 유지합니다. */
+@media (min-width: 768px) {
+  .grid {
+    align-items: start;
+    gap: clamp(4rem, 7vw, 7rem) clamp(2rem, 5vw, 5.5rem);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .media {
+    max-width: min(100%, 18rem);
+  }
+}
+
+@media (min-width: 1200px) {
+  .media {
+    max-width: min(100%, 20rem);
+  }
+}
+
+@media (max-width: 767px) {
+  /* 모바일 1열: 큰 동일 슬롯 유지 */
+  .media {
+    max-width: min(26rem, 88vw);
+  }
+
+  .details {
+    padding-top: 1rem;
+  }
+
+  .details h2 {
+    max-width: none;
+  }
+}

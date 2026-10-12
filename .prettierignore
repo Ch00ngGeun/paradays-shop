@@ -1,0 +1,12 @@
+# Role: Excludes generated artifacts from formatting checks.
+node_modules/
+.next/
+out/
+playwright-report/
+test-results/
+infra/cdk.out/
+infra/dist/
+_backup/
+tsconfig.tsbuildinfo
+
+.codex-sessions/

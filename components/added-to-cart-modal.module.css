@@ -1,0 +1,113 @@
+/* 역할: 장바구니 담기 확인 오버레이 — 흰 스크림·중앙 메시지·하단 닫기 */
+
+/* .overlay — 본문을 희미하게 덮는 반투명 흰 스크림 (메뉴·상품 호버와 동일 fade) */
+.overlay {
+  align-items: center;
+  background: var(--color-scrim);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  opacity: 0;
+  padding: 2rem var(--page-gutter);
+  pointer-events: none;
+  position: fixed;
+  transition: opacity var(--ui-fade-duration) ease-out;
+  z-index: 40;
+}
+
+.overlayVisible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* .dialog — 중앙 정렬된 확인 콘텐츠 스택 */
+.dialog {
+  align-items: center;
+  color: var(--color-muted);
+  display: flex;
+  flex-direction: column;
+  max-width: 28rem;
+  text-align: center;
+  width: 100%;
+}
+
+/* .productName — 담은 상품명 (굵게) */
+.productName {
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 3.2vw, 1.85rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  margin: 0;
+}
+
+/* .message — "was added to your cart" */
+.message {
+  font-family: var(--font-display);
+  font-size: clamp(1rem, 2.4vw, 1.25rem);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  margin: 0.45rem 0 0;
+}
+
+/* .iconRing — 쇼핑백 아이콘을 감싼 얇은 원 */
+.iconRing {
+  align-items: center;
+  border: 1.5px solid var(--color-rule);
+  border-radius: 50%;
+  display: flex;
+  height: 7.5rem;
+  justify-content: center;
+  margin: 2.4rem 0 2.1rem;
+  width: 7.5rem;
+}
+
+.bagIcon {
+  color: var(--color-muted);
+  height: 3.4rem;
+  width: 3.4rem;
+}
+
+/* .actions — Continue shopping · Checkout */
+.actions {
+  align-items: center;
+  display: flex;
+  font-family: var(--font-display);
+  font-size: clamp(0.95rem, 2vw, 1.1rem);
+  font-weight: 400;
+  gap: 0.65rem;
+  justify-content: center;
+  margin: 0;
+}
+
+.actionLink {
+  background: transparent;
+  border: 0;
+  color: var(--color-muted);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-decoration: none;
+}
+
+.actionLink:hover {
+  color: var(--color-ink);
+}
+
+/* .closeButton — 하단 중앙 × (레퍼런스는 상단, 요청에 따라 하단) */
+.closeButton {
+  background: transparent;
+  border: 0;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: clamp(2.4rem, 5vw, 3.2rem);
+  font-weight: 200;
+  line-height: 1;
+  margin-top: 2.75rem;
+  padding: 0.2rem 0.6rem;
+}
+
+.closeButton:hover {
+  color: var(--color-ink);
+}

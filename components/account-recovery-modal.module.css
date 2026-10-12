@@ -1,0 +1,167 @@
+/* 역할: 이메일 기반 계정 복구 다이얼로그를 작은 화면에서도 스크롤 가능하게 표시합니다. */
+
+.overlay {
+  align-items: center;
+  box-sizing: border-box;
+  display: grid;
+  inset: 0;
+  min-height: 100dvh;
+  overflow-y: auto;
+  padding: max(1rem, env(safe-area-inset-top))
+    max(var(--page-gutter), env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom))
+    max(var(--page-gutter), env(safe-area-inset-left));
+  position: fixed;
+  z-index: 55;
+}
+
+.scrim {
+  background: var(--color-scrim);
+  border: 0;
+  cursor: pointer;
+  inset: 0;
+  padding: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.dialog {
+  align-self: center;
+  background: var(--color-paper);
+  box-shadow:
+    0 0.35rem 1.1rem rgba(0, 0, 0, 0.12),
+    0 1.25rem 2.75rem rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+  color: var(--color-muted);
+  max-height: calc(100dvh - 2rem);
+  max-width: 28rem;
+  min-width: 0;
+  overflow: auto;
+  position: relative;
+  width: min(100%, 28rem);
+  z-index: 1;
+}
+
+:root[data-theme="dark"] .dialog {
+  box-shadow:
+    0 0.35rem 1.1rem rgba(0, 0, 0, 0.45),
+    0 1.25rem 2.75rem rgba(0, 0, 0, 0.35);
+}
+
+.header {
+  align-items: center;
+  border-bottom: 1px solid var(--color-rule);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 1rem 1.1rem;
+}
+
+.header h2 {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.closeButton {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--color-muted);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-family: var(--font-body);
+  font-size: 1.85rem;
+  font-weight: 300;
+  justify-content: center;
+  line-height: 1;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  padding: 0;
+}
+
+.body,
+.form {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.body {
+  padding: 1.1rem;
+}
+
+.lead,
+.note,
+.setupNotice,
+.error {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.note,
+.setupNotice,
+.error {
+  border-left: 3px solid var(--color-red);
+  color: var(--color-ink);
+  padding-left: 0.65rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.field > span {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.field input {
+  background: transparent;
+  border: 1px solid var(--color-rule);
+  box-sizing: border-box;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: max(1rem, 16px);
+  min-height: 2.75rem;
+  min-width: 0;
+  padding: 0.65rem 0.7rem;
+  width: 100%;
+}
+
+.submit {
+  background: var(--color-muted);
+  border: 0;
+  color: var(--color-paper);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  min-height: 2.75rem;
+  padding: 0.7rem 1rem;
+}
+
+.submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.closeButton:focus-visible,
+.field input:focus-visible,
+.submit:focus-visible {
+  outline: 3px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .dialog {
+    scroll-behavior: auto;
+  }
+}

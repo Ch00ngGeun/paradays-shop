@@ -1,0 +1,329 @@
+/* 역할: 레퍼런스의 좌측 옵션·우측 대형 이미지 상품상세 구성을 반응형으로 만듭니다. */
+
+/* .productPage — Sign/Login~언어 간격 안쪽에만 본문 (홈과 동일 --page-body-max) */
+.productPage {
+  display: grid;
+  gap: clamp(1.5rem, 3vw, 2.75rem);
+  /* 좌·우 비대칭을 줄여 데크(New)도 셔츠와 같은 밀도감으로 */
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  margin: 0 auto;
+  max-width: var(--page-body-max);
+  /* 헤더 아래 본문 간격 — 기존 clamp(5rem…10rem)에서 축소 */
+  padding: clamp(1.25rem, 2.5vw, 2.25rem) clamp(1.25rem, 3.5vw, 3.5rem) 6rem;
+  width: 100%;
+}
+
+/* .productInfo — 이름·설명·옵션·담기 버튼 영역 */
+.productInfo {
+  color: var(--color-muted);
+  min-width: 0;
+  padding-top: 0;
+}
+
+.productInfo h1 {
+  font-family: var(--font-nav-product);
+  font-size: clamp(2.6rem, 4vw, 4.5rem);
+  font-weight: 700;
+  letter-spacing: -0.065em;
+  line-height: 0.9;
+  margin: 0 0 1.6rem;
+  overflow-wrap: anywhere;
+}
+
+/* .description — 스펙 불릿 목록 */
+.description {
+  font-family: var(--font-display);
+  font-size: clamp(1.15rem, 1.5vw, 1.65rem);
+  font-weight: 700;
+  line-height: 1.26;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.description li::before {
+  content: "■";
+  font-size: 0.68em;
+  margin-right: 0.45rem;
+  vertical-align: 0.08em;
+}
+
+/* .options — 수량·사이즈 fieldset 묶음 */
+.options {
+  display: grid;
+  gap: 1.6rem;
+  margin-top: clamp(3rem, 8vw, 8rem);
+}
+
+.options fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.options legend {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin-bottom: 0.45rem;
+  padding: 0;
+}
+
+/* .quantityControl / .sizeList — 옵션 칩 버튼 줄 */
+.quantityControl,
+.sizeList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.quantityControl button,
+.quantityControl span,
+.sizeList button {
+  align-items: center;
+  background: #dedede;
+  border: 1px solid var(--color-rule);
+  color: var(--color-muted);
+  display: inline-flex;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  height: 3rem;
+  justify-content: center;
+  min-width: 3rem;
+  padding: 0 0.7rem;
+}
+
+.quantityControl button {
+  cursor: pointer;
+}
+
+.quantityControl button:disabled {
+  opacity: 0.45;
+}
+
+.sizeList button {
+  cursor: pointer;
+}
+
+.sizeList button[aria-pressed="true"] {
+  background: var(--color-muted);
+  color: var(--color-paper);
+}
+
+/* .addButton — 가격 + 장바구니 담기 */
+.addButton {
+  align-items: center;
+  background: var(--color-muted);
+  border: 0;
+  color: var(--color-paper);
+  cursor: pointer;
+  display: flex;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 3vw, 3.3rem);
+  font-weight: 700;
+  justify-content: space-between;
+  margin-top: 1.7rem;
+  min-height: 8.5rem;
+  padding: 1.2rem 1.6rem;
+  text-align: left;
+  width: 100%;
+}
+
+.addButton span:first-child {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.addButton s {
+  color: #d0d0d0;
+  font-size: 0.62em;
+}
+
+/* .productImage — 우측(또는 상단) 대형 상품 이미지 */
+.gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  min-width: 0;
+}
+
+.productImage {
+  /* 상품 원본이 대체로 정사각(600²). 세로 박스+contain 이면 상단 letterbox에
+     New 배지만 떠서 제목 옆에 붙어 보이는 문제가 났음 → 박스도 정사각으로 맞춤 */
+  aspect-ratio: 1;
+  background: #ffffff;
+  overflow: hidden;
+  position: relative;
+  touch-action: pan-y;
+  user-select: none;
+  width: 100%;
+}
+
+/* 다크모드: 상세 이미지도 흰 여백 회색 필터 */
+:global(:root[data-theme="dark"]) .productImage {
+  background: #3a3a3a;
+}
+
+:global(:root[data-theme="dark"]) .productImage::before {
+  background: #9a9a9a;
+  content: "";
+  inset: 0;
+  mix-blend-mode: multiply;
+  opacity: 0.72;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+.productImage img {
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  width: 100%;
+}
+
+.productImageSoldOut::after {
+  background: color-mix(in srgb, var(--color-wash) 70%, transparent);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+.soldOutBadge {
+  align-items: center;
+  color: var(--color-red);
+  display: flex;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+  font-weight: 800;
+  inset: 0;
+  justify-content: center;
+  letter-spacing: 0.12em;
+  pointer-events: none;
+  position: absolute;
+  text-transform: uppercase;
+  z-index: 2;
+}
+
+/* New: 이미지 박스 좌상단 오버레이. 테마와 무관하게 검정·흰글씨 고정 */
+.newBadge {
+  background: #171717;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 800;
+  left: 0.6rem;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  padding: 0.35rem 0.45rem;
+  pointer-events: none;
+  position: absolute;
+  top: 0.6rem;
+  z-index: 3;
+}
+
+.productInfoSoldOut h1 {
+  opacity: 0.38;
+}
+
+.addButtonSoldOut {
+  background: #b8b8b8;
+  cursor: not-allowed;
+  justify-content: center;
+}
+
+.addButtonSoldOutLabel {
+  color: var(--color-red);
+  font-size: clamp(1.5rem, 2.5vw, 2.2rem);
+  letter-spacing: 0.1em;
+}
+
+/* .dots — 이미지 장수만큼의 인디케이터 (1장이면 미표시) */
+.dots {
+  align-items: center;
+  display: flex;
+  gap: 0.55rem;
+  justify-content: center;
+}
+
+.dot {
+  background: var(--color-muted);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  height: 0.35rem;
+  opacity: 0.45;
+  padding: 0;
+  transition:
+    height 0.15s ease,
+    width 0.15s ease,
+    opacity 0.15s ease;
+  width: 0.35rem;
+}
+
+.dotActive {
+  height: 0.55rem;
+  opacity: 1;
+  width: 0.55rem;
+}
+
+/* .galleryArrow — 이미지 상자 안쪽 좌우에 붙임 (fixed 아님, Qty 안 가림) */
+.galleryArrow {
+  align-items: center;
+  background: rgb(210 210 210 / 55%);
+  border: 0;
+  color: var(--color-muted);
+  cursor: pointer;
+  display: flex;
+  font-family: var(--font-body);
+  font-size: 1.6rem;
+  font-weight: 300;
+  height: 4.25rem;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2.35rem;
+  z-index: 2;
+}
+
+.galleryArrowPrev {
+  left: 0;
+}
+
+.galleryArrowNext {
+  right: 0;
+}
+
+.galleryArrow:hover {
+  background: rgb(190 190 190 / 72%);
+  color: var(--color-ink);
+}
+
+/* 모바일: 헤더가 모바일형으로 바뀌는 767px 이하에서만 이미지 위·정보 아래로 스택 */
+@media (max-width: 767px) {
+  .productPage {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 2.5rem;
+    padding-top: 1.25rem;
+  }
+
+  .productImage {
+    cursor: grab;
+    width: 100%;
+  }
+
+  /* 좁은 화면 — 화살표 숨기고 드래그/스와이프로만 넘김 */
+  .galleryArrow {
+    display: none;
+  }
+}

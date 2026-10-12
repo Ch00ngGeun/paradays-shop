@@ -1,0 +1,7 @@
+<!-- Role: Neutral catalog image placeholder until approved product photography is supplied. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1120" fill="none" aria-hidden="true">
+  <rect width="960" height="1120" fill="#F3F3F3"/>
+  <path d="M120 920 840 200" stroke="#D2D2D2" stroke-width="2"/>
+  <path d="M120 1080 840 360" stroke="#E0E0E0" stroke-width="2"/>
+  <rect x="96" y="96" width="118" height="24" fill="#FF1B1B"/>
+</svg>

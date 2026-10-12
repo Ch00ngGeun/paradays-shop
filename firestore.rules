@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 브라우저에서 PII를 색인·조회하는 경로를 제공하지 않습니다.
+    // 향후 전화번호 중복 정책이 필요하면 Admin SDK가 있는 서버 경계에서 구현합니다.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
