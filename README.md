@@ -1,5 +1,5 @@
-# https://paradays.web.app/ 접속
-# 테스트용 관리자 계정 : 
+ https://paradays.web.app/ 접속
+ 테스트용 관리자 계정 : 
 ID: admin4test@gmail.com 
 PW: Admin123456!
 
