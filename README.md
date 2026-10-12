@@ -1,4 +1,7 @@
 https://paradays.web.app/ 접속
+테스트용 관리자 계정 : 
+ID: admin4test@gmail.com 
+PW: Admin123456!
 
 # 1. 쇼핑몰 화면 구성
 홈: 상품 이미지·상품명·가격을 카드 형태로 표시함. 상품 카드를 누르면 상세페이지로 이동함.
