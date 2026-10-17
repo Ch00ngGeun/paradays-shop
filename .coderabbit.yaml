@@ -20,3 +20,8 @@ reviews:
     - "!playwright-report/**"
     - "!**/package-lock.json"
     - "!**/*.tsbuildinfo"
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "CODE_REVIEW_GUIDELINES.md"
