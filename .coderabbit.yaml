@@ -48,6 +48,18 @@ reviews:
         수량만 복원하는지 확인함. 금전 환불만으로 물리 반품을 가정하거나 차감 증거
         없는 과거 주문의 재고를 복원하지 않는지 검토함. 예약 침범·음수 재고·부분
         반영을 막는 조건과 원자성을 확인함.
+    - path: "{infra/lambda/{admin-sales-handler,sales-ledger-*,sales-request-deadline}.ts,lib/commerce/admin-sales-api-client.ts,components/admin-sales-ledger.tsx}"
+      instructions: >-
+        DRAFT 저장 뒤 재고 예정표의 previewToken과 관련 version을 확인하고 명시적
+        확인 후 POSTED로 전환하는지 검토함. 같은 전표·요청의 재시도로 재고를 다시
+        차감하지 않는지 확인함. POSTED 전표를 직접 수정·삭제하지 않고 원전표에
+        연결한 반대전표와 감사 기록을 보존하며 금액 정정만으로 재고를 복원하지
+        않는지 검토함. Asia/Seoul 기준 원승인 영업일의 매출을 유지하고 환불은
+        별도 환불 사건의 영업일에 귀속하며 공급자 발생 시각과 서버 관측 시각을
+        구분하는지 확인함. 일마감 확정 전에 전체 페이지 조회와 요청 전체 deadline,
+        온라인 fingerprint를 확인하고 불완전 조회·시간 초과·불일치를 부분 합계나
+        마감 가능 상태로 반환하지 않는지 검토함. 마감 때 이미 반영한 재고를 다시
+        차감하지 않고 기존 마감본·재개방 이력·사유를 보존하는지 확인함.
 knowledge_base:
   code_guidelines:
     enabled: true
