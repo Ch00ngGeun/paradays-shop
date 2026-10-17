@@ -1,0 +1,14 @@
+language: "ko"
+reviews:
+  profile: "chill"
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "main"
+      - "dev"
+  path_filters:
+    - "!node_modules/**"
+    - "!dist/**"
+    - "!build/**"
+    - "!*.lock"
