@@ -76,6 +76,23 @@ reviews:
         입고를 막는지 검토함. 일부 성공·실패·응답 불명확·미실행을 구분하고 무조건
         자동 재시도·롤백·재등록하지 않으며 새 이미지·새 job까지 같은 실물 입고로
         식별한다고 보장하지 않는지 확인함.
+    - path: "{components/**/*.{tsx,css},hooks/**,lib/admin-ui/{navigation,store-return,*simulation}.ts,contexts/**,app/**}"
+      instructions: >-
+        관리자 메뉴의 브라우저 뒤로·앞으로 이동과 새로고침, 원래 상품 상세로의
+        returnTo 복귀와 직전 메뉴 adminSection 왕복이 기존 허용 목록을 따르는지
+        검토함. 외부·위험 경로와 인증값·개인정보 query를 전달하거나 관리자·인증
+        화면 순환을 만들지 않는지 확인함. 이 왕복 경로의 복원은 메뉴로 한정하고
+        초안·editor·File·token·실제/모의 모드를 자동 복원하지 않는지 검토함.
+        실제 요청 진행 중·결과 불명확 상태의 잠금을 모드 전환으로 우회하거나
+        요청을 자동 재전송하지 않는지 확인함. 모의 전용 모델·동작은 합성 TEST
+        데이터와 화면 메모리만 사용하며 실제 API·상품·장부·token·실제 pending
+        storage에 연결하거나 해당 데이터를 복사·삭제하지 않는지 검토함.
+        로그아웃·계정 교체 때 모의 세션·편집 메모리의 폐기 경계를 확인함.
+        키보드·Tab·Escape 조작과 다이얼로그 초기 포커스·trap·닫힘 후 복원,
+        dialog label·오류 알림·의미에 맞는 HTML을 검토함. 320~390px 모바일 폭과
+        확대 사용에서 불필요한 가로 넘침·가려지는 조작이 없는지 확인함. 기존
+        Next.js 정적 export와 지원 React 사용법, 브라우저 전용 API의 실행 경계와
+        hydration 호환성을 유지하는지 검토함.
 knowledge_base:
   code_guidelines:
     enabled: true
