@@ -121,6 +121,55 @@ reviews:
         확대하지 않는지 확인함. 실제 계정·운영 쓰기를 임의로 사용하거나 비밀을
         fixture에 넣지 않으며 사진·실물 OCR 품질을 mock 성공으로 보장하지 않는지
         검토함.
+  pre_merge_checks:
+    custom_checks:
+      - name: "Admin API authorization"
+        mode: "warning"
+        instructions: >-
+          PR diff와 제공된 코드·PR 증거만 읽는 AI 검토임. 신규·변경 관리자 route나
+          handler가 없으면 PASS(N/A)로 판단함. 관련 변경이 있으면 검증된 JWT와
+          정확한 admin 권한 확인이 데이터 접근 전에 이루어지는 호출 경로의 파일과
+          위치 근거를 확인함. 그 경로에서 인증·권한 검증 우회나 누락이 코드로
+          확인되면 FAIL, 각 변경 경로의 검증 근거가 확인되면 PASS로 판단함.
+          호출 경로나 자료가 부족하면 Inconclusive로 표시하고 누락을 추정하지 않음.
+          sandbox·자료 한계를 명시하며 테스트 suite 직접 실행·새 CI 성공·실운영
+          로그인·운영 쓰기를 요구하지 않음.
+      - name: "OCR response compatibility"
+        mode: "warning"
+        instructions: >-
+          PR diff와 제공된 코드·PR 증거만 읽는 AI 검토임. OCR 응답·변환 계약과
+          관련된 변경이 없으면 PASS(N/A)로 판단함. 관련 변경은 canonical
+          rec_texts·rec_scores·rec_boxes와 유효한 box 보존, 같은 인덱스 rec_polys의
+          누락·잘못된 box 슬롯 보완을 확인함. 영향받는 타입·어댑터와 기존·추가
+          테스트의 정합 근거가 확인되면 PASS, 관련 계층의 갱신 누락이나 키·인덱스
+          호환성 파괴가 코드로 확인되면 FAIL로 판단함. 판단할 자료가 부족하면
+          Inconclusive로 표시하며 실행 근거 없이 테스트 통과를 주장하지 않음.
+          sandbox·자료 한계를 명시하며 테스트 suite 직접 실행·새 CI 성공·실운영
+          로그인·운영 쓰기를 요구하지 않음.
+      - name: "Sensitive data exposure"
+        mode: "warning"
+        instructions: >-
+          PR diff와 제공된 코드·PR 증거만 읽는 AI 검토임. 새로 추가·변경된 실제
+          비밀·인증 cookie·JWT·password·개인정보 리터럴이나 민감값의 로그 유입을
+          확인함. 실제 민감값의 포함 또는 로그까지의 데이터 흐름이 코드로 확인되는
+          고신뢰 노출만 FAIL로 판단함. 단순 변수명·필드명·명백한 placeholder·합성
+          TEST 데이터는 노출로 판단하지 않음. 해당 노출이 없으면 PASS(N/A 포함),
+          민감성이나 데이터 흐름이 불명확하면 Inconclusive로 판단함. 보고에는
+          파일·위치·노출 종류만 적고 의심값을 복사하거나 복제하지 않음.
+          sandbox·자료 한계를 명시하며 테스트 suite 직접 실행·새 CI 성공·실운영
+          로그인·운영 쓰기를 요구하지 않음.
+      - name: "Critical regression evidence"
+        mode: "warning"
+        instructions: >-
+          PR diff와 제공된 코드·PR 증거만 읽는 AI 검토임. 금융·입고·장부 상태나
+          저장소 쓰기·복구 동작을 바꾸지 않는 형식·문서 변경은 PASS(N/A)로 판단함.
+          관련 동작 변경은 위험에 맞는 중복 요청과 실패·복구 사례의 기존·추가
+          테스트 및 제공된 실행 근거를 확인함. 그 근거에서 중복 반영·원자성 상실
+          같은 회귀가 확인되면 FAIL, 필요한 사례와 그 실행 결과가 확인되면 PASS로
+          판단함. 관련 테스트·실행 자료가 부족하거나 실행 불가이면 Inconclusive로
+          표시함. 파일 존재만으로 실행 통과를 추정하지 않으며 관련 없는 전체 검사나
+          새 로그를 요구하지 않음. sandbox·자료 한계를 명시하며 테스트 suite 직접
+          실행·새 CI 성공·실운영 로그인·운영 쓰기를 요구하지 않음.
 knowledge_base:
   code_guidelines:
     enabled: true
