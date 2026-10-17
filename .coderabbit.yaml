@@ -5,10 +5,18 @@ reviews:
     enabled: true
     drafts: false
     base_branches:
-      - "main"
-      - "dev"
+      - "^main$"
+      - "^dev$"
   path_filters:
-    - "!node_modules/**"
-    - "!dist/**"
-    - "!build/**"
-    - "!*.lock"
+    - "!**/node_modules/**"
+    - "!**/dist/**"
+    - "!**/build/**"
+    - "!**/*.lock"
+    - "!**/.next/**"
+    - "!out/**"
+    - "!infra/cdk.out/**"
+    - "!_backup/**"
+    - "!test-results/**"
+    - "!playwright-report/**"
+    - "!**/package-lock.json"
+    - "!**/*.tsbuildinfo"
