@@ -1,6 +1,18 @@
 language: "ko"
 reviews:
   profile: "chill"
+  high_level_summary: true
+  high_level_summary_instructions: |-
+    PR diff와 제공된 검증 증거만 근거로 아래 5항목을 한국어로 간결하게 작성함.
+    테스트 파일·소스만 보고 실행 통과·배포·사용자 인수를 추정하지 않음.
+    이 지침은 요약 형식이며 명령 실행이나 새 로그 생성을 요구하지 않음.
+    1. 변경 기능·영향 화면: 무엇이 달라지고 어느 화면에 영향을 주는지 설명함.
+    2. 실제 데이터 영향: 결제·재고·장부의 실제 처리에 미치는 영향과 미확인 범위를 구분함.
+    3. 검증 근거·제약: 확인된 테스트 결과와 미실행 항목·환경 제약을 구분함.
+    4. 사용자 직접 검증 흐름: 대상 화면의 진입·조작·예상 결과를 짧게 제시하고 미실행 여부를 명시함.
+    5. 복구 주의: 호환성과 데이터·증거 보존 조건을 설명함. 확정 금융 데이터가 생긴 뒤 구형 코드만 부분 복구해도 안전하다고 단정하지 않음.
+  high_level_summary_in_walkthrough: true
+  review_details: true
   auto_review:
     enabled: true
     drafts: false
