@@ -93,6 +93,22 @@ reviews:
         확대 사용에서 불필요한 가로 넘침·가려지는 조작이 없는지 확인함. 기존
         Next.js 정적 export와 지원 React 사용법, 브라우저 전용 API의 실행 경계와
         hydration 호환성을 유지하는지 검토함.
+    - path: "{tests/**,infra/test/**,e2e/**,services/paddle-ocr/tests/**,playwright*.config.ts,vitest.config.ts}"
+      instructions: >-
+        변경 위험에 관련된 정상·권한 거부·중복 재시도·시간 초과·부분 실패·동시성과
+        수량 경계·복구 사례를 검토하며 매번 전체 테스트 실행을 강제하지 않음.
+        금융의 중복 차감·환불·재고 복원과 OCR의 입력·canonical·수동 검토·입고
+        계약, 모의/실제 분리에 필요한 사례와 관측 가능한 결과 단언을 확인함.
+        expect 삭제·skip/todo 추가·timeout 확대·계약과 맞지 않는 fixture·검증 대상
+        storage 삭제만으로 실패를 숨기는 약화를 지적하되 타당한 수정은 원인과
+        보존된 검증 근거를 구분해 판단함. 문서 탐색은 navigation commit과 새 화면
+        준비를 기다려 URL만 바뀐 이전 DOM으로 통과하는 경합을 막는지 확인함.
+        테스트 독립성과 결정적인 단언을 유지하고 필요한 fake clock·비동기 대기를
+        사용하며 임의 sleep이나 실행 순서에 의존하지 않는지 검토함. 테스트 파일의
+        존재와 실행 통과를 구분하고 단위·mock·브라우저·CI 결과를 실제 연동 검증으로
+        확대하지 않는지 확인함. 실제 계정·운영 쓰기를 임의로 사용하거나 비밀을
+        fixture에 넣지 않으며 사진·실물 OCR 품질을 mock 성공으로 보장하지 않는지
+        검토함.
 knowledge_base:
   code_guidelines:
     enabled: true
