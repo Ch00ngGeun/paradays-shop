@@ -60,6 +60,22 @@ reviews:
         온라인 fingerprint를 확인하고 불완전 조회·시간 초과·불일치를 부분 합계나
         마감 가능 상태로 반환하지 않는지 검토함. 마감 때 이미 반영한 재고를 다시
         차감하지 않고 기존 마감본·재개방 이력·사유를 보존하는지 확인함.
+    - path: "{services/paddle-ocr/**,scripts/local-ocr-relay.ts,infra/lambda/{paddle-ocr,admin-ocr-handler,ocr-table-parser,catalog-intake,admin-catalog-handler}.{ts,js},lib/admin-ui/ocr-*,components/ocr-*,lib/commerce/admin-api-client.ts}"
+      instructions: >-
+        canonical rec_texts·rec_scores·rec_boxes 계약과 유효한 기존 box를 보존하고
+        rec_polys는 같은 인덱스의 누락·잘못된 box 슬롯만 보완하는지 검토함.
+        서버 원본 토큰의 원문·confidence·box와 사용자 수정값을 구분하고 클라이언트
+        metadata를 신뢰하지 않는지 확인함. 선언 MIME과 실제 bytes의 일치, 기존
+        파일·해상도·응답 크기 한도와 메모리 내 decode, 요청 전체 deadline을 검토하고
+        비밀은 서버에만 두는지 확인함. 표의 행·열·수량이 모호하면 수동 확인을
+        요구하며 금액·단가를 수량으로 추정하거나 누락 값을 자동 확정하지 않는지
+        검토함. 검토본 저장과 실제 재고 쓰기를 분리하고 기존 상품은 확인한 버전의
+        재고에 입고 수량을 더하며 신규 상품은 가격·허용 category·명시적 확인을
+        요구하는 비공개 DRAFT인지 확인함. 상품과 operation receipt, job/row claim,
+        revision을 같은 transaction으로 처리해 재시도·행 묶음 분할·합치기의 중복
+        입고를 막는지 검토함. 일부 성공·실패·응답 불명확·미실행을 구분하고 무조건
+        자동 재시도·롤백·재등록하지 않으며 새 이미지·새 job까지 같은 실물 입고로
+        식별한다고 보장하지 않는지 확인함.
 knowledge_base:
   code_guidelines:
     enabled: true
