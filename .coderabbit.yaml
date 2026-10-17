@@ -36,6 +36,18 @@ reviews:
         유지하는지 확인함. NEXT_PUBLIC 설정이나 정적 산출물에 비밀을 넣지 않는지
         검토함. 기존 PKCE·state 검증과 안전한 return 경로 경계를 유지하며
         개인정보·token·자격정보를 로그에 남기지 않는지 확인함.
+    - path: "infra/lambda/{checkout-handler,payment-*-handler,admin-refund-handler,order-inventory-*,order-refunds,toss-payments}.ts"
+      instructions: >-
+        공통 writer에서 함께 변경되는 주문·상품 version/CAS, 재고·예약·catalog
+        revision·금융 사건이 동일 DB transaction으로 일관되게 반영되는지 검토함.
+        동일 operationId와 fingerprint의 재시도·중복 웹훅에서 차감·환불·재고 복원이
+        중복되지 않고 다른 본문의 식별자 재사용을 거부하는지 확인함. PG 결과가
+        불명확하면 확정 실패 처리·예약 자동 해제·새 식별자 재실행을 하지 않고
+        기존 요청과 잠금을 보존해 서버 재조회·대조하는지 검토함. 미출고 확정 취소의
+        해당 수량은 한 번만 복원하고 출고 후에는 실제 입고·검수한 재판매 가능
+        수량만 복원하는지 확인함. 금전 환불만으로 물리 반품을 가정하거나 차감 증거
+        없는 과거 주문의 재고를 복원하지 않는지 검토함. 예약 침범·음수 재고·부분
+        반영을 막는 조건과 원자성을 확인함.
 knowledge_base:
   code_guidelines:
     enabled: true
