@@ -20,6 +20,22 @@ reviews:
     - "!playwright-report/**"
     - "!**/package-lock.json"
     - "!**/*.tsbuildinfo"
+  path_instructions:
+    - path: "infra/lambda/admin-*.ts"
+      instructions: >-
+        기존 JWT 검증 경계와 subject를 바탕으로 서버에서 Cognito 그룹 이름 admin의
+        정확 일치를 확인하는지 검토함. 그룹 claim 누락 시 기존 서버 조회를 유지하고
+        인증·권한 확인 실패는 거부하는지 확인함. 권한 판정용 Cognito 조회를 제외한
+        DB·결제·OCR 등 외부 provider의 읽기·쓰기는 관리자 권한 확인 뒤에 시작하는지
+        검토함. 내부 receipt·claim·revision을 공개 목록·공개 응답에 노출하지 않고
+        token·자격정보를 로그에 남기지 않는지 확인함.
+    - path: "{lib/auth/**,contexts/auth-context.tsx,infra/lib/**}"
+      instructions: >-
+        클라이언트 화면 가드만으로 서버 관리자 권한이 부여되지 않는지 검토함.
+        관리자 API route의 기존 JWT 검증·서버 admin 권한 확인과 필요한 최소 IAM을
+        유지하는지 확인함. NEXT_PUBLIC 설정이나 정적 산출물에 비밀을 넣지 않는지
+        검토함. 기존 PKCE·state 검증과 안전한 return 경로 경계를 유지하며
+        개인정보·token·자격정보를 로그에 남기지 않는지 확인함.
 knowledge_base:
   code_guidelines:
     enabled: true
