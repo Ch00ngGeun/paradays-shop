@@ -5,12 +5,18 @@ import {
   createContext,
   useCallback,
   useContext,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 
 import { nextSelectedFilterIds } from "@/lib/catalog-filter";
+import {
+  readCatalogFilterSession,
+  writeCatalogFilterSession,
+} from "@/lib/catalog-filter-session";
 
 type CatalogFilterContextValue = {
   selectedIds: ReadonlySet<string>;
@@ -24,14 +30,41 @@ const CatalogFilterContext = createContext<CatalogFilterContextValue | null>(nul
 /** 메뉴·상품 그리드가 같은 선택 집합을 쓰게 함 */
 export function CatalogFilterProvider({ children }: { children: ReactNode }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const selectedIdsRef = useRef<Set<string>>(new Set());
+  const initializedRef = useRef(false);
 
-  const toggleFilter = useCallback((itemId: string) => {
-    setSelectedIds((current) => nextSelectedFilterIds(current, itemId));
+  const getCurrentIds = useCallback(() => {
+    if (!initializedRef.current) {
+      selectedIdsRef.current = readCatalogFilterSession();
+      initializedRef.current = true;
+    }
+    return selectedIdsRef.current;
   }, []);
+
+  useLayoutEffect(() => {
+    // SSR와 첫 hydration은 빈 값으로 일치시키고 첫 페인트 전에 복원합니다.
+    // 자식 layout effect에서 먼저 조작해도 한 번만 복원하며 나중에 덮어쓰지 않습니다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedIds(getCurrentIds());
+  }, [getCurrentIds]);
+
+  const toggleFilter = useCallback(
+    (itemId: string) => {
+      const next = nextSelectedFilterIds(getCurrentIds(), itemId);
+      selectedIdsRef.current = next;
+      writeCatalogFilterSession(next);
+      setSelectedIds(next);
+    },
+    [getCurrentIds],
+  );
 
   const clearFilters = useCallback(() => {
-    setSelectedIds(new Set());
-  }, []);
+    getCurrentIds();
+    const next = new Set<string>();
+    selectedIdsRef.current = next;
+    writeCatalogFilterSession(next);
+    setSelectedIds(next);
+  }, [getCurrentIds]);
 
   const value = useMemo<CatalogFilterContextValue>(
     () => ({
