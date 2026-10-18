@@ -67,7 +67,7 @@
 ## 설치·검증
 
 ```bash
-cd /Users/admin/Documents/Codex/2026-09-18/new-chat-2/outputs/pradays-shop/infra
+cd /Users/admin/Documents/Codex/2026-09-18/new-chat-2/outputs/paradays-shop/infra
 npm install
 npm run build
 npm run synth
