@@ -2,11 +2,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
+  Suspense,
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type FocusEvent,
   type KeyboardEvent,
 } from "react";
@@ -20,6 +22,12 @@ import { menuGroups, menuLeafTops, menuRootAll } from "@/data/navigation";
 
 import { useHeaderScroll } from "@/hooks/use-header-scroll";
 import { rememberAuthReturnPath } from "@/lib/auth/return-path";
+import {
+  buildAdminEntryHref,
+  getServerStorefrontHashSnapshot,
+  getStorefrontHashSnapshot,
+  subscribeToStorefrontHash,
+} from "@/lib/admin-ui/store-return";
 
 import { LogoPlaceholder } from "./logo-placeholder";
 import { SearchModal } from "./search-modal";
@@ -51,9 +59,7 @@ export function Header() {
   // Menu → 드롭다운 이동 시 잠깐의 빈 구간에서 닫히지 않도록 지연 타이머
   const menuCloseTimeoutRef = useRef<number | null>(null);
   // 아래로 스크롤 시 숨기고, 살짝 올리면 다시 표시 (메뉴·검색 열린 동안·관리자 경로는 고정 노출)
-  const isHeaderHidden = useHeaderScroll(
-    isAdminRoute || isMenuOpen || isSearchOpen,
-  );
+  const isHeaderHidden = useHeaderScroll(isAdminRoute || isMenuOpen || isSearchOpen);
   // 현재 로케일에 맞는 언어 토글 라벨
   const languageLabels =
     locale === "en" ? { ko: "KOR", en: "ENG" } : { ko: "한국어", en: "영어" };
@@ -358,16 +364,13 @@ export function Header() {
                   <span aria-hidden="true" className={styles.authNavSep}>
                     /
                   </span>
-                  <Link
-                    aria-current={
-                      pathname === "/admin" || pathname.startsWith("/admin/")
-                        ? "page"
-                        : undefined
+                  <Suspense
+                    fallback={
+                      <Link href={buildAdminEntryHref(pathname)}>{copy.adminPage}</Link>
                     }
-                    href="/admin"
                   >
-                    {copy.adminPage}
-                  </Link>
+                    <AdminEntryLink pathname={pathname} label={copy.adminPage} />
+                  </Suspense>
                 </>
               ) : null}
             </>
@@ -577,5 +580,24 @@ export function Header() {
       <div aria-hidden="true" className={styles.headerSpacer} />
       <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
     </>
+  );
+}
+
+/** query 기반 신규 상품도 현재 상세 위치를 갖는 실제 링크로 만들어 새 탭 동작을 유지합니다. */
+function AdminEntryLink({
+  pathname,
+  label,
+}: Readonly<{ pathname: string; label: string }>) {
+  const searchParams = useSearchParams();
+  const hash = useSyncExternalStore(
+    subscribeToStorefrontHash,
+    getStorefrontHashSnapshot,
+    getServerStorefrontHashSnapshot,
+  );
+  const search = searchParams.toString();
+  return (
+    <Link href={buildAdminEntryHref(`${pathname}${search ? `?${search}` : ""}${hash}`)}>
+      {label}
+    </Link>
   );
 }

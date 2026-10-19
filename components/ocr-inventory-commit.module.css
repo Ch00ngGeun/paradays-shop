@@ -1,0 +1,143 @@
+.panel {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  color: var(--color-ink);
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.panel h3,
+.panel p {
+  margin: 0;
+}
+
+.panel p {
+  color: inherit;
+}
+
+.panel p[role="alert"] {
+  color: var(--color-red);
+}
+
+.panel > label {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.panel > button {
+  justify-self: start;
+}
+
+.panel select,
+.panel input:not([type="checkbox"]) {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 0.2rem;
+  color: inherit;
+  font: inherit;
+  max-width: 100%;
+  padding: 0.5rem;
+}
+
+.panel select:focus-visible,
+.panel input:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.rows {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.row {
+  border: 1px solid var(--color-rule);
+  display: grid;
+  gap: 0.8rem;
+  margin: 0;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.row legend {
+  font-weight: 600;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.fields {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+}
+
+.row label {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.row input:not([type="checkbox"]),
+.row select {
+  width: 100%;
+}
+
+.panel .confirm {
+  align-items: center;
+  display: flex;
+  gap: 0.6rem;
+}
+
+.panel small {
+  line-height: 1.5;
+}
+
+.panel :disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.table {
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  min-width: 35rem;
+  table-layout: auto;
+  width: 100%;
+}
+
+.table caption {
+  padding-bottom: 0.6rem;
+  text-align: left;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid var(--color-rule);
+  padding: 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.table th {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+
+.table td:first-child {
+  min-width: 8rem;
+}
+
+.table select {
+  min-width: 12rem;
+  width: 100%;
+}
+
+.table small {
+  display: block;
+  line-height: 1.5;
+  margin-top: 0.4rem;
+}

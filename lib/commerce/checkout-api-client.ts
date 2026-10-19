@@ -1,5 +1,6 @@
 // 역할: 정적 스토어프론트가 Cognito 인증 API Gateway를 통해 주문을 만들고 Toss 결제 승인을 요청하는 공개 API 계약을 제공합니다.
 import type { CheckoutRequestLine } from "@/lib/commerce/checkout-domain";
+import { isSyntheticIdentifier } from "./synthetic-identifiers";
 
 /** 브라우저 번들에 넣어도 되는 API Gateway 기본 URL 환경변수 이름입니다. */
 export const CHECKOUT_API_BASE_URL_ENV = "NEXT_PUBLIC_COMMERCE_API_BASE_URL";
@@ -190,6 +191,8 @@ export function createCheckoutIdempotencyKey(): string {
 export function createCheckoutSessionPayload(
   input: StartCheckoutInput,
 ): CreateCheckoutSessionPayload {
+  if (input.lines.some((line) => isSyntheticIdentifier(line.productId)))
+    throw new CheckoutApiResponseError();
   const addressId = input.addressId?.trim();
 
   return {
@@ -213,6 +216,7 @@ export function createPaymentConfirmationPayload(
   if (
     !paymentKey ||
     !orderId ||
+    isSyntheticIdentifier(orderId) ||
     !checkoutReturnToken ||
     !Number.isInteger(input.amount)
   ) {
@@ -239,6 +243,8 @@ export function createCheckoutApiClient(
 
   return {
     async createSession(input) {
+      // Freeze/validate the request before token refresh; TEST data can never be inserted during an await.
+      const payload = createCheckoutSessionPayload(input);
       const accessToken = await getAccessToken(dependencies.authorizationTokenProvider);
       const idempotencyKey = getValidIdempotencyKey(idempotencyKeyFactory());
       const response = await fetchImplementation(sessionUrl, {
@@ -249,7 +255,7 @@ export function createCheckoutApiClient(
           "Content-Type": "application/json",
           "X-Idempotency-Key": idempotencyKey,
         },
-        body: JSON.stringify(createCheckoutSessionPayload(input)),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {

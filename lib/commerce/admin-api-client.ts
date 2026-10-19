@@ -9,12 +9,21 @@ import type {
   AdminMember,
   AdminOcrBoundingBox,
   AdminOcrRecognitionResult,
+  AdminOcrRemapInput,
+  AdminOcrRemapResult,
+  OcrTableAnalysis,
   AdminOcrReviewRow,
   AdminOcrReviewSaveInput,
   AdminOcrReviewSaveResult,
+  AdminOcrIntakeInput,
+  AdminOcrIntakeResult,
   AdminOverviewMetrics,
   AdminProductDraft,
 } from "@/lib/admin-ui/types";
+import {
+  isOcrMapping,
+  isOcrColumnMapping,
+} from "../../infra/lambda/ocr-table-parser.js";
 import {
   AdminOcrInputError,
   isOcrEditableText,
@@ -48,6 +57,7 @@ export class AdminApiRequestError extends Error {
     readonly status: number,
     readonly endpoint: string,
     readonly responseCode?: string,
+    readonly mappingReason?: string,
   ) {
     super(
       responseCode
@@ -65,6 +75,16 @@ export class AdminApiResponseError extends Error {
   constructor() {
     super("ADMIN_API_RESPONSE_INVALID");
     this.name = "AdminApiResponseError";
+  }
+}
+
+/** 임시 PC OCR 연결 오류에는 주소·토큰·서버 응답 내용을 포함하지 않습니다. */
+export class AdminOcrDemoConnectionError extends Error {
+  readonly code = "OCR_DEMO_CONNECTION_FAILED";
+
+  constructor(readonly timedOut = false) {
+    super("OCR_DEMO_CONNECTION_FAILED");
+    this.name = "AdminOcrDemoConnectionError";
   }
 }
 
@@ -114,6 +134,8 @@ export type AdminApiClient = Readonly<{
   ) => Promise<AdminOcrRecognitionResult>;
   loadOcrReview: (jobId: string) => Promise<AdminOcrRecognitionResult>;
   saveOcrReview: (input: AdminOcrReviewSaveInput) => Promise<AdminOcrReviewSaveResult>;
+  remapOcrReview: (input: AdminOcrRemapInput) => Promise<AdminOcrRemapResult>;
+  applyOcrIntake: (input: AdminOcrIntakeInput) => Promise<AdminOcrIntakeResult>;
 }>;
 
 /** 공개 API URL·in-memory token provider를 주입해 admin API client를 생성합니다. */
@@ -124,7 +146,9 @@ export function createAdminApiClient(
     dependencies.fetchImplementation,
   );
   const { apiBaseUrl } = dependencies.config;
-  const ocrApiBaseUrl = readLocalOcrApiBaseUrl() ?? apiBaseUrl;
+  const remoteDemoApiBaseUrl = readRemoteOcrDemoApiBaseUrl();
+  const ocrApiBaseUrl = remoteDemoApiBaseUrl ?? readLocalOcrApiBaseUrl() ?? apiBaseUrl;
+  const remoteOcrDemo = remoteDemoApiBaseUrl !== undefined;
   const loadOcrReview = async (jobId: string) => {
     const normalizedJobId = normalizeOcrJobId(jobId);
     const body = await requestJson({
@@ -133,12 +157,98 @@ export function createAdminApiClient(
       fetchImplementation,
       endpoint: `admin/ocr/jobs/${encodeURIComponent(normalizedJobId)}`,
       method: "GET",
+      remoteOcrDemo,
     });
 
     return parseOcrJob(body);
   };
 
   return {
+    async applyOcrIntake(value) {
+      validateOcrIntakeInput(value);
+      const input: AdminOcrIntakeInput =
+        value.kind === "existing"
+          ? {
+              operationId: value.operationId,
+              quantity: value.quantity,
+              source: {
+                jobId: value.source.jobId,
+                rowIds: [...value.source.rowIds].sort(),
+              },
+              kind: value.kind,
+              existing: {
+                productId: value.existing.productId,
+                version: value.existing.version,
+              },
+            }
+          : {
+              operationId: value.operationId,
+              quantity: value.quantity,
+              source: {
+                jobId: value.source.jobId,
+                rowIds: [...value.source.rowIds].sort(),
+              },
+              kind: value.kind,
+              product: {
+                name: value.product.name.normalize("NFC").trim(),
+                brandName: value.product.brandName.normalize("NFC").trim(),
+                option: value.product.option.normalize("NFC").trim(),
+                ...(value.product.sku === undefined
+                  ? {}
+                  : { sku: value.product.sku.normalize("NFC").trim() }),
+                price: value.product.price,
+                category: value.product.category,
+              },
+            };
+      // 실제 상품 쓰기는 임시 OCR 서버가 아니라 기존 Cognito 관리자 API로만 보냅니다.
+      const body = await requestJson({
+        apiBaseUrl,
+        authorizationTokenProvider: dependencies.authorizationTokenProvider,
+        fetchImplementation,
+        endpoint: "admin/catalog/products",
+        method: "POST",
+        body: { action: "ocr-intake", ...input },
+      });
+      if (!isRecord(body) || !isRecord(body.receipt)) throw new AdminApiResponseError();
+      const product = parseCatalogListItem(body.product);
+      const receipt = body.receipt;
+      if (
+        receipt.operationId !== input.operationId ||
+        receipt.kind !== input.kind ||
+        receipt.quantity !== input.quantity ||
+        !isIntakeInteger(receipt.beforeStock, 0, 1_000_000) ||
+        !isIntakeInteger(receipt.afterStock, 0, 1_000_000) ||
+        receipt.afterStock !== receipt.beforeStock + input.quantity ||
+        product.stock !== receipt.afterStock ||
+        typeof receipt.replayed !== "boolean" ||
+        (input.kind === "existing" &&
+          (product.id !== input.existing.productId ||
+            product.version !== input.existing.version + 1)) ||
+        (input.kind === "new" &&
+          (receipt.beforeStock !== 0 ||
+            product.version !== 1 ||
+            product.isVisible ||
+            product.isFeatured ||
+            product.name !== input.product.name.trim() ||
+            product.brand !== input.product.brandName.trim() ||
+            product.price !== input.product.price ||
+            product.category !== input.product.category ||
+            product.sizes !== input.product.option.trim() ||
+            product.sku !== input.product.sku?.trim()))
+      )
+        throw new AdminApiResponseError();
+      return {
+        product,
+        receipt: {
+          operationId: input.operationId,
+          kind: input.kind,
+          quantity: input.quantity,
+          beforeStock: receipt.beforeStock,
+          afterStock: receipt.afterStock,
+          replayed: receipt.replayed,
+        },
+      };
+    },
     async uploadProductImage(file) {
       if (
         !ALLOWED_PRODUCT_IMAGE_TYPES.has(file.type) ||
@@ -313,7 +423,15 @@ export function createAdminApiClient(
         throw new AdminApiResponseError();
       }
 
-      return parseCatalogListItem(body.product);
+      const product = parseCatalogListItem(body.product);
+      if (
+        product.id !== productId ||
+        product.version !== input.version + 1 ||
+        product.stock !== stock
+      ) {
+        throw new AdminApiResponseError();
+      }
+      return product;
     },
     async deleteCatalogProducts(items) {
       for (const item of items) {
@@ -411,11 +529,60 @@ export function createAdminApiClient(
         endpoint: "admin/ocr/jobs",
         method: "POST",
         body: image,
+        remoteOcrDemo,
       });
 
       return parseOcrJob(body);
     },
     loadOcrReview,
+    async remapOcrReview({ jobId, version, mapping, preview }) {
+      const normalizedJobId = normalizeOcrJobId(jobId);
+      if (
+        !Number.isSafeInteger(version) ||
+        version < 1 ||
+        !isOcrMapping(mapping) ||
+        typeof preview !== "boolean"
+      )
+        throw new AdminApiResponseError();
+      try {
+        const body = await requestJson({
+          apiBaseUrl: ocrApiBaseUrl,
+          authorizationTokenProvider: dependencies.authorizationTokenProvider,
+          fetchImplementation,
+          endpoint: `admin/ocr/jobs/${encodeURIComponent(normalizedJobId)}`,
+          method: "PATCH",
+          body: { version, mapping, ...(preview ? { preview: true } : {}) },
+          remoteOcrDemo,
+        });
+        if (!preview) {
+          const applied = parseOcrJob(body);
+          if (applied.jobId !== normalizedJobId || applied.version !== version + 1)
+            throw new AdminApiResponseError();
+          return { kind: "saved", job: applied };
+        }
+        if (!isRecord(body) || !isRecord(body.preview))
+          throw new AdminApiResponseError();
+        const parsed = parseOcrJob({ job: { ...body.preview, rawText: "" } });
+        if (
+          parsed.jobId !== normalizedJobId ||
+          parsed.version !== version ||
+          parsed.analysis?.mode !== "table"
+        )
+          throw new AdminApiResponseError();
+        return {
+          kind: "preview",
+          preview: {
+            jobId: parsed.jobId,
+            version: parsed.version,
+            rows: parsed.rows,
+            analysis: parsed.analysis,
+          },
+        };
+      } catch (error) {
+        if (!isAdminApiRequestStatus(error, 409)) throw error;
+        return { kind: "conflict", job: await loadOcrReview(normalizedJobId) };
+      }
+    },
     async saveOcrReview({ jobId, version, rows, rawText }) {
       const normalizedJobId = normalizeOcrJobId(jobId);
 
@@ -434,6 +601,7 @@ export function createAdminApiClient(
           fetchImplementation,
           endpoint: `admin/ocr/jobs/${encodeURIComponent(normalizedJobId)}`,
           method: "PATCH",
+          remoteOcrDemo,
           body: {
             version,
             ...(rawText !== undefined ? { rawText } : {}),
@@ -462,9 +630,151 @@ export function createAdminApiClient(
   };
 }
 
+const OCR_INTAKE_CATEGORIES = new Set([
+  "Deck",
+  "Complete",
+  "Top",
+  "Bottom",
+  "Outerwear",
+  "Shoes",
+  "Accessories",
+  "Wheels",
+  "Trucks",
+  "Bearings",
+  "Hardware",
+  "Protection",
+  "Other",
+]);
+
+function isIntakeInteger(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value >= minimum &&
+    value <= maximum
+  );
+}
+
+function validateOcrIntakeInput(input: AdminOcrIntakeInput) {
+  const plain = (value: unknown): value is Record<string, unknown> => {
+    if (
+      !isRecord(value) ||
+      Array.isArray(value) ||
+      ![Object.prototype, null].includes(Object.getPrototypeOf(value))
+    )
+      return false;
+    return Reflect.ownKeys(value).every(
+      (key) =>
+        typeof key === "string" &&
+        Object.hasOwn(Object.getOwnPropertyDescriptor(value, key)!, "value"),
+    );
+  };
+  const safeText = (value: unknown, maximum: number, empty = false): value is string =>
+    typeof value === "string" &&
+    value.length <= maximum &&
+    (empty || value.trim().length > 0) &&
+    !/[\u0000-\u001f\u007f]/u.test(value);
+  if (
+    !plain(input) ||
+    !safeText(input.operationId, 128) ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$/.test(input.operationId) ||
+    !isIntakeInteger(input.quantity, 1, 1_000_000) ||
+    !plain(input.source) ||
+    Object.keys(input.source).some((key) => !["jobId", "rowIds"].includes(key)) ||
+    typeof input.source.jobId !== "string" ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$/.test(input.source.jobId) ||
+    !Array.isArray(input.source.rowIds) ||
+    input.source.rowIds.length < 1 ||
+    input.source.rowIds.length > 96 ||
+    Object.keys(input.source.rowIds).length !== input.source.rowIds.length ||
+    !input.source.rowIds.every(
+      (id) => typeof id === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(id),
+    ) ||
+    new Set(input.source.rowIds).size !== input.source.rowIds.length
+  )
+    throw new AdminApiResponseError();
+  if (input.kind === "existing") {
+    if (
+      Object.keys(input).some(
+        (key) =>
+          !["operationId", "quantity", "source", "kind", "existing"].includes(key),
+      ) ||
+      !plain(input.existing) ||
+      Object.keys(input.existing).some(
+        (key) => !["productId", "version"].includes(key),
+      ) ||
+      !safeText(input.existing.productId, 96) ||
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{2,95}$/.test(input.existing.productId) ||
+      !isIntakeInteger(input.existing.version, 1, Number.MAX_SAFE_INTEGER - 1)
+    )
+      throw new AdminApiResponseError();
+  } else if (input.kind === "new") {
+    const product = input.product;
+    if (
+      Object.keys(input).some(
+        (key) =>
+          !["operationId", "quantity", "source", "kind", "product"].includes(key),
+      ) ||
+      !plain(product) ||
+      Object.keys(product).some(
+        (key) =>
+          !["name", "brandName", "option", "sku", "price", "category"].includes(key),
+      ) ||
+      !safeText(product.name, 160) ||
+      !safeText(product.brandName, 100) ||
+      !safeText(product.option, 50, true) ||
+      (product.sku !== undefined && !safeText(product.sku, 80)) ||
+      !isIntakeInteger(product.price, 0, 100_000_000) ||
+      !OCR_INTAKE_CATEGORIES.has(product.category)
+    )
+      throw new AdminApiResponseError();
+  } else throw new AdminApiResponseError();
+}
+
 /** Local OCR is an explicit development transport; Cognito authentication still applies. */
 export function isLocalOcrDevelopmentMode(): boolean {
   return readLocalOcrApiBaseUrl() !== undefined;
+}
+
+/** 별도 공개 설정과 정확한 Firebase origin에서만 임시 HTTPS OCR을 사용합니다. */
+export function isRemoteOcrDemoMode(): boolean {
+  return readRemoteOcrDemoApiBaseUrl() !== undefined;
+}
+
+function readRemoteOcrDemoApiBaseUrl(): string | undefined {
+  if (
+    process.env.NEXT_PUBLIC_OCR_DEMO_ENABLED !== "true" ||
+    typeof window === "undefined" ||
+    window.location.origin !== "https://paradays.web.app"
+  )
+    return undefined;
+  try {
+    // 발행 시 확인한 단일 HTTPS origin만 pin함. 사용자 입력·저장소는 읽지 않음.
+    const allowedOrigin = process.env.NEXT_PUBLIC_OCR_DEMO_ALLOWED_API_ORIGIN;
+    const url = new URL(process.env.NEXT_PUBLIC_OCR_DEMO_API_URL ?? "");
+    return url.protocol === "https:" &&
+      url.origin === allowedOrigin &&
+      url.pathname === "/" &&
+      !url.port &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash &&
+      url.hostname.includes(".") &&
+      !url.hostname.endsWith(".") &&
+      !/^(?:[0-9.]+|\[.*\])$/.test(url.hostname) &&
+      !["localhost", "paradays.web.app"].includes(url.hostname) &&
+      !url.hostname.endsWith(".localhost") &&
+      !url.hostname.endsWith(".local")
+      ? url.origin
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function readLocalOcrApiBaseUrl(): string | undefined {
@@ -511,6 +821,7 @@ async function requestJson({
   endpoint,
   fetchImplementation,
   method,
+  remoteOcrDemo = false,
 }: Readonly<{
   apiBaseUrl: string;
   authorizationTokenProvider: CheckoutAuthorizationTokenProvider;
@@ -518,36 +829,71 @@ async function requestJson({
   endpoint: string;
   fetchImplementation: typeof fetch;
   method: "GET" | "POST" | "PATCH" | "DELETE";
+  remoteOcrDemo?: boolean;
 }>): Promise<unknown> {
   const accessToken = await getAccessToken(authorizationTokenProvider);
-  const response = await fetchImplementation(buildApiUrl(apiBaseUrl, endpoint), {
-    method,
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${accessToken}`,
-      ...(body ? { "Content-Type": "application/json" } : {}),
-    },
-    ...(body ? { body: JSON.stringify(removeUndefinedFields(body)) } : {}),
-  });
-
-  if (!response.ok) {
-    const responseCode = await readAllowlistedAdminErrorCode(response, endpoint);
-
-    if (
-      endpoint === "admin/ocr/jobs" &&
-      response.status === 413 &&
-      responseCode === "OCR_IMAGE_TOO_LARGE"
-    ) {
-      throw new AdminOcrInputError("INLINE_PAYLOAD_TOO_LARGE");
+  const performRequest = async (signal?: AbortSignal) => {
+    let response: Response;
+    try {
+      response = await fetchImplementation(buildApiUrl(apiBaseUrl, endpoint), {
+        method,
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${accessToken}`,
+          ...(body ? { "Content-Type": "application/json" } : {}),
+        },
+        ...(body ? { body: JSON.stringify(removeUndefinedFields(body)) } : {}),
+        ...(remoteOcrDemo
+          ? { signal, redirect: "error", credentials: "omit", cache: "no-store" }
+          : {}),
+      });
+    } catch (error) {
+      if (remoteOcrDemo) throw new AdminOcrDemoConnectionError();
+      throw error;
     }
 
-    throw new AdminApiRequestError(response.status, endpoint, responseCode);
-  }
+    if (!response.ok) {
+      const safeError = await readAllowlistedAdminErrorCode(response, endpoint);
+      const responseCode = safeError?.code;
 
+      if (
+        endpoint === "admin/ocr/jobs" &&
+        response.status === 413 &&
+        responseCode === "OCR_IMAGE_TOO_LARGE"
+      ) {
+        throw new AdminOcrInputError("INLINE_PAYLOAD_TOO_LARGE");
+      }
+
+      throw new AdminApiRequestError(
+        response.status,
+        endpoint,
+        responseCode,
+        safeError?.reason,
+      );
+    }
+
+    try {
+      return await response.json();
+    } catch {
+      throw new AdminApiResponseError();
+    }
+  };
+
+  if (!remoteOcrDemo) return performRequest();
+
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout>;
+  // 데모 중계의 115초 제한보다 길게 기다리되, 브라우저도 120초에 중단함.
+  const deadline = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => {
+      reject(new AdminOcrDemoConnectionError(true));
+      controller.abort();
+    }, 120000);
+  });
   try {
-    return await response.json();
-  } catch {
-    throw new AdminApiResponseError();
+    return await Promise.race([performRequest(controller.signal), deadline]);
+  } finally {
+    clearTimeout(timeout!);
   }
 }
 
@@ -555,7 +901,28 @@ async function requestJson({
 async function readAllowlistedAdminErrorCode(
   response: Response,
   endpoint: string,
-): Promise<string | undefined> {
+): Promise<{ code: string; reason?: string } | undefined> {
+  if (endpoint === "admin/catalog/products") {
+    try {
+      const body: unknown = await response.json();
+      return isRecord(body) &&
+        typeof body.code === "string" &&
+        [
+          "OCR_INTAKE_INVALID",
+          "OCR_INTAKE_OPERATION_CONFLICT",
+          "OCR_INTAKE_ROW_CONFLICT",
+          "CATALOG_PRODUCT_DUPLICATE",
+          "CATALOG_IDENTITY_CONFLICT",
+          "CATALOG_PRODUCT_VERSION_CONFLICT",
+          "ADMIN_ROLE_REQUIRED",
+          "ADMIN_AUTH_REQUIRED",
+        ].includes(body.code)
+        ? { code: body.code }
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  }
   if (!endpoint.startsWith("admin/ocr/")) {
     return undefined;
   }
@@ -577,21 +944,59 @@ async function readAllowlistedAdminErrorCode(
       "OCR_JOB_STORAGE_UNAVAILABLE",
       "OCR_JOB_RAW_TEXT_INVALID",
       "OCR_JOB_TOO_LARGE",
+      "OCR_JOB_MAPPING_INVALID",
+      "OCR_JOB_MAPPING_UNUSABLE",
+      "OCR_JOB_SOURCE_ROWS_UNAVAILABLE",
       "ADMIN_ROLE_REQUIRED",
       "ADMIN_AUTH_REQUIRED",
       "LOCAL_OCR_ORIGIN_REQUIRED",
       "LOCAL_OCR_LIMIT_REACHED",
+      "LOCAL_OCR_BODY_TIMEOUT",
       "OCR_PROVIDER_BUSY",
     ]);
 
-    return allowed.has(body.code) ? body.code : undefined;
+    if (!allowed.has(body.code)) return undefined;
+    const reason =
+      isRecord(body.analysis) &&
+      typeof body.analysis.reason === "string" &&
+      Object.hasOwn(OCR_REGION_FAILURE_MESSAGES, body.analysis.reason)
+        ? body.analysis.reason
+        : undefined;
+    return {
+      code: body.code,
+      ...(body.code === "OCR_JOB_MAPPING_UNUSABLE" && reason ? { reason } : {}),
+    };
   } catch {
     return undefined;
   }
 }
 
+const OCR_REGION_FAILURE_MESSAGES: Record<string, string> = {
+  "region-image-mismatch":
+    "이미지 크기와 원본 OCR 좌표가 맞지 않습니다. 같은 이미지로 다시 인식해 주세요.",
+  "missing-geometry":
+    "원본 OCR의 위치 정보가 부족합니다. 더 선명한 이미지로 다시 인식하거나 직접 입력해 주세요.",
+  "region-quantity-invalid":
+    "수량 영역에 정수 이외의 글자 또는 여러 값이 있습니다. 가격·상태 문구를 제외하고 실제 수량을 다시 지정해 주세요.",
+  "region-row-spacing-uncertain":
+    "상품 간격을 확정하지 못했습니다. 두 번째 상품 위치와 표 끝을 다시 확인해 주세요.",
+  "region-boundary-uncertain":
+    "글자가 영역 경계에 걸려 있습니다. 겹치지 않도록 글자 전체를 포함해 다시 지정해 주세요.",
+  "region-second-row-required":
+    "수량 영역이 없으면 두 번째 상품 위치로 반복 간격을 지정해 주세요.",
+  "region-footer-uncertain":
+    "표에 합계나 안내 문구가 포함될 수 있습니다. 마지막 상품 바로 아래로 표 끝을 다시 지정해 주세요.",
+  "quantity-column-conflict":
+    "금액·번호·상태 영역은 수량으로 사용할 수 없습니다. 실제 수량 영역을 선택해 주세요.",
+};
+
 /** OCR API 실패를 운영자가 조치할 수 있는 문구로 바꿉니다. */
 export function getOcrRequestErrorMessage(error: unknown): string | undefined {
+  if (error instanceof AdminOcrDemoConnectionError)
+    return error.timedOut
+      ? "PC OCR 임시 연결의 2분 대기 시간이 지났습니다. PC와 HTTPS 중계 상태를 확인한 뒤 다시 시도해 주세요. 현재 검토본은 유지됩니다."
+      : "PC OCR 임시 연결에 접속하지 못했습니다. 담당 PC나 HTTPS 중계가 꺼져 있거나 주소가 만료되었을 수 있습니다. 연결 상태를 확인한 뒤 다시 시도해 주세요. 현재 검토본은 유지됩니다.";
+
   if (
     !(error instanceof AdminApiRequestError) ||
     !error.endpoint.startsWith("admin/ocr/")
@@ -604,11 +1009,13 @@ export function getOcrRequestErrorMessage(error: unknown): string | undefined {
   }
 
   if (error.responseCode === "LOCAL_OCR_ORIGIN_REQUIRED")
-    return "로컬 OCR은 전용 개발 화면 http://localhost:3138/admin에서 실행해 주세요.";
+    return isRemoteOcrDemoMode()
+      ? "PC OCR 임시 연결이 이 화면을 허용하지 않습니다. 담당자가 Firebase 접속 허용 설정을 확인해야 합니다."
+      : "로컬 OCR은 전용 개발 화면 http://localhost:3138/admin에서 실행해 주세요.";
 
   if (error.status === 403 || error.responseCode === "ADMIN_ROLE_REQUIRED") {
-    if (readLocalOcrApiBaseUrl()) {
-      return "로컬 OCR도 서명된 Cognito access token의 admin 그룹 권한이 필요합니다. 다시 로그인해 주세요.";
+    if (readLocalOcrApiBaseUrl() || isRemoteOcrDemoMode()) {
+      return "PC OCR도 서명된 Cognito access token의 admin 그룹 권한이 필요합니다. 그룹 권한이 없으면 사용할 수 없습니다. 다시 로그인해 주세요.";
     }
     return "OCR은 admin 그룹 권한이 필요합니다. Cognito admin 그룹을 확인해 주세요.";
   }
@@ -617,7 +1024,13 @@ export function getOcrRequestErrorMessage(error: unknown): string | undefined {
     error.responseCode === "LOCAL_OCR_LIMIT_REACHED" ||
     error.responseCode === "OCR_PROVIDER_BUSY"
   )
-    return "로컬 OCR이 처리 중이거나 임시 사용 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.";
+    return isRemoteOcrDemoMode()
+      ? "PC OCR이 처리 중이거나 임시 사용 한도에 도달했습니다. 잠시 후 다시 시도해 주세요. 현재 검토본은 유지됩니다."
+      : "로컬 OCR이 처리 중이거나 임시 사용 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.";
+  if (error.responseCode === "LOCAL_OCR_BODY_TIMEOUT")
+    return "PC OCR 이미지 전송 시간이 초과되었습니다. 네트워크 상태를 확인하거나 더 작은 이미지로 다시 시도해 주세요. 현재 검토본은 유지됩니다.";
+  if (isRemoteOcrDemoMode() && error.status >= 500)
+    return "PC OCR 임시 처리에 실패했거나 대기 시간이 지났습니다. 담당 PC와 HTTPS 중계 상태를 확인한 뒤 다시 시도해 주세요. 현재 검토본은 유지됩니다.";
   if (readLocalOcrApiBaseUrl() && error.status >= 500)
     return "로컬 PaddleOCR 처리에 실패했습니다. 로컬 서버의 실행 상태와 이미지 크기를 확인해 주세요.";
 
@@ -655,6 +1068,18 @@ export function getOcrRequestErrorMessage(error: unknown): string | undefined {
   if (error.responseCode === "OCR_JOB_TOO_LARGE") {
     return "OCR 검토본이 저장 가능한 크기를 초과했습니다. 원문이나 검토 행을 줄인 뒤 다시 저장해 주세요.";
   }
+
+  if (
+    ["OCR_JOB_MAPPING_INVALID", "OCR_JOB_MAPPING_UNUSABLE"].includes(
+      error.responseCode ?? "",
+    )
+  )
+    return error.mappingReason &&
+      Object.hasOwn(OCR_REGION_FAILURE_MESSAGES, error.mappingReason)
+      ? OCR_REGION_FAILURE_MESSAGES[error.mappingReason] + " 현재 검토본은 유지됩니다."
+      : "열 또는 영역 지정으로 상품 행을 확정하지 못했습니다. 선택 영역과 수량·반복 간격을 다시 확인해 주세요. 현재 검토본은 유지됩니다.";
+  if (error.responseCode === "OCR_JOB_SOURCE_ROWS_UNAVAILABLE")
+    return "이전 검토본에 재분류할 원본 좌표가 없습니다. 이미지를 다시 인식한 뒤 열을 지정해 주세요.";
 
   if (error.status >= 500) {
     return "OCR 서버 처리에 실패했습니다. PaddleOCR secret 설정과 관리자 API 로그를 확인해 주세요.";
@@ -784,10 +1209,17 @@ function parseOverviewMetrics(value: unknown): AdminOverviewMetrics {
     throw new AdminApiResponseError();
   }
 
+  const todayPaidRevenue = parseOptionalSafeCount(value, "todayPaidRevenue");
+  const todaySoldItemCount = parseOptionalSafeCount(value, "todaySoldItemCount");
+  const todayNewMemberCount = parseOptionalSafeCount(value, "todayNewMemberCount");
+
   return {
     asOf: value.asOf,
     timezone: value.timezone,
     todayOrderCount: value.todayOrderCount,
+    ...(todayPaidRevenue === undefined ? {} : { todayPaidRevenue }),
+    ...(todaySoldItemCount === undefined ? {} : { todaySoldItemCount }),
+    ...(todayNewMemberCount === undefined ? {} : { todayNewMemberCount }),
     lowStockCount: value.lowStockCount,
     lowStockThreshold: value.lowStockThreshold,
     activeCouponCount: value.activeCouponCount,
@@ -797,6 +1229,24 @@ function parseOverviewMetrics(value: unknown): AdminOverviewMetrics {
 
 function isSafeCount(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+/** 새 집계가 없는 구형 응답은 허용하되, 제공한 숫자는 엄격히 검증함. */
+function parseOptionalSafeCount(
+  value: Record<string, unknown>,
+  field: string,
+): number | undefined {
+  if (!Object.prototype.hasOwnProperty.call(value, field)) {
+    return undefined;
+  }
+
+  const candidate = value[field];
+
+  if (!isSafeCount(candidate)) {
+    throw new AdminApiResponseError();
+  }
+
+  return candidate;
 }
 
 function parseOcrJob(value: unknown): AdminOcrRecognitionResult {
@@ -826,7 +1276,7 @@ function parseOcrJob(value: unknown): AdminOcrRecognitionResult {
     );
     const productName =
       row.productName === undefined
-        ? sourceText
+        ? ""
         : readOcrResponseText(row.productName, OCR_INPUT_LIMITS.maxProductNameLength);
     const brand =
       row.brand === undefined
@@ -865,7 +1315,113 @@ function parseOcrJob(value: unknown): AdminOcrRecognitionResult {
     };
   });
 
-  return { jobId: job.jobId, version: job.version, rawText: job.rawText, rows };
+  if (new Set(rows.map((row) => row.id)).size !== rows.length)
+    throw new AdminApiResponseError();
+  const analysis =
+    job.analysis === undefined ? undefined : parseOcrAnalysis(job.analysis);
+  return {
+    jobId: job.jobId,
+    version: job.version,
+    rawText: job.rawText,
+    rows,
+    ...(analysis ? { analysis } : {}),
+  };
+}
+
+function parseOcrAnalysis(value: unknown): OcrTableAnalysis {
+  if (
+    !isRecord(value) ||
+    !["table", "empty", "unclassified"].includes(String(value.mode)) ||
+    (value.reason !== undefined && !isSafeText(value.reason, 100)) ||
+    (value.mapping !== undefined && !isOcrMapping(value.mapping))
+  )
+    throw new AdminApiResponseError();
+  let table: OcrTableAnalysis["table"];
+  if (value.table !== undefined) {
+    const descriptor = value.table;
+    if (
+      !isRecord(descriptor) ||
+      !Number.isInteger(descriptor.headerRow) ||
+      (descriptor.headerRow as number) < 0 ||
+      (descriptor.headerRow as number) > 499 ||
+      !Array.isArray(descriptor.columns) ||
+      descriptor.columns.length < 2 ||
+      descriptor.columns.length > 20
+    )
+      throw new AdminApiResponseError();
+    table = {
+      headerRow: descriptor.headerRow as number,
+      columns: descriptor.columns.map((column, index) => {
+        if (
+          !isRecord(column) ||
+          column.index !== index ||
+          !isSafeText(column.label, 1000) ||
+          ![
+            "productName",
+            "productInfo",
+            "brand",
+            "option",
+            "quantity",
+            "price",
+            "ignore",
+            "unknown",
+          ].includes(String(column.role))
+        )
+          throw new AdminApiResponseError();
+        return { index, label: column.label, role: column.role as string };
+      }),
+    };
+  }
+  if (
+    value.mapping &&
+    isOcrColumnMapping(value.mapping) &&
+    table &&
+    (value.mapping.headerRow !== table.headerRow ||
+      Object.values(value.mapping.columns).some(
+        (column) => column !== null && column >= table.columns.length,
+      ))
+  )
+    throw new AdminApiResponseError();
+  let region: OcrTableAnalysis["region"];
+  if (value.region !== undefined) {
+    const report = value.region;
+    if (
+      !isRecord(report) ||
+      ![
+        report.sourceTokenCount,
+        report.includedTokenCount,
+        report.excludedTokenCount,
+      ].every(
+        (n) => Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 500,
+      ) ||
+      Number(report.includedTokenCount) + Number(report.excludedTokenCount) !==
+        report.sourceTokenCount ||
+      !Array.isArray(report.warnings) ||
+      report.warnings.length > 20 ||
+      !report.warnings.every(
+        (code) => typeof code === "string" && /^[a-z][a-z0-9-]{0,79}$/u.test(code),
+      )
+    )
+      throw new AdminApiResponseError();
+    region = {
+      sourceTokenCount: Number(report.sourceTokenCount),
+      includedTokenCount: Number(report.includedTokenCount),
+      excludedTokenCount: Number(report.excludedTokenCount),
+      warnings: report.warnings as string[],
+    };
+  }
+  if (
+    value.mode === "table" &&
+    (!value.mapping || (value.mapping.schemaVersion === 1 ? !table : !region))
+  )
+    throw new AdminApiResponseError();
+  return {
+    mode: value.mode as OcrTableAnalysis["mode"],
+    ...(value.reason ? { reason: value.reason as string } : {}),
+    ...(table ? { table } : {}),
+    ...(value.mapping ? { mapping: value.mapping } : {}),
+    ...(region ? { region } : {}),
+  };
 }
 
 function readOcrResponseText(

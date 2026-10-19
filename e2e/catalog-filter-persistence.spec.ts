@@ -371,6 +371,9 @@ for (const [name, stored] of [
       })),
     ).toEqual({ session: SENTINEL, local: SENTINEL });
     await choose(page, ["데크", "April"]);
+    // Separate an input-event failure from persistence/hydration failure:
+    // the replacement selection must already be visible and stored exactly.
+    await assertAprilDeck(page);
     await page.reload();
     await assertAprilDeck(page);
   });

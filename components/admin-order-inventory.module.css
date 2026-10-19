@@ -1,0 +1,92 @@
+.panel {
+  margin-top: 2rem;
+  border: 1px solid #d7d7d7;
+  border-radius: 12px;
+  padding: clamp(1rem, 3vw, 2rem);
+  background: #fff;
+  color: #202020;
+}
+.panel h2 {
+  margin-top: 0;
+  font-size: 1.2rem;
+}
+.panel p {
+  line-height: 1.6;
+}
+.panel label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.6rem 0;
+}
+.panel input:not([type="checkbox"]),
+.panel select {
+  padding: 0.65rem;
+  border: 1px solid #999;
+  border-radius: 4px;
+  max-width: 100%;
+  background: #fff;
+  color: #222;
+}
+.panel button {
+  padding: 0.65rem 1rem;
+  border: 1px solid #222;
+  border-radius: 4px;
+  background: #222;
+  color: #fff;
+  cursor: pointer;
+}
+.panel button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.panel button:focus-visible,
+.panel input:focus-visible,
+.panel select:focus-visible {
+  outline: 3px solid #5479dc;
+  outline-offset: 3px;
+}
+.panel fieldset {
+  margin: 1.2rem 0;
+  border: 1px solid #d7d7d7;
+  padding: 1rem;
+  min-width: 0;
+}
+.panel legend {
+  font-weight: 700;
+}
+.lookup,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+}
+.tableWrap {
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+.panel table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  min-width: 580px;
+}
+.panel th,
+.panel td {
+  border-bottom: 1px solid #ddd;
+  padding: 0.7rem;
+}
+.panel td input {
+  width: 5rem;
+}
+.panel caption {
+  text-align: left;
+  padding: 0.5rem;
+  font-weight: 700;
+}
+.note {
+  color: #555;
+  font-size: 0.9rem;
+}

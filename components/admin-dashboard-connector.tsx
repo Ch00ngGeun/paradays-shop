@@ -33,6 +33,8 @@ export function AdminDashboardConnector() {
         recognizeInventory: client.recognizeInventory,
         loadOcrReview: client.loadOcrReview,
         saveOcrReview: client.saveOcrReview,
+        remapOcrReview: client.remapOcrReview,
+        applyOcrIntake: client.applyOcrIntake,
       };
     } catch {
       return undefined;

@@ -41,12 +41,12 @@ export type ValidatedOcrImageFile = Readonly<{
   bytes: Uint8Array;
 }>;
 
-const OCR_FILE_NAME_PATTERN = /^[A-Za-z0-9가-힣][A-Za-z0-9가-힣._ -]*$/;
+// 분리형·호환·옛한글 자모도 원문 그대로 허용함. 다른 결합 문자로 범위를 넓히지 않음.
+const OCR_FILE_NAME_PATTERN =
+  /^[A-Za-z0-9가-힣\u1100-\u11ff\u3131-\u318e\ua960-\ua97c\ud7b0-\ud7c6\ud7cb-\ud7fb][A-Za-z0-9가-힣\u1100-\u11ff\u3131-\u318e\ua960-\ua97c\ud7b0-\ud7c6\ud7cb-\ud7fb._ -]*$/;
 
 /** 선택 직후와 OCR 전송 직전에 같은 파일 정책을 반복 적용합니다. */
-export async function validateOcrImageFile(
-  file: File,
-): Promise<ValidatedOcrImageFile> {
+export async function validateOcrImageFile(file: File): Promise<ValidatedOcrImageFile> {
   if (!isFileLike(file)) {
     throw new AdminOcrInputError("FILE_READ_FAILED");
   }
@@ -131,7 +131,10 @@ export function getOcrReviewRowValidationMessage(
 }
 
 /** OCR 서버가 허용할 편집 문자열의 제어 문자·길이 제한을 브라우저도 동일하게 적용합니다. */
-export function isOcrEditableText(value: unknown, maximumLength: number): value is string {
+export function isOcrEditableText(
+  value: unknown,
+  maximumLength: number,
+): value is string {
   return (
     typeof value === "string" &&
     value.trim().length <= maximumLength &&
@@ -204,7 +207,9 @@ export function hasMatchingOcrImageSignature(
   }
 
   if (mimeType === "image/jpeg") {
-    return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+    return (
+      bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
+    );
   }
 
   return (
@@ -218,9 +223,7 @@ function isOcrImageMimeType(value: unknown): value is OcrImageMimeType {
   return value === "image/jpeg" || value === "image/png" || value === "image/webp";
 }
 
-function isFileLike(
-  value: unknown,
-): value is Readonly<{
+function isFileLike(value: unknown): value is Readonly<{
   name: string;
   type: string;
   size: number;

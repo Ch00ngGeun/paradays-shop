@@ -9,6 +9,7 @@ import {
 } from "@aws-sdk/client-secrets-manager";
 
 import { isRecord, readBoundedString } from "./request-helpers.js";
+import { parseOcrTableRows } from "./ocr-table-parser.js";
 
 /** Lambda synchronous invoke payload 안에 안전하게 담을 수 있는 raw image 상한입니다. */
 export const MAX_INLINE_OCR_IMAGE_BYTES = 4 * 1024 * 1024;
@@ -21,7 +22,9 @@ const MAX_OCR_ROWS = 500;
 const MAX_ROW_TEXT_LENGTH = 512;
 const MAX_RAW_TEXT_LENGTH = 100_000;
 const MAX_FILE_NAME_LENGTH = 120;
-const OCR_FILE_NAME_PATTERN = /^[A-Za-z0-9가-힣][A-Za-z0-9가-힣._ -]*$/;
+// 브라우저와 같은 자모 범위만 허용하며 파일명 정규화·변환은 하지 않음.
+const OCR_FILE_NAME_PATTERN =
+  /^[A-Za-z0-9가-힣\u1100-\u11ff\u3131-\u318e\ua960-\ua97c\ud7b0-\ud7c6\ud7cb-\ud7fb][A-Za-z0-9가-힣\u1100-\u11ff\u3131-\u318e\ua960-\ua97c\ud7b0-\ud7c6\ud7cb-\ud7fb._ -]*$/;
 
 /** Secrets Manager에만 보관할 OCR service endpoint·공유 비밀값입니다. */
 export type PaddleOcrCredentials = Readonly<{
@@ -49,11 +52,17 @@ export type OcrRecognitionRow = Readonly<{
   sourceText: string;
   confidence?: number;
   box?: OcrBoundingBox;
+  productName?: string;
+  brand?: string;
+  option?: string;
+  quantity?: string;
 }>;
 
 export type PaddleOcrRecognition = Readonly<{
   rawText: string;
   rows: readonly OcrRecognitionRow[];
+  /** 표 구조화 전의 원본 텍스트·행 ID·provider metadata를 서버 내부에 보존함. */
+  sourceRows?: readonly OcrRecognitionRow[];
 }>;
 
 /** 공급자 설정·네트워크·응답 오류를 handler가 외부 안전 오류 코드로 바꾸기 위한 오류입니다. */
@@ -348,7 +357,10 @@ export function parseRecognitionResponse(value: unknown): PaddleOcrRecognition {
     throw new PaddleOcrProviderError("RESPONSE");
   }
 
-  return { rawText, rows };
+  const table = parseOcrTableRows(rows);
+
+  // 미분류도 재매핑할 수 있도록 원본 토큰을 항상 별도로 보존함.
+  return { rawText, rows: table.rows, sourceRows: rows };
 }
 
 /** nested result/data/results/prunedResult를 깊이 제한으로 탐색해 예상과 다른 provider envelope도 안전하게 처리합니다. */

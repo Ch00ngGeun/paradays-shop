@@ -1093,8 +1093,7 @@
   display: grid;
   font-family: var(--font-display);
   gap: 0.75rem 1rem;
-  grid-template-columns:
-    2.75rem minmax(0, 1.4fr) auto auto auto auto;
+  grid-template-columns: 2.75rem minmax(0, 1.4fr) auto auto auto auto;
   padding: 0.55rem 0;
 }
 
@@ -2062,7 +2061,17 @@
   align-items: start;
   display: grid;
   gap: 0.9rem;
-  grid-template-columns: minmax(15rem, 0.7fr) minmax(0, 1.3fr);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* 표의 최소 폭이 OCR 화면 전체를 늘리지 않도록 스크롤 영역 안에 제한함. */
+.ocrSectionStack {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.ocrRowsPanel {
+  min-width: 0;
 }
 
 .rawTextPanel,
@@ -2402,5 +2411,3574 @@
   .loadingLine::before,
   .ocrState[data-state="recognizing"]::before {
     animation: none;
+  }
+}
+
+/* 운영 홈의 공통 틀: 메뉴는 보이고, 지표·작업·부가 정보는 위계로 구분합니다. */
+.adminPage {
+  --admin-muted: color-mix(in srgb, var(--color-ink) 70%, var(--color-paper));
+  --admin-wash: color-mix(in srgb, var(--color-paper) 96%, var(--color-ink));
+  column-gap: 2rem;
+  font-family: var(--font-body);
+  grid-template-columns: 13rem minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  max-width: 1600px;
+  padding: 1.25rem var(--page-gutter) 4rem;
+}
+
+.adminPage :is(button, a, input, select, textarea, summary):focus-visible {
+  outline: 3px solid #2864b4;
+  outline-offset: 3px;
+}
+
+.adminHeader {
+  align-items: center;
+  border-bottom: 1px solid var(--color-rule);
+  gap: 1rem;
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  padding: 0 0 1rem;
+}
+
+.adminBreadcrumb {
+  align-items: center;
+  color: var(--admin-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+  gap: 0.65rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.headerActions {
+  align-items: center;
+  flex-direction: row;
+  gap: 1rem;
+}
+
+.languageSwitch button {
+  color: var(--admin-muted);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+
+.securityBadge {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  min-height: 2.75rem;
+}
+
+.securityBadge svg {
+  height: 1.1rem;
+  width: 1.1rem;
+}
+
+.mobileStoreLink,
+.sidebar {
+  display: none;
+}
+
+.adminPage .homeLink:hover,
+.adminPage .homeLink:focus-visible {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.opsMenuDrawer {
+  align-self: start;
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  bottom: auto;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  height: calc(100dvh - 2.5rem);
+  left: auto;
+  max-width: none;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.25rem 0.75rem;
+  pointer-events: auto;
+  position: sticky;
+  top: 1.25rem;
+  transform: none;
+  transition: none;
+  visibility: visible;
+  width: 100%;
+  z-index: 5;
+}
+
+.opsMenuDrawerHeader {
+  margin: 0 0 1.5rem;
+  padding: 0 0.25rem;
+}
+
+.sidebarBrand {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.sidebarBrand strong {
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 1.55rem;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+}
+
+.sidebarBrand span {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+}
+
+.opsMenuClose {
+  display: none;
+}
+
+.tabList {
+  gap: 0.4rem;
+}
+
+.tab,
+.tabActive {
+  border-left: 3px solid transparent;
+  border-radius: 4px;
+  color: var(--admin-muted);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  gap: 0.85rem;
+  justify-content: flex-start;
+  line-height: 1.4;
+  min-height: 3rem;
+  padding: 0.65rem;
+}
+
+.tab svg,
+.tabActive svg {
+  flex: 0 0 1.35rem;
+  height: 1.35rem;
+  width: 1.35rem;
+}
+
+.tabActive {
+  background: color-mix(in srgb, var(--color-red) 7%, var(--color-paper));
+  border-left-color: var(--color-red);
+  color: var(--color-ink);
+}
+
+.tabActive span:last-child {
+  color: var(--color-ink);
+}
+
+.tab:hover {
+  background: color-mix(in srgb, var(--color-paper) 90%, var(--color-ink));
+}
+
+.sidebarStoreLink {
+  align-items: center;
+  border-top: 1px solid var(--color-rule);
+  color: var(--admin-muted);
+  display: flex;
+  font-size: 0.8125rem;
+  gap: 0.5rem;
+  line-height: 1.5;
+  margin-top: auto;
+  min-height: 3rem;
+  padding: 1rem 0.4rem 0;
+}
+
+.sidebarStoreLink span {
+  font-size: 1.25rem;
+}
+
+.workspace {
+  grid-column: 2;
+  grid-row: 2;
+  padding: 1.5rem 0 3rem;
+}
+
+.overviewStack {
+  gap: 1.25rem;
+}
+
+.overviewHeader {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.overviewHeader > div {
+  min-width: 0;
+}
+
+.overviewHeader h2,
+.overviewTasks > h2 {
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-weight: 750;
+  letter-spacing: -0.045em;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.overviewHeader h2 {
+  font-size: clamp(1.6rem, 3vw, 2rem);
+}
+
+.overviewTimestamp {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  margin: 0.45rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.overviewMetricGrid,
+.overviewSecondaryGrid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.overviewStack .metricCard {
+  align-content: center;
+  background: var(--color-paper);
+  border-radius: 6px;
+  column-gap: 0.85rem;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  min-height: 8.25rem;
+  padding: 1.1rem;
+  row-gap: 0.4rem;
+}
+
+.metricIcon {
+  align-items: center;
+  background: var(--admin-wash);
+  border-radius: 50%;
+  color: var(--color-ink);
+  display: flex;
+  grid-column: 1;
+  grid-row: 1 / 4;
+  height: 2.5rem;
+  justify-content: center;
+  width: 2.5rem;
+}
+
+.metricIcon svg {
+  height: 1.35rem;
+  width: 1.35rem;
+}
+
+.overviewStack .metricCard :is(p, strong, span) {
+  font-family: var(--font-body);
+  grid-column: 2;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.overviewStack .metricCard p {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+}
+
+.overviewStack .metricCard strong {
+  font-size: clamp(1.5rem, 2.5vw, 2.25rem);
+  letter-spacing: -0.035em;
+}
+
+.overviewStack .metricCard span {
+  color: var(--admin-muted);
+  font-size: 0.75rem;
+}
+
+.overviewSecondaryGrid .metricCard {
+  min-height: 7rem;
+}
+
+.overviewSecondaryGrid .metricCard strong {
+  font-size: 1.5rem;
+}
+
+.overviewTasks {
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  padding: 1.1rem;
+}
+
+.overviewTasks > h2 {
+  font-size: 1.125rem;
+  margin-bottom: 1rem;
+}
+
+.overviewTaskList {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.overviewTask {
+  align-items: center;
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+  padding: 1rem;
+}
+
+.taskIcon {
+  align-items: center;
+  background: var(--admin-wash);
+  border-radius: 50%;
+  display: flex;
+  height: 2.75rem;
+  justify-content: center;
+  width: 2.75rem;
+}
+
+.taskIcon svg {
+  height: 1.5rem;
+  width: 1.5rem;
+}
+
+.taskDescription {
+  min-width: 0;
+}
+
+.taskDescription h3 {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 1rem;
+  gap: 0.75rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.taskCount {
+  background: var(--admin-wash);
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+  padding: 0.1rem 0.4rem;
+}
+
+.taskDescription p {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  margin: 0.25rem 0 0;
+}
+
+.overviewHeader > button,
+.overviewTask > button {
+  align-items: center;
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  gap: 0.75rem;
+  line-height: 1.4;
+  min-height: 2.75rem;
+}
+
+.overviewTask > button {
+  min-width: 10.5rem;
+}
+
+.overviewTask > .primaryButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-ink) 85%, var(--color-paper));
+}
+
+.overviewHelp {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+}
+
+.overviewHelp summary {
+  align-items: center;
+  cursor: pointer;
+  min-height: 2.75rem;
+  padding: 0.65rem 0;
+}
+
+.overviewHelp p {
+  margin: 0.25rem 0 0.75rem;
+}
+
+@media (max-width: 1200px) and (min-width: 1024px) {
+  .adminPage {
+    column-gap: 1.25rem;
+    grid-template-columns: 11.5rem minmax(0, 1fr);
+  }
+
+  .overviewStack .metricCard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .overviewStack .metricIcon {
+    display: none;
+  }
+
+  .overviewStack .metricCard :is(p, strong, span) {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 1023px) {
+  .adminPage {
+    column-gap: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr;
+    padding-top: 0;
+  }
+
+  .sidebar {
+    align-items: center;
+    border-bottom: 1px solid var(--color-rule);
+    border-right: 0;
+    display: flex;
+    grid-column: 1;
+    grid-row: 1;
+    justify-content: space-between;
+    min-height: 4.5rem;
+    padding: 0.75rem 0;
+  }
+
+  .sidebarIntro {
+    display: grid;
+    font-family: var(--font-body);
+    margin: 0;
+  }
+
+  .sidebarIntro strong {
+    font-size: 1.3rem;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+  }
+
+  .opsMenuButton {
+    border-radius: 4px;
+    height: 2.75rem;
+    left: auto;
+    position: static;
+    top: auto;
+    width: 2.75rem;
+  }
+
+  .adminHeader {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.5rem;
+    grid-column: 1;
+    grid-row: 2;
+    padding: 0.5rem 0 0.75rem;
+  }
+
+  .headerActions {
+    align-items: center;
+    align-self: stretch;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: space-between;
+  }
+
+  .headerStatusRow {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .mobileStoreLink {
+    align-items: center;
+    border-radius: 4px;
+    display: inline-flex;
+    min-height: 2.75rem;
+  }
+
+  .workspace {
+    grid-column: 1;
+    grid-row: 3;
+    padding-top: 1.25rem;
+  }
+
+  .opsMenuDrawer {
+    border-radius: 0;
+    bottom: 0;
+    grid-column: auto;
+    grid-row: auto;
+    height: 100dvh;
+    left: 0;
+    max-width: min(20rem, 88vw);
+    min-height: 0;
+    pointer-events: none;
+    position: fixed;
+    top: 0;
+    transform: translateX(-105%);
+    transition: transform 0.2s ease;
+    visibility: hidden;
+    width: 20rem;
+    z-index: 45;
+  }
+
+  .opsMenuDrawerOpen {
+    pointer-events: auto;
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  .opsMenuClose {
+    align-items: center;
+    display: inline-flex;
+    height: 2.75rem;
+    justify-content: center;
+    width: 2.75rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .overviewMetricGrid,
+  .overviewSecondaryGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .overviewHeader {
+    align-items: flex-start;
+  }
+
+  .overviewHeader > button {
+    flex-shrink: 0;
+    padding: 0.65rem;
+  }
+
+  .overviewTask {
+    column-gap: 0.75rem;
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+    padding: 0.85rem;
+  }
+
+  .overviewTask > button {
+    grid-column: 1 / -1;
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .opsMenuDrawer {
+    transition: none;
+  }
+}
+
+/* 상품 입력과 고객 미리보기는 같은 화면에서 비교하되, 저장 예정 상태를 명시합니다. */
+.productScreen {
+  --product-field-border: color-mix(in srgb, var(--color-ink) 50%, var(--color-paper));
+  --product-danger: color-mix(in srgb, var(--color-red) 65%, var(--color-ink));
+  gap: 1.25rem;
+}
+
+.productPageHeading h2 {
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: clamp(1.6rem, 3vw, 2rem);
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.productPageHeading p {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0.5rem 0 0;
+}
+
+.productEditorTitle {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.productSaveState {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  color: var(--admin-muted);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.5;
+  padding: 0.35rem 0.6rem;
+}
+
+.productScreen .addProductButton {
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  gap: 0.4rem;
+  height: auto;
+  min-height: 2.75rem;
+  padding: 0.65rem 0.9rem;
+  white-space: nowrap;
+  width: auto;
+}
+
+.productScreen .productToolbar {
+  align-items: end;
+  gap: 0.85rem;
+  margin-top: 0;
+}
+
+.productScreen
+  :is(
+    .productFilterSearch input,
+    .productFilterSelect select,
+    .editorForm input,
+    .editorForm select,
+    .editorForm textarea
+  ) {
+  border-color: var(--product-field-border);
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.5;
+  min-height: 2.75rem;
+}
+
+.productScreen :is(input, textarea)::placeholder {
+  color: var(--admin-muted);
+  opacity: 1;
+}
+
+.productScreen .productFilterSelect span {
+  color: var(--admin-muted);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.productScreen .productSelectionBar {
+  margin-top: 0;
+}
+
+.productScreen
+  :is(
+    .productSelectAllHit,
+    .productSelectHit,
+    .productBulkDeleteButton,
+    .productRowEditButton,
+    .productRowDeleteButton,
+    .backToListButton
+  ) {
+  color: var(--admin-muted);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  min-height: 2.75rem;
+}
+
+.productScreen
+  :is(
+    .productBulkDeleteButton,
+    .productRowEditButton,
+    .productRowDeleteButton,
+    .backToListButton
+  ) {
+  border-radius: 4px;
+}
+
+.productScreen
+  :is(.productBulkDeleteButton, .productRowDeleteButton):is(:hover, :focus-visible):not(
+    :disabled
+  ) {
+  border-color: var(--product-danger);
+  color: var(--product-danger);
+}
+
+.productScreen .productList {
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  margin-top: 0;
+}
+
+.productScreen .productListItem {
+  gap: 0.75rem;
+  padding: 0.85rem;
+}
+
+.productScreen .productListItem:last-child {
+  border-bottom: 0;
+}
+
+.productListIdentity {
+  align-items: center;
+  display: flex;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.productListIdentity > img {
+  aspect-ratio: 1;
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  flex: 0 0 3.5rem;
+  height: 3.5rem;
+  object-fit: contain;
+  width: 3.5rem;
+}
+
+.productScreen .productListMain {
+  gap: 0.25rem;
+}
+
+.productScreen .productListMain strong {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.productScreen .productListMain :is(span, small) {
+  color: var(--admin-muted);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.productScreen .productStock {
+  font-size: 0.875rem;
+}
+
+.productScreen :is(.publicStatus, .draftStatus) {
+  align-items: center;
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  color: var(--color-ink);
+  display: inline-flex;
+  font-size: 0.8125rem;
+  justify-content: center;
+  line-height: 1.5;
+  padding: 0.3rem 0.5rem;
+}
+
+.productScreen :is(.noticeError, .productSoldOutBadge, .editorForm em) {
+  color: var(--product-danger);
+}
+
+.productScreen .noticeError {
+  border-color: var(--product-danger);
+}
+
+.productScreen .productListEmpty {
+  font-family: var(--font-body);
+  line-height: 1.7;
+  margin-top: 0;
+}
+
+.productScreen .productEditor {
+  align-items: start;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+}
+
+.productScreen .editorForm {
+  background: transparent;
+  border: 0;
+  gap: 1.25rem;
+  min-width: 0;
+  padding: 0;
+}
+
+.productScreen .formGroup {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1.1rem;
+}
+
+.productScreen .formGroup + .formGroup {
+  padding-top: 1.1rem;
+}
+
+.productScreen .formGroup legend {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  padding: 0 0.3rem;
+}
+
+.productScreen .editorForm label {
+  color: var(--admin-muted);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  gap: 0.45rem;
+}
+
+.productScreen .editorForm small {
+  color: var(--admin-muted);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.productScreen .editorForm input[type="checkbox"] {
+  flex-shrink: 0;
+  height: 1.25rem;
+  min-height: 0;
+  width: 1.25rem;
+}
+
+.productScreen .checkRow {
+  min-height: 2.75rem;
+}
+
+.productScreen .toggleRows {
+  align-items: stretch;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.productScreen .formActions {
+  flex-wrap: wrap;
+}
+
+.productScreen :is(.primaryButton, .secondaryButton) {
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  min-height: 2.75rem;
+}
+
+.productScreen .primaryButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-ink) 85%, var(--color-paper));
+}
+
+.productSaveHint,
+.productStorageNote {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  margin: -0.5rem 0 0;
+}
+
+.productStorageNote {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  margin: 0;
+  padding: 0.8rem;
+}
+
+.productScreen .productPreview {
+  background: var(--color-paper);
+  border-color: var(--color-rule);
+  border-radius: 6px;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.productPreview .previewHeader {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.productPreview .previewHeader h2 {
+  font-family: var(--font-body);
+  font-size: 1.125rem;
+  letter-spacing: -0.03em;
+  line-height: 1.5;
+}
+
+.productPreview .storeCardDetail {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.productPreview .storeCardMedia {
+  aspect-ratio: 1.05;
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  max-height: 26rem;
+  min-height: 0;
+  order: -1;
+}
+
+.productPreview .storeCardMedia img {
+  display: block;
+}
+
+.productPreviewBrand {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0 0 0.35rem;
+  overflow-wrap: anywhere;
+}
+
+.productPreview .storeCardInfo h3 {
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 1.35rem;
+  line-height: 1.4;
+  margin-bottom: 0.75rem;
+}
+
+.productPreview
+  :is(.storeCardDescription, .storeCardOptions legend, .previewHint, .previewNote) {
+  color: var(--admin-muted);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.productPreview .storeCardOptions {
+  margin-top: 1.25rem;
+}
+
+.productPreview .storeCardSizes span {
+  background: var(--admin-wash);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  height: auto;
+  min-height: 2.5rem;
+}
+
+.productPreview .storeCardSizes .storeCardSizeActive {
+  background: var(--color-ink) !important;
+  color: var(--color-paper) !important;
+}
+
+.productPreviewPrice {
+  color: var(--color-ink);
+  font-size: 1.65rem;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  line-height: 1.4;
+  margin-top: 1rem;
+}
+
+.productPreviewPrice > span {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.productPreviewPrice s {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+@media (max-width: 1200px) {
+  .productScreen .productListItem {
+    grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+  }
+
+  .productScreen .productRowActions {
+    grid-column: 2 / -1;
+  }
+
+  .productScreen .productEditor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .productScreen .productPreview {
+    position: static;
+  }
+}
+
+@media (max-width: 767px) {
+  .productScreen .productListHeader {
+    align-items: center;
+  }
+
+  .productScreen .productToolbar {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .productScreen .productFilterSearch {
+    grid-column: 1 / -1;
+  }
+
+  .productScreen .productListItem {
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+  }
+
+  .productScreen .productListItem > :is(.productStock, .publicStatus, .draftStatus),
+  .productScreen .productListItem > span {
+    grid-column: 2;
+  }
+
+  .productScreen .productRowActions {
+    grid-column: 1 / -1;
+  }
+
+  .productScreen .productListMain strong {
+    font-size: 0.9375rem;
+  }
+
+  .productScreen .formGroup {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 1rem;
+  }
+
+  .productScreen .formActions {
+    flex-direction: column-reverse;
+  }
+}
+
+/* 재고 변경은 입력만으로 전송하지 않고, 변경 전후를 확인한 뒤 한 번 반영합니다. */
+.inventoryScreen {
+  --inventory-border: color-mix(in srgb, var(--color-ink) 50%, var(--color-paper));
+  --inventory-danger: color-mix(in srgb, var(--color-red) 65%, var(--color-ink));
+  gap: 1.25rem;
+}
+
+.inventoryScreen .inventoryToolbar {
+  align-items: end;
+  gap: 0.85rem;
+}
+
+.inventoryScreen :is(.inventorySearch input, .inventoryFilter select, .stockStepInput) {
+  background: var(--color-paper);
+  border-color: var(--inventory-border);
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.5;
+  min-height: 2.75rem;
+}
+
+.inventoryScreen input::placeholder {
+  color: var(--admin-muted);
+  opacity: 1;
+}
+
+.inventoryScreen .inventoryFilter > span {
+  color: var(--admin-muted);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+}
+
+.inventoryWorkspace {
+  align-items: start;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+}
+
+.inventoryScreen .inventoryPanel,
+.inventoryAdjustment {
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.inventoryScreen .listPanelHeading {
+  align-items: center;
+  padding-bottom: 1rem;
+}
+
+.inventoryScreen .listPanelHeading h2,
+.inventoryAdjustment h2 {
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 1.125rem;
+  letter-spacing: -0.03em;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.inventoryScreen .inventoryRow {
+  display: block;
+  padding: 0.4rem 0;
+}
+
+.inventorySelect {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--color-ink);
+  cursor: pointer;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 3.25rem minmax(0, 1fr) auto;
+  min-height: 5rem;
+  padding: 0.75rem 0.5rem;
+  text-align: left;
+  width: 100%;
+}
+
+.inventorySelect:hover {
+  background: var(--admin-wash);
+}
+
+.inventorySelect[aria-pressed="true"] {
+  background: color-mix(in srgb, #2864b4 6%, var(--color-paper));
+  border-color: #2864b4;
+}
+
+.inventorySelect > img,
+.inventorySelectedProduct > img {
+  aspect-ratio: 1;
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  height: 3.25rem;
+  object-fit: contain;
+  width: 3.25rem;
+}
+
+.inventoryScreen .inventoryMeta strong {
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.inventoryScreen .inventoryMeta span {
+  color: var(--admin-muted);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.inventoryQuantity {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.inventoryQuantity strong {
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.inventoryQuantity span {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  color: var(--admin-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.4rem;
+}
+
+.inventoryScreen :is(.inventoryLow, .inventorySoldOut) {
+  color: var(--inventory-danger) !important;
+}
+
+.inventoryScreen .noticeError,
+.inventoryDraftError {
+  border-color: var(--inventory-danger);
+  color: var(--inventory-danger);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.inventoryAdjustment {
+  display: grid;
+  gap: 0.85rem;
+  position: sticky;
+  top: 1rem;
+}
+
+.inventoryAdjustmentHeader {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: space-between;
+}
+
+.inventoryAdjustmentHeader h2 {
+  scroll-margin-top: 1rem;
+}
+
+.inventoryAdjustmentHeader h2:focus-visible {
+  outline: 3px solid #2864b4;
+  outline-offset: 3px;
+}
+
+.inventorySelectedProduct {
+  align-items: center;
+  display: flex;
+  gap: 0.85rem;
+  margin: 0.3rem 0 0.5rem;
+  min-width: 0;
+}
+
+.inventorySelectedProduct > div {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.inventorySelectedProduct strong {
+  font-size: 1rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.inventorySelectedProduct span {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.inventoryQuantityLabel {
+  color: var(--color-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.inventoryScreen .stockStepper {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+}
+
+.inventoryScreen .stockStepButton {
+  border-color: var(--inventory-border);
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 1.25rem;
+  height: 2.75rem;
+  min-width: 2.75rem;
+}
+
+.inventoryScreen .stockStepInput {
+  font-weight: 600;
+  height: 2.75rem;
+  width: 100%;
+}
+
+.inventoryInputHint {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.inventoryDraftError {
+  margin: 0;
+}
+
+.inventoryDraftError:empty {
+  display: none;
+}
+
+.inventoryImpact {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  display: grid;
+  gap: 0.4rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 0.85rem 0.5rem;
+}
+
+.inventoryImpact > div {
+  display: grid;
+  gap: 0.35rem;
+  text-align: center;
+}
+
+.inventoryImpact span {
+  color: var(--admin-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.inventoryImpact strong {
+  color: var(--color-ink);
+  font-size: clamp(1rem, 1.6vw, 1.5rem);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.inventoryScreen :is(.primaryButton, .secondaryButton) {
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  min-height: 2.75rem;
+}
+
+.inventoryScreen .primaryButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-ink) 85%, var(--color-paper));
+}
+
+@media (max-width: 1200px) {
+  .inventoryWorkspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .inventoryAdjustment {
+    position: static;
+  }
+}
+
+@media (max-width: 767px) {
+  .inventoryScreen .inventoryToolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .inventoryScreen .inventorySearch {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .inventoryScreen .inventoryFilter {
+    min-width: 0;
+  }
+
+  .inventorySelect {
+    gap: 0.5rem;
+    grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+    padding: 0.65rem 0.2rem;
+  }
+
+  .inventorySelect > img {
+    height: 2.75rem;
+    width: 2.75rem;
+  }
+
+  .inventoryQuantity strong {
+    font-size: 0.875rem;
+  }
+}
+
+/* 브랜드는 확인 가능한 상품 연결과 신규 등록만 제공합니다. */
+.brandScreen {
+  --brand-field-border: color-mix(in srgb, var(--color-ink) 50%, var(--color-paper));
+  --brand-danger: color-mix(in srgb, #c22727 65%, var(--color-ink));
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.brandHeader {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.brandHeader h2 {
+  font-size: clamp(1.5rem, 2.2vw, 1.875rem);
+  letter-spacing: -0.035em;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.brandHeader > div > p {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  margin: 0 0 0.4rem;
+}
+
+.brandHelp {
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  max-width: 30rem;
+}
+
+.brandHelp summary {
+  color: var(--color-ink);
+  cursor: pointer;
+  min-height: 2.75rem;
+  padding: 0.7rem 0.85rem;
+}
+
+.brandHelp p {
+  line-height: 1.6;
+  margin: 0;
+  padding: 0 0.85rem 0.85rem;
+}
+
+.brandWorkspace {
+  align-items: start;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  min-width: 0;
+}
+
+.brandCatalog,
+.brandForm {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 7px;
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+  padding: 1.5rem;
+}
+
+.brandCatalogHeading h3,
+.brandFormHeading h3 {
+  font-size: 1.25rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.brandCatalogHeading p,
+.brandSaveHint {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.brandCatalogHeading p {
+  margin-top: 0.4rem;
+}
+
+.brandSearch,
+.brandFields label {
+  display: grid;
+  font-size: 0.875rem;
+  font-weight: 600;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.brandScreen :is(input, textarea) {
+  background: var(--color-paper);
+  border: 1px solid var(--brand-field-border);
+  border-radius: 5px;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+  min-height: 2.75rem;
+  min-width: 0;
+  padding: 0.7rem 0.75rem;
+  width: 100%;
+}
+
+.brandScreen :is(input, textarea)::placeholder {
+  color: var(--admin-muted);
+  opacity: 1;
+}
+
+.brandScreen textarea {
+  resize: vertical;
+}
+
+.brandFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.brandFilters button {
+  align-items: center;
+  background: var(--color-paper);
+  border: 1px solid var(--brand-field-border);
+  border-radius: 100px;
+  color: var(--color-ink);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.875rem;
+  gap: 0.45rem;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.6rem 0.95rem;
+}
+
+.brandFilters button[aria-pressed="true"] {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-paper);
+  font-weight: 700;
+}
+
+.brandFilters button:not([aria-pressed="true"]):hover {
+  background: var(--admin-wash);
+  border-color: var(--color-ink);
+}
+
+.brandListNotice,
+.brandListError {
+  background: var(--admin-wash);
+  border-left: 3px solid var(--color-ink);
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+  padding: 0.75rem;
+}
+
+.brandListError {
+  border-color: var(--brand-danger);
+  color: var(--brand-danger);
+}
+
+.brandTableWrap {
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.brandTable {
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  min-width: 25rem;
+  width: 100%;
+}
+
+.brandTable caption {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  padding: 0.7rem;
+  text-align: left;
+}
+
+.brandTable :is(th, td) {
+  border-bottom: 1px solid var(--color-rule);
+  padding: 0.9rem 0.75rem;
+  text-align: left;
+}
+
+.brandTable thead {
+  background: var(--admin-wash);
+}
+
+.brandTable tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.brandRowIdentity {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.brandRowIdentity > span:last-child {
+  max-width: 10rem;
+  overflow-wrap: anywhere;
+}
+
+.brandTextMark {
+  align-items: center;
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  display: inline-flex;
+  flex: 0 0 3rem;
+  font-size: 1.125rem;
+  font-weight: 800;
+  height: 2.75rem;
+  justify-content: center;
+  letter-spacing: -0.04em;
+}
+
+.brandTable td > span {
+  color: var(--admin-muted);
+  display: block;
+  font-size: 0.8125rem;
+  margin-top: 0.15rem;
+}
+
+.brandFormHeading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.brandFormHeading > span {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 100px;
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  padding: 0.4rem 0.7rem;
+}
+
+.brandFields {
+  border: 0;
+  display: grid;
+  gap: 1.25rem;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.brandRequired {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.brandPreview {
+  border-top: 1px solid var(--color-rule);
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  padding-top: 1.25rem;
+}
+
+.brandPreview h4 {
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.brandPreview > div {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.brandPreview strong {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  font-size: 1.65rem;
+  letter-spacing: -0.035em;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 0.75rem 1rem;
+}
+
+.brandPreview :is(span, p) {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.brandPreview p {
+  margin: 0;
+}
+
+.brandFormActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.brandScreen :is(.primaryButton, .secondaryButton) {
+  border-radius: 5px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  min-height: 2.75rem;
+}
+
+.brandScreen .primaryButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-ink) 85%, var(--color-paper));
+  border-color: var(--color-ink);
+}
+
+.brandScreen .secondaryButton:is(:hover, :focus-visible):not(:disabled) {
+  background: var(--admin-wash);
+  border-color: var(--color-ink);
+  color: var(--color-ink);
+}
+
+.brandScreen .noticeError {
+  border-color: var(--brand-danger);
+  color: var(--brand-danger);
+}
+
+.brandScreen .noticeSuccess,
+.brandScreen .emptyState {
+  color: var(--admin-muted);
+}
+
+.brandScreen .emptyState {
+  font-family: var(--font-body);
+  min-width: 0;
+}
+
+.brandScreen .emptyState p {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1200px) {
+  .brandWorkspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .brandCatalog,
+  .brandForm {
+    padding: 1rem;
+  }
+
+  .brandFormActions {
+    flex-direction: column;
+  }
+
+  .brandFormActions button {
+    width: 100%;
+  }
+}
+
+/* 회원 조회는 명시적 동작이며, 권한 변경은 대상·전후 상태를 확인합니다. */
+.memberScreen {
+  --member-field-border: color-mix(in srgb, var(--color-ink) 50%, var(--color-paper));
+  --member-danger: color-mix(in srgb, #c22727 65%, var(--color-ink));
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.memberHeader {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.memberHeader h2 {
+  font-size: clamp(1.5rem, 2.2vw, 1.875rem);
+  letter-spacing: -0.035em;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.memberHeader > div > p {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  margin: 0 0 0.4rem;
+}
+
+.memberHelp {
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  max-width: 30rem;
+}
+
+.memberHelp summary {
+  color: var(--color-ink);
+  cursor: pointer;
+  min-height: 2.75rem;
+  padding: 0.7rem 0.85rem;
+}
+
+.memberHelp p {
+  line-height: 1.6;
+  margin: 0;
+  padding: 0 0.85rem 0.85rem;
+}
+
+.memberToolbar {
+  align-items: end;
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 7px;
+  display: grid;
+  gap: 0.75rem 1rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 1.25rem;
+}
+
+.memberToolbar label {
+  display: grid;
+  font-size: 0.875rem;
+  font-weight: 600;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.memberToolbar > p {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  grid-column: 1 / -1;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.memberScreen input:not([type="checkbox"]) {
+  background: var(--color-paper);
+  border: 1px solid var(--member-field-border);
+  border-radius: 5px;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+  min-height: 2.75rem;
+  min-width: 0;
+  padding: 0.7rem 0.75rem;
+  width: 100%;
+}
+
+.memberScreen input::placeholder {
+  color: var(--admin-muted);
+  opacity: 1;
+}
+
+.memberWorkspace {
+  align-items: start;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  min-width: 0;
+}
+
+.memberDirectory,
+.memberDetail,
+.memberDetailEmpty {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 7px;
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+  padding: 1.5rem;
+}
+
+.memberDirectoryHeading h3,
+.memberDetailHeading h3,
+.memberDetailEmpty h3 {
+  font-size: 1.25rem;
+  line-height: 1.4;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.memberDirectoryHeading p {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  margin: 0.4rem 0 0;
+}
+
+.memberDirectoryList {
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.memberDirectoryList li + li {
+  border-top: 1px solid var(--color-rule);
+}
+
+.memberDirectoryList button {
+  align-items: center;
+  background: var(--color-paper);
+  border: 2px solid transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) minmax(5rem, auto) auto;
+  min-height: 4.75rem;
+  padding: 1rem;
+  text-align: left;
+  width: 100%;
+}
+
+.memberDirectoryList button[aria-pressed="true"] {
+  background: var(--admin-wash);
+  border-color: var(--color-ink);
+}
+
+.memberDirectoryList button:hover:not(:disabled) {
+  background: var(--admin-wash);
+}
+
+.memberDirectoryList button:disabled {
+  cursor: wait;
+}
+
+.memberIdentity {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.memberIdentity strong {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.memberIdentity > span,
+.memberGroupSummary {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.memberEnabled {
+  background: var(--admin-wash);
+  border: 1px solid var(--member-field-border);
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  padding: 0.3rem 0.5rem;
+  white-space: nowrap;
+}
+
+.memberDetailHeading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.memberDetailHeading > span {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 100px;
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  padding: 0.4rem 0.7rem;
+}
+
+.memberDetailHeading h3 {
+  scroll-margin-top: 1.5rem;
+}
+
+.memberFacts {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.memberFacts > div {
+  border-top: 1px solid var(--color-rule);
+  display: grid;
+  font-size: 0.875rem;
+  gap: 0.45rem;
+  padding: 0.85rem 0;
+}
+
+.memberFacts dt {
+  color: var(--admin-muted);
+}
+
+.memberFacts dt > span {
+  font-size: 0.8125rem;
+}
+
+.memberFacts dd {
+  line-height: 1.6;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.memberPermissionFields {
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.memberPermissionFields legend {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  padding: 0 0.4rem;
+}
+
+.memberPermissionFields > p {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.memberPermissionChoices,
+.memberPermissionActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.memberPermissionChoices button {
+  background: var(--color-paper);
+  border: 1px solid var(--member-field-border);
+  border-radius: 5px;
+  color: var(--color-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  min-height: 2.75rem;
+  padding: 0.65rem 0.75rem;
+}
+
+.memberPermissionChoices button[aria-pressed="true"] {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.memberPermissionChoices button:hover:not(:disabled) {
+  border-color: var(--color-ink);
+}
+
+.memberPermissionFields:disabled button,
+.memberPermissionChoices button:disabled {
+  cursor: not-allowed;
+}
+
+.memberChangePreview {
+  background: var(--admin-wash);
+  border: 1px solid var(--member-field-border);
+  border-radius: 5px;
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
+.memberChangePreview > strong {
+  font-size: 0.875rem;
+}
+
+.memberChangePreview dl {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.memberChangePreview dl > div {
+  display: grid;
+  font-size: 0.875rem;
+  gap: 0.25rem;
+}
+
+.memberChangePreview dt {
+  color: var(--admin-muted);
+}
+
+.memberChangePreview dd {
+  font-weight: 650;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.memberChangePreview > p {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.memberChangePreview label {
+  align-items: start;
+  display: flex;
+  font-size: 0.875rem;
+  gap: 0.6rem;
+  line-height: 1.6;
+  min-height: 2.75rem;
+  padding: 0.5rem 0;
+}
+
+.memberChangePreview input[type="checkbox"] {
+  accent-color: var(--color-ink);
+  flex: 0 0 auto;
+  height: 1.125rem;
+  margin: 0.15rem 0 0;
+  width: 1.125rem;
+}
+
+.memberStateNote,
+.memberStateWarning {
+  background: var(--admin-wash);
+  border-left: 3px solid var(--color-ink);
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding: 0.75rem;
+}
+
+.memberStateWarning {
+  border-color: var(--member-danger);
+  color: var(--member-danger);
+}
+
+.memberDetailEmpty {
+  justify-items: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.memberDetailEmpty > span {
+  background: var(--admin-wash);
+  border-radius: 50%;
+  display: grid;
+  font-size: 2rem;
+  height: 4rem;
+  place-items: center;
+  width: 4rem;
+}
+
+.memberDetailEmpty > p {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.memberScreen :is(.primaryButton, .secondaryButton) {
+  border-radius: 5px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  min-height: 2.75rem;
+  overflow-wrap: anywhere;
+}
+
+.memberScreen .primaryButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-ink) 85%, var(--color-paper));
+  border-color: var(--color-ink);
+}
+
+.memberScreen .secondaryButton:is(:hover, :focus-visible):not(:disabled) {
+  background: var(--admin-wash);
+  border-color: var(--color-ink);
+  color: var(--color-ink);
+}
+
+.memberScreen .noticeError {
+  border-color: var(--member-danger);
+  color: var(--member-danger);
+}
+
+.memberScreen .noticeSuccess,
+.memberScreen .emptyState {
+  color: var(--admin-muted);
+}
+
+.memberScreen .emptyState {
+  font-family: var(--font-body);
+}
+
+@media (max-width: 1200px) {
+  .memberWorkspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .memberToolbar {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 1rem;
+  }
+
+  .memberDirectory,
+  .memberDetail {
+    padding: 1rem;
+  }
+
+  .memberDirectoryList button {
+    gap: 0.6rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 0.75rem;
+  }
+
+  .memberGroupSummary {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .memberEnabled {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+
+  .memberPermissionActions {
+    flex-direction: column;
+  }
+
+  .memberPermissionActions button {
+    width: 100%;
+  }
+}
+
+/* 쿠폰은 혜택 초안의 저장과 고객 미발급 상태를 분명히 구분합니다. */
+.couponScreen {
+  --coupon-field-border: color-mix(in srgb, var(--color-ink) 50%, var(--color-paper));
+  --coupon-accent: color-mix(in srgb, #c22727 65%, var(--color-ink));
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.couponHeader {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.couponHeader > div > p {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  margin: 0 0 0.4rem;
+}
+
+.couponHeader > div > div {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.couponHeader h2 {
+  font-size: clamp(1.5rem, 2.2vw, 1.875rem);
+  letter-spacing: -0.035em;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.couponHeader > div > div > span,
+.couponPreviewHeading > span {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 100px;
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  padding: 0.4rem 0.7rem;
+}
+
+.couponHelp {
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  max-width: 30rem;
+}
+
+.couponHelp summary {
+  color: var(--color-ink);
+  cursor: pointer;
+  min-height: 2.75rem;
+  padding: 0.7rem 0.85rem;
+}
+
+.couponHelp p {
+  line-height: 1.6;
+  margin: 0;
+  padding: 0 0.85rem 0.85rem;
+}
+
+.couponWorkflow {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.couponWorkflow li {
+  align-items: center;
+  color: var(--admin-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+  gap: 0.6rem;
+  line-height: 1.5;
+}
+
+.couponWorkflow li > span {
+  border: 1px solid var(--coupon-field-border);
+  border-radius: 50%;
+  display: grid;
+  font-weight: 650;
+  height: 1.75rem;
+  place-items: center;
+  width: 1.75rem;
+}
+
+.couponWorkspace {
+  align-items: start;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  min-width: 0;
+}
+
+.couponForm,
+.couponDraftPreview {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 7px;
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+  padding: 1.5rem;
+}
+
+.couponForm h3,
+.couponPreviewHeading h3 {
+  font-size: 1.25rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.couponFields {
+  border: 0;
+  display: grid;
+  gap: 1.25rem;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.couponFields label {
+  display: grid;
+  font-size: 0.875rem;
+  font-weight: 600;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.couponScreen :is(input, select) {
+  background: var(--color-paper);
+  border: 1px solid var(--coupon-field-border);
+  border-radius: 5px;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+  max-width: 100%;
+  min-height: 2.75rem;
+  min-width: 0;
+  padding: 0.7rem 0.75rem;
+  width: 100%;
+}
+
+.couponScreen input::placeholder {
+  color: var(--admin-muted);
+  opacity: 1;
+}
+
+.couponInlineFields {
+  align-items: start;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.couponFields small {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.couponValidation {
+  border-left: 3px solid var(--coupon-accent);
+  color: var(--coupon-accent);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+  padding-left: 0.75rem;
+}
+
+.couponSaveNote {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.couponScreen .primaryButton {
+  border-radius: 5px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  justify-self: start;
+  min-height: 2.75rem;
+}
+
+.couponScreen .primaryButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-ink) 85%, var(--color-paper));
+  border-color: var(--color-ink);
+}
+
+.couponScreen .noticeError {
+  border-color: var(--coupon-accent);
+  color: var(--coupon-accent);
+}
+
+.couponScreen .noticeSuccess {
+  color: var(--admin-muted);
+}
+
+.couponPreviewHeading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.couponDraftTicket {
+  align-content: center;
+  background: color-mix(in srgb, #c22727 5%, var(--color-paper));
+  border: 1px solid color-mix(in srgb, #c22727 30%, var(--color-paper));
+  border-radius: 7px;
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+  min-height: 21rem;
+  min-width: 0;
+  padding: 1.75rem 1.25rem;
+  text-align: center;
+}
+
+.couponDraftTicket > span {
+  color: var(--coupon-accent);
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+
+.couponDraftTicket > strong {
+  color: var(--coupon-accent);
+  font-size: clamp(2.25rem, 4vw, 4.5rem);
+  letter-spacing: -0.055em;
+  line-height: 1.15;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.couponDraftTicket[data-valid="false"] > strong {
+  font-size: 1.5rem;
+  letter-spacing: -0.03em;
+}
+
+.couponDraftTicket > p {
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.couponDraftTicket code {
+  border: 1px solid var(--coupon-field-border);
+  border-radius: 4px;
+  font-size: 0.875rem;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 0.5rem 0.75rem;
+}
+
+.couponDraftTicket small {
+  border-top: 1px dashed var(--coupon-field-border);
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  padding-top: 0.85rem;
+}
+
+.couponUnissued {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  padding: 1rem;
+}
+
+.couponUnissued strong {
+  font-size: 0.9375rem;
+}
+
+.couponUnissued p {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0.5rem 0 0;
+}
+
+@media (max-width: 1200px) {
+  .couponWorkspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .couponForm,
+  .couponDraftPreview {
+    padding: 1rem;
+  }
+
+  .couponInlineFields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .couponScreen .primaryButton {
+    justify-self: stretch;
+  }
+
+  .couponWorkflow {
+    gap: 0.5rem;
+  }
+
+  .couponWorkflow li {
+    align-content: start;
+    align-items: start;
+    flex-direction: column;
+    font-size: 0.8125rem;
+  }
+}
+
+/* 마케팅은 초안 채널·문구만 편집하며 발송 상태를 추정하지 않습니다. */
+.campaignScreen {
+  --campaign-field-border: color-mix(in srgb, var(--color-ink) 50%, var(--color-paper));
+  --campaign-danger: color-mix(in srgb, #c22727 65%, var(--color-ink));
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.campaignHeader {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.campaignHeader > div > p {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  margin: 0 0 0.4rem;
+}
+
+.campaignHeader > div > div {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.campaignHeader h2 {
+  font-size: clamp(1.5rem, 2.2vw, 1.875rem);
+  letter-spacing: -0.035em;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.campaignHeader > div > div > span {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 100px;
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  padding: 0.4rem 0.7rem;
+}
+
+.campaignHelp {
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  max-width: 30rem;
+}
+
+.campaignHelp summary {
+  color: var(--color-ink);
+  cursor: pointer;
+  min-height: 2.75rem;
+  padding: 0.7rem 0.85rem;
+}
+
+.campaignHelp p {
+  line-height: 1.6;
+  margin: 0;
+  padding: 0 0.85rem 0.85rem;
+}
+
+.campaignWorkflow {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.campaignWorkflow li {
+  align-items: center;
+  color: var(--admin-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+  gap: 0.6rem;
+  line-height: 1.5;
+}
+
+.campaignWorkflow li > span {
+  border: 1px solid var(--campaign-field-border);
+  border-radius: 50%;
+  display: grid;
+  font-weight: 650;
+  height: 1.75rem;
+  place-items: center;
+  width: 1.75rem;
+}
+
+.campaignWorkspace {
+  align-items: start;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  min-width: 0;
+}
+
+.campaignForm,
+.campaignPreview {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 7px;
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+  padding: 1.5rem;
+}
+
+.campaignPreview h3 {
+  font-size: 1.25rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.campaignFields,
+.campaignChannels {
+  border: 0;
+  display: grid;
+  gap: 1.25rem;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.campaignChannels legend {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  padding: 0;
+}
+
+.campaignChannelCards {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.campaignChannelCards label {
+  align-items: center;
+  background: var(--color-paper);
+  border: 1px solid var(--campaign-field-border);
+  border-radius: 6px;
+  cursor: pointer;
+  display: grid;
+  gap: 0.75rem 0.5rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 1rem;
+}
+
+.campaignChannelCards label[data-selected="true"] {
+  background: var(--admin-wash);
+  outline: 1px solid var(--color-ink);
+  outline-offset: -2px;
+}
+
+.campaignChannelIcon {
+  align-items: center;
+  display: flex;
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 1.75rem;
+}
+
+.campaignChannelCards input[type="checkbox"] {
+  accent-color: var(--color-ink);
+  grid-column: 2;
+  grid-row: 1;
+  height: 1.125rem;
+  margin: 0;
+  width: 1.125rem;
+}
+
+.campaignChannelCards strong {
+  font-size: 0.9375rem;
+  grid-column: 1 / -1;
+}
+
+.campaignChannelState {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  grid-column: 1 / -1;
+}
+
+.campaignFields > label {
+  display: grid;
+  font-size: 0.875rem;
+  font-weight: 600;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.campaignScreen :is(input:not([type="checkbox"]), textarea) {
+  background: var(--color-paper);
+  border: 1px solid var(--campaign-field-border);
+  border-radius: 5px;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+  min-height: 2.75rem;
+  min-width: 0;
+  padding: 0.7rem 0.75rem;
+  width: 100%;
+}
+
+.campaignScreen :is(input, textarea)::placeholder {
+  color: var(--admin-muted);
+  opacity: 1;
+}
+
+.campaignScreen textarea {
+  resize: vertical;
+}
+
+.campaignFields small {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.campaignScopeNote,
+.campaignSaveNote {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.campaignConsentNote {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  padding: 1rem;
+}
+
+.campaignConsentNote strong {
+  font-size: 0.9375rem;
+}
+
+.campaignConsentNote p {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0.5rem 0 0;
+}
+
+.campaignValidation {
+  border-left: 3px solid var(--campaign-danger);
+  color: var(--campaign-danger);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+  padding-left: 0.75rem;
+}
+
+.campaignScreen .primaryButton {
+  border-radius: 5px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  justify-self: start;
+  min-height: 2.75rem;
+}
+
+.campaignScreen .primaryButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-ink) 85%, var(--color-paper));
+  border-color: var(--color-ink);
+}
+
+.campaignScreen .noticeError {
+  border-color: var(--campaign-danger);
+  color: var(--campaign-danger);
+}
+
+.campaignScreen .noticeSuccess {
+  color: var(--admin-muted);
+}
+
+.campaignPreviewChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.campaignPreviewChoices button {
+  background: var(--color-paper);
+  border: 1px solid var(--campaign-field-border);
+  border-radius: 5px;
+  color: var(--color-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  min-height: 2.75rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.campaignPreviewChoices button[aria-pressed="true"] {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.campaignPreviewChoices button:hover:not([aria-pressed="true"]) {
+  background: var(--admin-wash);
+}
+
+.campaignMessage {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 7px;
+  display: grid;
+  gap: 1.25rem;
+  min-height: 20rem;
+  min-width: 0;
+  padding: 1.5rem;
+}
+
+.campaignMessageBrand {
+  border-bottom: 1px solid var(--color-rule);
+  display: grid;
+  font-size: 1.5rem;
+  font-weight: 800;
+  gap: 0.5rem;
+  letter-spacing: -0.035em;
+  padding-bottom: 1rem;
+}
+
+.campaignMessageBrand > span,
+.campaignMessage > small {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.6;
+}
+
+.campaignMessageBody {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.campaignMessageBody strong {
+  font-size: 1.125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.campaignMessageBody p {
+  font-size: 0.9375rem;
+  line-height: 1.8;
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.campaignMessage[data-channel="sms"] {
+  border-color: var(--campaign-field-border);
+  border-radius: 1.25rem;
+}
+
+.campaignMessage[data-channel="sms"] .campaignMessageBody {
+  background: var(--admin-wash);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.campaignMessage[data-channel="push"] {
+  background: var(--admin-wash);
+  min-height: 0;
+}
+
+.campaignMessage[data-channel="push"] .campaignMessageBrand {
+  font-size: 1.125rem;
+}
+
+.campaignEmptyPreview,
+.campaignPreviewNote {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.campaignEmptyPreview {
+  background: var(--admin-wash);
+  border: 1px dashed var(--campaign-field-border);
+  border-radius: 7px;
+  padding: 2rem 1rem;
+}
+
+@media (max-width: 1200px) {
+  .campaignWorkspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .campaignForm,
+  .campaignPreview,
+  .campaignMessage {
+    padding: 1rem;
+  }
+
+  .campaignChannelCards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .campaignChannelCards label {
+    gap: 0.5rem 1rem;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .campaignChannelIcon {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+
+  .campaignChannelCards input[type="checkbox"] {
+    grid-column: 3;
+    grid-row: 1 / 3;
+  }
+
+  .campaignChannelCards strong {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .campaignChannelState {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .campaignScreen .primaryButton {
+    justify-self: stretch;
+  }
+
+  .campaignWorkflow {
+    gap: 0.5rem;
+  }
+
+  .campaignWorkflow li {
+    align-content: start;
+    align-items: start;
+    flex-direction: column;
+    font-size: 0.8125rem;
+  }
+}
+
+/* 입고 OCR은 원본·상품 필드 검토를 중심으로, 저장과 실제 입고를 분리합니다. */
+.ocrScreen {
+  --ocr-field-border: color-mix(in srgb, var(--color-ink) 50%, var(--color-paper));
+  --ocr-danger: color-mix(in srgb, #c22727 65%, var(--color-ink));
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.ocrHeader {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.ocrHeader h2 {
+  font-size: clamp(1.5rem, 2.2vw, 1.875rem);
+  letter-spacing: -0.035em;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.ocrHeader > div > p {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0.5rem 0 0;
+}
+
+.ocrHeader > div > p:first-child {
+  font-size: 0.8125rem;
+  margin: 0 0 0.4rem;
+}
+
+.ocrReviewBadge {
+  background: var(--admin-wash);
+  border: 1px solid var(--ocr-field-border);
+  border-radius: 5px;
+  font-size: 0.875rem;
+  padding: 0.7rem 0.85rem;
+}
+
+.ocrWorkflow {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ocrWorkflow li {
+  align-items: center;
+  color: var(--admin-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+  gap: 0.6rem;
+  line-height: 1.5;
+}
+
+.ocrWorkflow li > span {
+  border: 1px solid var(--ocr-field-border);
+  border-radius: 50%;
+  display: grid;
+  height: 1.75rem;
+  place-items: center;
+  width: 1.75rem;
+}
+
+.ocrWorkflow li[aria-current="step"] {
+  color: var(--color-ink);
+  font-weight: 700;
+}
+
+.ocrWorkflow li[aria-current="step"] > span {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.ocrSummary {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ocrSummary article {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+}
+
+.ocrSummary article > span {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+}
+
+.ocrSummary strong {
+  font-size: 1.5rem;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
+}
+
+.ocrSummary small {
+  color: var(--admin-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.ocrWorkspace {
+  align-items: start;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.4fr);
+  min-width: 0;
+}
+
+.ocrSourcePanel,
+.ocrReviewPanel {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 7px;
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1.25rem;
+}
+
+.ocrSourcePanel > h3,
+.ocrReviewHeading h3,
+.ocrInventoryStage > h3 {
+  font-size: 1.25rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.ocrSourceHint,
+.ocrReviewHeading p {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.ocrTransferNote {
+  background: var(--admin-wash);
+  border-left: 3px solid var(--color-ink);
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding: 0.75rem;
+}
+
+.ocrTransferNote strong {
+  color: var(--color-ink);
+}
+
+.ocrTransferNote p {
+  margin: 0.5rem 0 0;
+}
+
+.ocrFileControl {
+  display: grid;
+  font-size: 0.875rem;
+  font-weight: 600;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.ocrScreen input[type="file"] {
+  background: var(--color-paper);
+  border: 1px dashed var(--ocr-field-border);
+  border-radius: 4px;
+  color: var(--admin-muted);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  max-width: 100%;
+  min-height: 2.75rem;
+  min-width: 0;
+  padding: 0.5rem;
+  width: 100%;
+}
+
+.ocrScreen input[type="file"]::file-selector-button {
+  background: var(--admin-wash);
+  border: 1px solid var(--ocr-field-border);
+  border-radius: 4px;
+  color: var(--color-ink);
+  cursor: pointer;
+  font: inherit;
+  min-height: 2.75rem;
+  padding: 0.5rem;
+}
+
+.ocrSourceEmpty {
+  background: var(--admin-wash);
+  border: 1px dashed var(--ocr-field-border);
+  border-radius: 5px;
+  color: var(--admin-muted);
+  display: grid;
+  font-size: 0.875rem;
+  gap: 0.75rem;
+  justify-items: center;
+  min-height: 12rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.ocrSourceEmpty > span {
+  font-size: 3rem;
+}
+
+.ocrSourceEmpty p {
+  line-height: 1.6;
+  margin: 0;
+}
+
+.ocrSourceFigure {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0;
+  min-width: 0;
+}
+
+.ocrSourceFigure > img {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  height: auto;
+  max-height: 30rem;
+  object-fit: contain;
+  width: 100%;
+}
+
+.ocrSourceFigure figcaption {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.ocrSourceFigure > button {
+  justify-self: start;
+}
+
+.ocrScreen
+  :is(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+    select,
+    textarea
+  ) {
+  background: var(--color-paper);
+  border: 1px solid var(--ocr-field-border);
+  border-radius: 4px;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.5;
+  max-width: 100%;
+  min-height: 2.75rem;
+  min-width: 0;
+  padding: 0.6rem 0.7rem;
+  width: 100%;
+}
+
+.ocrScreen :is(input, textarea)::placeholder {
+  color: var(--admin-muted);
+  opacity: 1;
+}
+
+.ocrReviewHeading {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.ocrReviewHeading > div {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.ocrReviewRows {
+  display: grid;
+  gap: 1rem;
+  list-style: none;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.ocrReviewRow {
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.ocrRowHeading {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.ocrRowHeading > strong {
+  font-size: 0.875rem;
+}
+
+.ocrMainFields {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr);
+}
+
+.ocrMainFields label,
+.ocrRowDetails label {
+  display: grid;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.ocrRowDetails {
+  border-top: 1px solid var(--color-rule);
+  min-width: 0;
+}
+
+.ocrRowDetails dl {
+  display: grid;
+  gap: 0.8rem;
+  margin: 1rem 0 0;
+}
+
+.ocrRowDetails dl > div {
+  display: grid;
+  font-size: 0.8125rem;
+  gap: 0.4rem;
+}
+
+.ocrRowDetails dt {
+  color: var(--admin-muted);
+}
+
+.ocrRowDetails dd {
+  font-family: var(--font-mono);
+  line-height: 1.6;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ocrScreen summary {
+  color: var(--color-ink);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  min-height: 2.75rem;
+  overflow-wrap: anywhere;
+  padding: 0.75rem 0;
+}
+
+.ocrProcessingHelp,
+.ocrEditHelp {
+  border-top: 1px solid var(--color-rule);
+  min-width: 0;
+}
+
+.ocrProcessingHelp p,
+.ocrEditHelp p,
+.ocrAdvanced > p,
+.ocrInventoryStage > p {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  margin: 0 0 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.ocrReviewSave {
+  border-top: 1px solid var(--color-rule);
+  display: grid;
+  gap: 1rem;
+  padding-top: 1rem;
+}
+
+.ocrSaveBoundary {
+  background: var(--admin-wash);
+  border-left: 3px solid var(--color-ink);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  margin: 0;
+  padding: 0.75rem;
+}
+
+.ocrReviewSave > div {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.ocrReviewSave > div > span {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+}
+
+.ocrAdvanced,
+.ocrRawReadOnly,
+.ocrInventoryStage {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  min-width: 0;
+  padding: 0.5rem 1.25rem;
+}
+
+.ocrInventoryStage {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.ocrRawReadOnly pre {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  margin-top: 0;
+  max-height: 15rem;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.ocrScreen :is(.primaryButton, .secondaryButton) {
+  border-radius: 5px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  min-height: 2.75rem;
+  overflow-wrap: anywhere;
+}
+
+.ocrScreen .primaryButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-ink) 85%, var(--color-paper));
+  border-color: var(--color-ink);
+}
+
+.ocrScreen .secondaryButton:is(:hover, :focus-visible):not(:disabled) {
+  background: var(--admin-wash);
+  border-color: var(--color-ink);
+  color: var(--color-ink);
+}
+
+.ocrScreen .noticeError {
+  border-color: var(--ocr-danger);
+  color: var(--ocr-danger);
+}
+
+.ocrScreen .noticeSuccess,
+.ocrScreen .emptyState {
+  color: var(--admin-muted);
+}
+
+.ocrScreen .emptyState {
+  font-family: var(--font-body);
+}
+
+.ocrImageDialog {
+  background: var(--color-paper);
+  border: 1px solid var(--ocr-field-border);
+  border-radius: 7px;
+  color: var(--color-ink);
+  margin: auto;
+  max-height: calc(100dvh - 2rem);
+  max-width: calc(100vw - 2rem);
+  overflow: auto;
+  padding: 1.25rem;
+  width: 70rem;
+}
+
+.ocrImageDialog::backdrop {
+  background: rgb(0 0 0 / 65%);
+}
+
+.ocrImageDialog > div {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.ocrImageDialog h3 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.ocrImageDialog > p {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.ocrImageDialog > img {
+  height: auto;
+  object-fit: contain;
+  width: 100%;
+}
+
+@media (max-width: 1200px) {
+  .ocrWorkspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .ocrSourcePanel,
+  .ocrReviewPanel {
+    padding: 1rem;
+  }
+
+  .ocrSummary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ocrMainFields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ocrMainFields label:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .ocrWorkflow {
+    gap: 0.5rem;
+  }
+
+  .ocrWorkflow li {
+    align-content: start;
+    align-items: start;
+    flex-direction: column;
+    font-size: 0.75rem;
+  }
+
+  .ocrReviewSave > div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ocrImageDialog {
+    padding: 1rem;
   }
 }

@@ -1,4 +1,16 @@
 // 역할: 정적 관리자 화면과 배포 후 관리자 API 어댑터가 공유하는 안전한 UI 계약을 정의합니다.
+import type {
+  OcrMapping,
+  OcrTableAnalysis,
+} from "../../infra/lambda/ocr-table-parser.js";
+export type {
+  OcrColumnMapping,
+  OcrRegionMapping,
+  OcrRegionRect,
+  OcrRegionAnalysis,
+  OcrMapping,
+  OcrTableAnalysis,
+} from "../../infra/lambda/ocr-table-parser.js";
 
 /** 관리자 상품 입력 폼이 다루는 공개 카탈로그 초안입니다. */
 export type AdminProductDraft = Readonly<{
@@ -65,7 +77,24 @@ export type AdminOcrRecognitionResult = Readonly<{
   version: number;
   rawText: string;
   rows: readonly AdminOcrReviewRow[];
+  analysis?: OcrTableAnalysis;
 }>;
+
+export type AdminOcrRemapInput = Readonly<{
+  jobId: string;
+  version: number;
+  mapping: OcrMapping;
+  preview: boolean;
+}>;
+export type AdminOcrRemapPreview = Readonly<{
+  jobId: string;
+  version: number;
+  rows: readonly AdminOcrReviewRow[];
+  analysis: OcrTableAnalysis;
+}>;
+export type AdminOcrRemapResult =
+  | AdminOcrReviewSaveResult
+  | Readonly<{ kind: "preview"; preview: AdminOcrRemapPreview }>;
 
 /** Omitted rawText preserves the stored text; empty text explicitly clears it. */
 export type AdminOcrReviewSaveInput = Readonly<{
@@ -80,6 +109,43 @@ export type AdminOcrReviewSaveInput = Readonly<{
 export type AdminOcrReviewSaveResult =
   | Readonly<{ kind: "saved"; job: AdminOcrRecognitionResult }>
   | Readonly<{ kind: "conflict"; job: AdminOcrRecognitionResult }>;
+
+/** OCR 초안 저장과 분리된 실제 입고 명령. operationId는 동일 행의 재반영을 차단합니다. */
+export type AdminOcrIntakeInput = Readonly<{
+  operationId: string;
+  quantity: number;
+  /** 원본 행별 영속 claim. 묶음을 바꿔도 같은 행을 다시 입고하지 못합니다. */
+  source: Readonly<{ jobId: string; rowIds: readonly string[] }>;
+}> &
+  (
+    | Readonly<{
+        kind: "existing";
+        existing: Readonly<{ productId: string; version: number }>;
+      }>
+    | Readonly<{
+        kind: "new";
+        product: Readonly<{
+          name: string;
+          brandName: string;
+          option: string;
+          sku?: string;
+          price: number;
+          category: string;
+        }>;
+      }>
+  );
+
+export type AdminOcrIntakeResult = Readonly<{
+  product: AdminCatalogListItem;
+  receipt: Readonly<{
+    operationId: string;
+    kind: "existing" | "new";
+    quantity: number;
+    beforeStock: number;
+    afterStock: number;
+    replayed: boolean;
+  }>;
+}>;
 
 /** 관리자 화면이 저장할 브랜드 초안입니다. 외부 공급처 연락처 등 민감 정보는 포함하지 않습니다. */
 export type AdminBrandDraft = Readonly<{
@@ -118,6 +184,12 @@ export type AdminOverviewMetrics = Readonly<{
   asOf: string;
   timezone: string;
   todayOrderCount: number;
+  /** 결제 시각이 오늘(KST)인 PAID 주문의 KRW 합계. 구형 API는 생략 가능함. */
+  todayPaidRevenue?: number;
+  /** 결제 시각이 오늘(KST)인 PAID 주문의 판매 수량 합계. 구형 API는 생략 가능함. */
+  todaySoldItemCount?: number;
+  /** 가입 원천이 연결된 뒤 제공할 오늘(KST) 신규 회원 수. */
+  todayNewMemberCount?: number;
   lowStockCount: number;
   lowStockThreshold: number;
   activeCouponCount: number;
@@ -159,4 +231,6 @@ export type AdminDashboardActions = Readonly<{
   ) => Promise<void>;
   loadOcrReview?: (jobId: string) => Promise<AdminOcrRecognitionResult>;
   saveOcrReview?: (input: AdminOcrReviewSaveInput) => Promise<AdminOcrReviewSaveResult>;
+  remapOcrReview?: (input: AdminOcrRemapInput) => Promise<AdminOcrRemapResult>;
+  applyOcrIntake?: (input: AdminOcrIntakeInput) => Promise<AdminOcrIntakeResult>;
 }>;

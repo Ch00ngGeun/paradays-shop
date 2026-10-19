@@ -1,11 +1,12 @@
 /** Isolated OCR browser tests: copied source, mock public settings, no live API. */
-import { cpSync, existsSync, mkdtempSync, symlinkSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 
 const root = dirname(fileURLToPath(import.meta.url));
+const remoteDemo = process.env.PARADAYS_OCR_E2E_REMOTE_DEMO === "true";
 const workspace =
   process.env.PARADAYS_OCR_E2E_WORKSPACE ??
   mkdtempSync(join(tmpdir(), "paradays-ocr-e2e-"));
@@ -29,6 +30,13 @@ if (!process.env.PARADAYS_OCR_E2E_WORKSPACE) {
       cpSync(join(root, name), join(workspace, name), { recursive: true });
   }
   symlinkSync(join(root, "node_modules"), join(workspace, "node_modules"), "dir");
+  // 순수 공유 파서 2파일만 포함함. 서버 설정·인증 파일은 복사하지 않음.
+  mkdirSync(join(workspace, "infra", "lambda"), { recursive: true });
+  for (const name of ["ocr-table-parser.js", "ocr-table-parser.d.ts"])
+    cpSync(
+      join(root, "infra", "lambda", name),
+      join(workspace, "infra", "lambda", name),
+    );
   process.env.PARADAYS_OCR_E2E_WORKSPACE = workspace;
   console.log(`OCR test workspace and artifacts: ${workspace}`);
 }
@@ -58,6 +66,14 @@ export default defineConfig({
     env: {
       WATCHPACK_POLLING: "true",
       NEXT_TELEMETRY_DISABLED: "1",
+      NEXT_PUBLIC_LOCAL_OCR_ENABLED: "false",
+      NEXT_PUBLIC_LOCAL_OCR_API_URL: "",
+      // Deliberate test-only pin; ambient demo settings must never enter a run.
+      NEXT_PUBLIC_OCR_DEMO_ENABLED: remoteDemo ? "true" : "false",
+      NEXT_PUBLIC_OCR_DEMO_API_URL: remoteDemo ? "https://ocr-relay.demo.test" : "",
+      NEXT_PUBLIC_OCR_DEMO_ALLOWED_API_ORIGIN: remoteDemo
+        ? "https://ocr-relay.demo.test"
+        : "",
       NEXT_PUBLIC_COMMERCE_API_BASE_URL: "https://api.ocr.test/prod/",
       NEXT_PUBLIC_COGNITO_DOMAIN: "https://auth.ocr.test",
       NEXT_PUBLIC_COGNITO_CLIENT_ID: "ocr-test-public-client",
