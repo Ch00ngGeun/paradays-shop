@@ -49,6 +49,17 @@ import type {
   AdminProductDraft,
 } from "@/lib/admin-ui/types";
 import {
+  appendProductOption,
+  createProductSku,
+  formatProductDeckOption,
+  formatProductWheelOption,
+  mergeProductBrandNames,
+  PRODUCT_DECK_WIDTHS,
+  PRODUCT_WHEEL_DIAMETERS,
+  PRODUCT_WHEEL_HARDNESSES,
+  validateProductOptions,
+} from "@/lib/admin-ui/product-form";
+import {
   getOcrInputErrorMessage,
   getOcrReviewRowValidationMessage,
   OCR_INPUT_LIMITS,
@@ -535,7 +546,10 @@ function AdminWorkspace({
   };
 
   const openNewProductEditor = () => {
-    const id = productEditors.open("create", emptyProductDraft);
+    const id = productEditors.open("create", {
+      ...emptyProductDraft,
+      sku: createProductSku(),
+    });
     setProductNotice(null);
     navigateToAdminProductEditor(id);
   };
@@ -690,10 +704,23 @@ function AdminWorkspace({
       return;
     }
 
+    const optionError = validateProductOptions(productDraft.sizes);
+    if (optionError) {
+      setEditorNotice({
+        kind: "error",
+        message:
+          optionError === "too-many-options"
+            ? "옵션은 최대 20개까지 저장할 수 있습니다."
+            : "각 옵션은 50자 이하로 입력해 주세요.",
+      });
+      return;
+    }
+
     if (previewCompareAtPrice > 0 && previewCompareAtPrice <= previewPrice) {
       setEditorNotice({
         kind: "error",
-        message: "정가는 판매가보다 큰 값으로 입력해 주세요.",
+        message:
+          "기존 정가는 판매가보다 커야 합니다. 판매가를 낮추거나 ‘기존 정가 제거’로 삭제를 확인한 뒤 저장해 주세요.",
       });
       return;
     }
@@ -989,7 +1016,26 @@ function AdminWorkspace({
   };
 
   const resetProductDraft = () => {
-    if (productEditor) productEditors.reset(productEditor.id, emptyProductDraft);
+    if (productEditor) {
+      const original = localProducts.find(
+        (product) => product.id === productEditor.draft.productId,
+      );
+      productEditors.reset(productEditor.id, {
+        ...emptyProductDraft,
+        sku:
+          productEditor.mode === "create"
+            ? createProductSku()
+            : productEditor.draft.sku,
+        compareAtPrice:
+          productEditor.mode === "edit"
+            ? original
+              ? typeof original.compareAtPrice === "number"
+                ? String(original.compareAtPrice)
+                : ""
+              : productEditor.draft.compareAtPrice
+            : "",
+      });
+    }
     setProductNotice(null);
   };
 
@@ -1752,6 +1798,7 @@ function AdminWorkspace({
             canUploadImages={Boolean(actions?.uploadProductImage)}
             deleting={isDeletingProducts}
             draft={productDraft}
+            editorId={productEditor?.id ?? ""}
             loading={isLoadingProducts}
             lockInputs={isSavingProduct && savingProductEditorId === productEditor?.id}
             notice={productNotice}
@@ -2199,12 +2246,167 @@ function OverviewSection({
   );
 }
 
+function ProductOptionControls({
+  category,
+  editorId,
+  onChange,
+  value,
+}: Readonly<{
+  category: string;
+  editorId: string;
+  onChange: (value: string) => void;
+  value: string;
+}>) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [deckWidth, setDeckWidth] = useState("");
+  const [wheelDiameter, setWheelDiameter] = useState("");
+  const [wheelHardness, setWheelHardness] = useState("");
+  const [notice, setNotice] = useState<Notice>(null);
+  const option =
+    category === "Deck"
+      ? formatProductDeckOption(deckWidth)
+      : category === "Wheels"
+        ? formatProductWheelOption(wheelDiameter, wheelHardness)
+        : null;
+  const addOption = () => {
+    if (!option) return;
+    const result = appendProductOption(value, option);
+    if (!result.ok) {
+      setNotice({
+        kind: "error",
+        message:
+          result.reason === "too-many-options"
+            ? "옵션은 최대 20개까지 추가할 수 있습니다."
+            : "각 옵션은 쉼표·줄바꿈 없이 50자 이하로 추가해 주세요.",
+      });
+      return;
+    }
+    if (result.added) onChange(result.value);
+    setNotice({
+      kind: "success",
+      message: result.added
+        ? `${option} 옵션을 추가했습니다.`
+        : "이미 있는 옵션입니다.",
+    });
+    setDeckWidth("");
+    setWheelDiameter("");
+    setWheelHardness("");
+  };
+
+  return (
+    <div
+      className={`${styles.productOptionField} ${category === "Deck" ? styles.productDeckField : ""}`}
+    >
+      <label htmlFor={`product-options-${editorId}`}>
+        <span>사이즈 / 옵션</span>
+        <input
+          id={`product-options-${editorId}`}
+          onChange={(event) => {
+            setNotice(null);
+            onChange(event.target.value);
+          }}
+          placeholder={category === "Wheels" ? "54mm / 99a" : "8.25 inch, 8.5 inch"}
+          ref={inputRef}
+          value={value}
+        />
+      </label>
+      {category === "Deck" ? (
+        <div className={styles.productOptionPicker}>
+          <select
+            aria-label="데크 규격 선택"
+            onChange={(event) => {
+              setDeckWidth(event.target.value);
+              setNotice(null);
+              if (event.target.value === "manual") inputRef.current?.focus();
+            }}
+            value={deckWidth}
+          >
+            <option value="">규격 선택</option>
+            {PRODUCT_DECK_WIDTHS.map((width) => (
+              <option key={width} value={width}>
+                {width} inch
+              </option>
+            ))}
+            <option value="manual">직접 입력</option>
+          </select>
+          <button
+            className={styles.secondaryButton}
+            disabled={!option}
+            onClick={addOption}
+            type="button"
+          >
+            옵션 추가
+          </button>
+        </div>
+      ) : category === "Wheels" ? (
+        <>
+          <div className={styles.productWheelPicker}>
+            <select
+              aria-label="바퀴 크기 선택"
+              onChange={(event) => {
+                setWheelDiameter(event.target.value);
+                setNotice(null);
+              }}
+              value={wheelDiameter}
+            >
+              <option value="">크기 선택</option>
+              {PRODUCT_WHEEL_DIAMETERS.map((diameter) => (
+                <option key={diameter} value={diameter}>
+                  {diameter}mm
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="경도 선택"
+              onChange={(event) => {
+                setWheelHardness(event.target.value);
+                setNotice(null);
+              }}
+              value={wheelHardness}
+            >
+              <option value="">경도 선택</option>
+              {PRODUCT_WHEEL_HARDNESSES.map((hardness) => (
+                <option key={hardness} value={hardness}>
+                  {hardness}a
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            className={styles.secondaryButton}
+            disabled={!option}
+            onClick={addOption}
+            type="button"
+          >
+            옵션 추가
+          </button>
+        </>
+      ) : null}
+      <small>
+        {category === "Deck" || category === "Wheels"
+          ? "선택 후 ‘옵션 추가’를 누르세요. 추가 전 선택값은 저장되지 않습니다. "
+          : ""}
+        여러 옵션은 쉼표로 구분 · 최대 20개
+      </small>
+      {notice ? (
+        <small
+          className={notice.kind === "error" ? styles.productOptionError : undefined}
+          role={notice.kind === "error" ? "alert" : "status"}
+        >
+          {notice.message}
+        </small>
+      ) : null}
+    </div>
+  );
+}
+
 function ProductSection({
   brands,
   canSaveToServer,
   canUploadImages,
   deleting,
   draft,
+  editorId,
   loading,
   lockInputs,
   notice,
@@ -2230,6 +2432,7 @@ function ProductSection({
   canUploadImages: boolean;
   deleting: boolean;
   draft: AdminProductDraft;
+  editorId: string;
   loading: boolean;
   lockInputs: boolean;
   notice: Notice;
@@ -2287,6 +2490,18 @@ function ProductSection({
     "all",
   );
   const [stockFilter, setStockFilter] = useState<"all" | "inStock" | "soldOut">("all");
+  const [optionResetKey, setOptionResetKey] = useState(0);
+  const [manualBrandEditor, setManualBrandEditor] = useState<string | null>(null);
+  const brandInputRef = useRef<HTMLInputElement>(null);
+  const brandChoices = useMemo(
+    () =>
+      mergeProductBrandNames(
+        products.map((product) => product.brand),
+        brands,
+      ),
+    [brands, products],
+  );
+  const selectedBrandIndex = brandChoices.indexOf(draft.brand.trim());
   const dragSelectRef = useRef<"add" | "remove" | null>(null);
 
   useEffect(() => {
@@ -2615,25 +2830,29 @@ function ProductSection({
           ← 목록으로
         </button>
       </div>
-      <div className={styles.productPageHeading}>
-        <div className={styles.productEditorTitle}>
-          <h2>{editorTitle}</h2>
-          <span className={styles.productSaveState}>
-            {canSaveToServer
-              ? draft.isVisible
-                ? "공개 설정 · 저장 전"
-                : "비공개 · 저장 전"
-              : "로컬 초안 · 서버 미연결"}
-          </span>
+      <div className={`${styles.productPageHeading} ${styles.productCompactHeading}`}>
+        <div>
+          <div className={styles.productEditorTitle}>
+            <h2>{editorTitle}</h2>
+            <span className={styles.productSaveState}>
+              {canSaveToServer
+                ? draft.isVisible
+                  ? "공개 설정 · 저장 전"
+                  : "비공개 · 저장 전"
+                : "로컬 초안 · 서버 미연결"}
+            </span>
+          </div>
+          {view === "edit" && currentProduct?.version ? (
+            <p>
+              현재 {isCurrentlyPublic ? "공개" : "비공개"} → 저장 후{" "}
+              {draft.isVisible ? "공개" : "비공개"}
+            </p>
+          ) : null}
         </div>
-        {view === "edit" && currentProduct?.version ? (
-          <p>
-            현재 {isCurrentlyPublic ? "공개" : "비공개"} → 저장 후{" "}
-            {draft.isVisible ? "공개" : "비공개"}
-          </p>
-        ) : (
-          <p>저장 전 고객 화면을 미리 확인하세요.</p>
-        )}
+        <label className={styles.productManagementCode}>
+          <span>SKU / 관리 코드</span>
+          <input readOnly value={draft.sku} placeholder="기존 관리 코드 없음" />
+        </label>
       </div>
       <div className={styles.productEditor}>
         <form
@@ -2642,9 +2861,12 @@ function ProductSection({
           onSubmit={onSave}
           aria-busy={lockInputs}
         >
-          <fieldset className={styles.formGroup} disabled={lockInputs}>
+          <fieldset
+            className={`${styles.formGroup} ${styles.productFormGrid}`}
+            disabled={lockInputs}
+          >
             <legend>기본 정보</legend>
-            <label className={styles.fieldWide}>
+            <label>
               <span>
                 상품명 <em>*</em>
               </span>
@@ -2655,23 +2877,54 @@ function ProductSection({
                 value={draft.name}
               />
             </label>
-            <label>
-              <span>
-                브랜드 <em>*</em>
-              </span>
-              <input
-                list="admin-brand-options"
-                onChange={(event) => onTextChange("brand", event.target.value)}
-                placeholder="브랜드 입력 또는 선택"
-                required
-                value={draft.brand}
-              />
-              <datalist id="admin-brand-options">
-                {brands.map((brand) => (
-                  <option key={brand} value={brand} />
-                ))}
-              </datalist>
-            </label>
+            <div className={styles.productBrandField}>
+              <label htmlFor={`product-brand-${editorId}`}>
+                <span>
+                  브랜드 <em>*</em>
+                </span>
+              </label>
+              <div className={styles.productBrandControls}>
+                <input
+                  id={`product-brand-${editorId}`}
+                  maxLength={100}
+                  onChange={(event) => onTextChange("brand", event.target.value)}
+                  placeholder="직접 입력"
+                  ref={brandInputRef}
+                  required
+                  value={draft.brand}
+                />
+                <select
+                  aria-label="브랜드 선택"
+                  onChange={(event) => {
+                    if (event.target.value === "manual") {
+                      setManualBrandEditor(editorId);
+                      brandInputRef.current?.focus();
+                    } else if (event.target.value !== "") {
+                      setManualBrandEditor(null);
+                      const brand = brandChoices[Number(event.target.value)];
+                      if (brand) onTextChange("brand", brand);
+                    }
+                  }}
+                  value={
+                    manualBrandEditor === editorId
+                      ? "manual"
+                      : selectedBrandIndex >= 0
+                        ? String(selectedBrandIndex)
+                        : draft.brand.trim()
+                          ? "manual"
+                          : ""
+                  }
+                >
+                  <option value="">선택</option>
+                  {brandChoices.map((brand, index) => (
+                    <option key={brand} value={index}>
+                      {brand}
+                    </option>
+                  ))}
+                  <option value="manual">기타</option>
+                </select>
+              </div>
+            </div>
             <label>
               <span>카테고리</span>
               <select
@@ -2688,28 +2941,12 @@ function ProductSection({
                 <option value="Accessories">액세서리</option>
               </select>
             </label>
-            <label>
-              <span>SKU / 관리 코드</span>
-              <input
-                onChange={(event) => onTextChange("sku", event.target.value)}
-                placeholder="예: APR-ODW-825"
-                value={draft.sku}
-              />
-            </label>
-            <label>
-              <span>재고 수량</span>
-              <input
-                inputMode="numeric"
-                min="0"
-                onChange={(event) => onTextChange("stock", event.target.value)}
-                placeholder="0"
-                type="number"
-                value={draft.stock}
-              />
-            </label>
           </fieldset>
 
-          <fieldset className={styles.formGroup} disabled={lockInputs}>
+          <fieldset
+            className={`${styles.formGroup} ${styles.productFormGrid}`}
+            disabled={lockInputs}
+          >
             <legend>판매 정보</legend>
             <label>
               <span>
@@ -2726,52 +2963,91 @@ function ProductSection({
               />
             </label>
             <label>
-              <span>정가 (선택)</span>
+              <span>{view === "edit" ? "재고 수량" : "최초 재고"}</span>
               <input
                 inputMode="numeric"
                 min="0"
-                onChange={(event) => onTextChange("compareAtPrice", event.target.value)}
-                placeholder="128000"
+                onChange={(event) => onTextChange("stock", event.target.value)}
+                placeholder="0"
                 type="number"
-                value={draft.compareAtPrice}
+                value={draft.stock}
               />
             </label>
-            <label className={styles.fieldWide}>
-              <span>사이즈 / 옵션</span>
-              <input
-                onChange={(event) => onTextChange("sizes", event.target.value)}
-                placeholder="8.0”, 8.25”, 8.5”"
-                value={draft.sizes}
+            <ProductOptionControls
+              category={draft.category}
+              editorId={editorId}
+              key={`${editorId}:${draft.category}:${optionResetKey}`}
+              onChange={(value) => onTextChange("sizes", value)}
+              value={draft.sizes}
+            />
+            {view === "edit" && draft.compareAtPrice ? (
+              <div className={styles.productLegacyPrice}>
+                <span>
+                  기존 정가{" "}
+                  <strong>{moneyFormatter.format(previewCompareAtPrice)}</strong>
+                </span>
+                <button
+                  className={styles.secondaryButton}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "기존 정가를 제거할까요? 저장하면 할인 전 가격 표시가 사라집니다.",
+                      )
+                    )
+                      onTextChange("compareAtPrice", "");
+                  }}
+                  type="button"
+                >
+                  기존 정가 제거
+                </button>
+                <small>기존 값 유지 중 · 제거는 저장 후 반영</small>
+              </div>
+            ) : view === "edit" && currentProduct?.compareAtPrice ? (
+              <p className={styles.productLegacyPrice} role="status">
+                기존 정가 제거 예정 · 저장 전
+              </p>
+            ) : null}
+          </fieldset>
+
+          <fieldset
+            className={`${styles.formGroup} ${styles.productImageGroup}`}
+            disabled={lockInputs}
+          >
+            <legend>대표 이미지</legend>
+            <div className={styles.productImageUpload}>
+              {/* 선택한 파일의 blob URL은 기존 편집 세션이 해제합니다. 추가 URL을 만들지 않습니다. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt="선택한 대표 이미지"
+                className={styles.productImageThumb}
+                src={draft.imageUrl}
               />
-              <small>여러 옵션은 쉼표로 구분</small>
-            </label>
+              <label className={styles.uploadField}>
+                <span>대표 이미지</span>
+                <input
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={onImageChange}
+                  type="file"
+                />
+                <small>
+                  JPEG·PNG·WebP·GIF · 최대 6MB
+                  {canUploadImages ? " · 저장할 때 업로드" : " · 업로드 연결 필요"}
+                </small>
+              </label>
+            </div>
+          </fieldset>
+          <fieldset className={styles.formGroup} disabled={lockInputs}>
+            <legend>상품 설명</legend>
             <label className={styles.fieldWide}>
               <span>상품 설명</span>
               <textarea
                 onChange={(event) => onTextChange("description", event.target.value)}
                 placeholder={
-                  "Heavy Flannel Weave\nDual Chest Pockets\nButton Front Closure"
+                  "소재·특징·관리 방법 등을 입력하세요.\n줄바꿈으로 항목을 구분합니다."
                 }
                 rows={4}
                 value={draft.description}
               />
-              <small>줄바꿈으로 항목 구분</small>
-            </label>
-          </fieldset>
-
-          <fieldset className={styles.formGroup} disabled={lockInputs}>
-            <legend>대표 이미지</legend>
-            <label className={styles.uploadField}>
-              <span>대표 이미지</span>
-              <input
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                onChange={onImageChange}
-                type="file"
-              />
-              <small>
-                JPEG·PNG·WebP·GIF · 최대 6MB
-                {canUploadImages ? " · 저장할 때 업로드" : " · 업로드 연결 필요"}
-              </small>
             </label>
           </fieldset>
           <fieldset className={styles.formGroup} disabled={lockInputs}>
@@ -2815,7 +3091,11 @@ function ProductSection({
             <button
               className={styles.secondaryButton}
               disabled={lockInputs}
-              onClick={onReset}
+              onClick={() => {
+                setOptionResetKey((current) => current + 1);
+                setManualBrandEditor(null);
+                onReset();
+              }}
               type="button"
             >
               {view === "edit" ? "입력 초기화" : "새 초안"}
@@ -2856,15 +3136,16 @@ function ProductSection({
                   {draft.brand.trim() || "브랜드"}
                 </p>
                 <h3>{previewName}</h3>
-                {previewDescriptionLines.length > 0 ? (
-                  <ul className={styles.storeCardDescription}>
-                    {previewDescriptionLines.map((line) => (
-                      <li key={line}>{line}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className={styles.previewHint}>상품 설명 미입력</p>
-                )}
+                <div className={styles.productPreviewPrice}>
+                  <span>
+                    {previewPrice > 0
+                      ? moneyFormatter.format(previewPrice)
+                      : "판매가 입력"}
+                    {previewCompareAtPrice > previewPrice && previewPrice > 0 ? (
+                      <s>{moneyFormatter.format(previewCompareAtPrice)}</s>
+                    ) : null}
+                  </span>
+                </div>
 
                 <div className={styles.storeCardOptions}>
                   <fieldset>
@@ -2891,16 +3172,16 @@ function ProductSection({
                   </fieldset>
                 </div>
 
-                <div className={styles.productPreviewPrice}>
-                  <span>
-                    {previewPrice > 0
-                      ? moneyFormatter.format(previewPrice)
-                      : "판매가 입력"}
-                    {previewCompareAtPrice > previewPrice && previewPrice > 0 ? (
-                      <s>{moneyFormatter.format(previewCompareAtPrice)}</s>
-                    ) : null}
-                  </span>
-                </div>
+                {previewDescriptionLines.length > 0 ? (
+                  <details className={styles.productPreviewDescription}>
+                    <summary>상품 설명 보기</summary>
+                    <ul className={styles.storeCardDescription}>
+                      {previewDescriptionLines.map((line, index) => (
+                        <li key={`${index}:${line}`}>{line}</li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
               </div>
 
               <div className={styles.storeCardMedia}>

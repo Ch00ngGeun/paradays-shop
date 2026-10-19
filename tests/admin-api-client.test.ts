@@ -5,13 +5,20 @@ import {
   AdminApiRequestError,
   AdminApiResponseError,
   AdminOcrInputError,
+  AdminOcrDemoConnectionError,
   createAdminApiClient,
   getOcrRequestErrorMessage,
   isLocalOcrDevelopmentMode,
+  isRemoteOcrDemoMode,
 } from "@/lib/commerce/admin-api-client";
 import { OCR_INPUT_LIMITS } from "@/lib/admin-ui/ocr-input-validation";
 import { getCheckoutApiConfig } from "@/lib/commerce/checkout-api-client";
-import type { AdminOcrReviewRow } from "@/lib/admin-ui/types";
+import type {
+  AdminOcrReviewRow,
+  OcrColumnMapping,
+  AdminOcrIntakeInput,
+  AdminProductDraft,
+} from "@/lib/admin-ui/types";
 
 const apiConfig = getCheckoutApiConfig({
   NEXT_PUBLIC_COMMERCE_API_BASE_URL: "https://api.example.com/prod/",
@@ -48,6 +55,322 @@ const REVIEW_ROW: AdminOcrReviewRow = {
   ],
 };
 
+describe("atomic OCR catalog intake", () => {
+  const existing: AdminOcrIntakeInput = {
+    operationId: "ocr-intake-1",
+    kind: "existing",
+    quantity: 3,
+    source: { jobId: "ocr-job-intake", rowIds: ["ocr_1"] },
+    existing: { productId: "product-1", version: 2 },
+  };
+  const fresh: AdminOcrIntakeInput = {
+    operationId: "ocr-intake-new",
+    kind: "new",
+    quantity: 3,
+    source: { jobId: "ocr-job-intake", rowIds: ["ocr_2"] },
+    product: {
+      name: "New Bearings",
+      brandName: "Synthetic",
+      option: "Set 8",
+      price: 12000,
+      category: "Bearings",
+    },
+  };
+  function result(input: AdminOcrIntakeInput = existing, replayed = false) {
+    return {
+      product: {
+        productId: "product-1",
+        name: input.kind === "new" ? input.product.name : "Existing Bearings",
+        brandName: "Synthetic",
+        category: "Bearings",
+        price: 12000,
+        inventoryQuantity: input.kind === "new" ? 3 : 10,
+        status: "DRAFT",
+        featured: false,
+        sizes: ["Set 8"],
+        description: [],
+        version: input.kind === "new" ? 1 : 3,
+      },
+      receipt: {
+        operationId: input.operationId,
+        kind: input.kind,
+        quantity: 3,
+        beforeStock: input.kind === "new" ? 0 : 7,
+        afterStock: input.kind === "new" ? 3 : 10,
+        replayed,
+      },
+    };
+  }
+
+  it.each([false, true])(
+    "sends one authenticated production command and validates an original/replayed receipt %s",
+    async (replayed) => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("NEXT_PUBLIC_OCR_DEMO_ENABLED", "true");
+      vi.stubEnv("NEXT_PUBLIC_OCR_DEMO_API_URL", "https://ocr-relay.demo.test");
+      vi.stubEnv(
+        "NEXT_PUBLIC_OCR_DEMO_ALLOWED_API_ORIGIN",
+        "https://ocr-relay.demo.test",
+      );
+      vi.stubGlobal("window", { location: { origin: "https://paradays.web.app" } });
+      const fetchImplementation = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(Response.json(result(existing, replayed)));
+      const { client, getAccessToken } = createClient(fetchImplementation);
+      expect((await client.applyOcrIntake(existing)).receipt).toMatchObject({
+        replayed,
+        beforeStock: 7,
+        afterStock: 10,
+      });
+      expect(getAccessToken).toHaveBeenCalledOnce();
+      expect(fetchImplementation).toHaveBeenCalledOnce();
+      expect(fetchImplementation.mock.calls[0][0]).toBe(
+        "https://api.example.com/prod/admin/catalog/products",
+      );
+      const init = fetchImplementation.mock.calls[0][1];
+      expect(init?.method).toBe("POST");
+      expect(JSON.parse(String(init?.body))).toEqual({
+        action: "ocr-intake",
+        ...existing,
+      });
+      expect(String(init?.body)).not.toMatch(
+        /sourceText|rawText|confidence|box|imageBase64/u,
+      );
+    },
+  );
+
+  it("registers only a confirmed DRAFT product with price/category and initial intake stock", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(Response.json(result(fresh)));
+    const { client } = createClient(fetchImplementation);
+    expect((await client.applyOcrIntake(fresh)).product).toMatchObject({
+      stock: 3,
+      price: 12000,
+      category: "Bearings",
+      isVisible: false,
+      version: 1,
+    });
+    expect(JSON.parse(String(fetchImplementation.mock.calls[0][1]?.body))).toEqual({
+      action: "ocr-intake",
+      ...fresh,
+    });
+  });
+
+  it("accepts an explicitly entered zero price under the existing product contract", async () => {
+    const input = { ...fresh, product: { ...fresh.product, price: 0 } };
+    const response = result(input);
+    response.product.price = 0;
+    const { client } = createClient(
+      vi.fn<typeof fetch>().mockResolvedValue(Response.json(response)),
+    );
+    expect((await client.applyOcrIntake(input)).product.price).toBe(0);
+  });
+
+  it("does not send an intake without authentication", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>();
+    const client = createAdminApiClient({
+      config: apiConfig,
+      authorizationTokenProvider: { getAccessToken: () => null },
+      fetchImplementation,
+    });
+    await expect(client.applyOcrIntake(existing)).rejects.toThrow();
+    expect(fetchImplementation).not.toHaveBeenCalled();
+  });
+
+  it("canonicalizes decomposed Korean catalog fields without changing OCR input", async () => {
+    const product = {
+      name: "한글 상품",
+      brandName: "가상 상표",
+      option: "큰 규격",
+      sku: "한글-SKU",
+      price: 12000,
+      category: "Bearings",
+    };
+    const input: AdminOcrIntakeInput = {
+      ...fresh,
+      product: {
+        ...product,
+        name: product.name.normalize("NFD"),
+        brandName: product.brandName.normalize("NFD"),
+        option: product.option.normalize("NFD"),
+        sku: product.sku.normalize("NFD"),
+      },
+    };
+    const response = result(input);
+    const canonicalResponse = {
+      ...response,
+      product: {
+        ...response.product,
+        name: product.name,
+        brandName: product.brandName,
+        sizes: [product.option],
+        sku: product.sku,
+      },
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(Response.json(canonicalResponse));
+    const { client } = createClient(fetchImplementation);
+    expect((await client.applyOcrIntake(input)).product.name).toBe(product.name);
+    expect(
+      JSON.parse(String(fetchImplementation.mock.calls[0][1]?.body)).product,
+    ).toEqual(product);
+    expect(input.product.name).toBe(product.name.normalize("NFD"));
+  });
+
+  it("snapshots an intake before asynchronous token retrieval", async () => {
+    let release: (token: string) => void = () => {};
+    const token = new Promise<string>((resolve) => {
+      release = resolve;
+    });
+    const input = { ...existing, existing: { ...existing.existing } };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(Response.json(result()));
+    const client = createAdminApiClient({
+      config: apiConfig,
+      authorizationTokenProvider: { getAccessToken: () => token },
+      fetchImplementation,
+    });
+    const pending = client.applyOcrIntake(input);
+    input.quantity = 9;
+    input.existing.version = 99;
+    release("mock-admin-token");
+    expect((await pending).receipt.quantity).toBe(3);
+    expect(JSON.parse(String(fetchImplementation.mock.calls[0][1]?.body))).toEqual({
+      action: "ocr-intake",
+      ...existing,
+    });
+  });
+
+  it("rejects accessor or serialization-hook commands without evaluating them", async () => {
+    const getter = vi.fn(() => 3);
+    const input = { ...existing };
+    Object.defineProperty(input, "quantity", { get: getter, enumerable: true });
+    const fetchImplementation = vi.fn<typeof fetch>();
+    const { client } = createClient(fetchImplementation);
+    await expect(client.applyOcrIntake(input)).rejects.toThrow(AdminApiResponseError);
+    await expect(
+      client.applyOcrIntake({
+        ...existing,
+        existing: Object.assign(
+          Object.create({ toJSON: () => ({ stock: 999 }) }),
+          existing.existing,
+        ),
+      }),
+    ).rejects.toThrow(AdminApiResponseError);
+    expect(getter).not.toHaveBeenCalled();
+    expect(fetchImplementation).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { ...existing, quantity: 0 },
+    { ...existing, quantity: -1 },
+    { ...existing, quantity: 1.5 },
+    { ...existing, quantity: NaN },
+    { ...existing, quantity: Infinity },
+    { ...existing, quantity: 1000001 },
+    { ...existing, operationId: "" },
+    { ...existing, operationId: "x" },
+    { ...existing, existing: { productId: "product-1", version: 0 } },
+    { ...fresh, product: { ...fresh.product, price: "" } },
+    { ...fresh, product: { ...fresh.product, price: -1 } },
+    { ...fresh, product: { ...fresh.product, price: 0.5 } },
+    { ...fresh, product: { ...fresh.product, price: NaN } },
+    { ...fresh, product: { ...fresh.product, price: 100000001 } },
+    { ...fresh, product: { ...fresh.product, category: "Unlisted" } },
+    { ...fresh, product: { ...fresh.product, category: "" } },
+    { ...fresh, product: { ...fresh.product, name: "x".repeat(161) } },
+    { ...fresh, product: { ...fresh.product, brandName: " " } },
+    { ...fresh, product: { ...fresh.product, option: "x".repeat(51) } },
+    { ...fresh, product: { ...fresh.product, status: "PUBLISHED" } },
+    { ...fresh, product: { ...fresh.product, stock: 9 } },
+    { ...existing, sourceRows: [] },
+    { ...existing, source: undefined },
+    { ...existing, source: { jobId: "ocr-job-intake", rowIds: [] } },
+    { ...existing, source: { jobId: "ocr-job-intake", rowIds: ["ocr_1", "ocr_1"] } },
+    {
+      ...existing,
+      source: {
+        jobId: "ocr-job-intake",
+        rowIds: Array.from({ length: 97 }, (_, i) => `ocr_${i}`),
+      },
+    },
+    { ...existing, source: { jobId: "ocr-job-intake", rowIds: ["bad row"] } },
+    { ...existing, source: { jobId: "x", rowIds: ["ocr_1"] } },
+  ])("rejects invalid intake before any request %#", async (input) => {
+    const fetchImplementation = vi.fn<typeof fetch>();
+    const { client } = createClient(fetchImplementation);
+    await expect(client.applyOcrIntake(input as AdminOcrIntakeInput)).rejects.toThrow(
+      AdminApiResponseError,
+    );
+    expect(fetchImplementation).not.toHaveBeenCalled();
+  });
+
+  it.each(["operationId", "kind", "quantity", "beforeStock", "afterStock", "replayed"])(
+    "rejects missing receipt field %s",
+    async (key) => {
+      const response = result();
+      delete (response.receipt as Record<string, unknown>)[key];
+      const { client } = createClient(
+        vi.fn<typeof fetch>().mockResolvedValue(Response.json(response)),
+      );
+      await expect(client.applyOcrIntake(existing)).rejects.toThrow(
+        AdminApiResponseError,
+      );
+    },
+  );
+
+  it.each(["productId", "version", "inventoryQuantity"])(
+    "rejects a receipt/product mismatch in %s",
+    async (key) => {
+      const response = result();
+      (response.product as Record<string, unknown>)[key] =
+        key === "productId" ? "another-product" : 99;
+      const { client } = createClient(
+        vi.fn<typeof fetch>().mockResolvedValue(Response.json(response)),
+      );
+      await expect(client.applyOcrIntake(existing)).rejects.toThrow(
+        AdminApiResponseError,
+      );
+    },
+  );
+
+  it.each(["price", "category", "status"])(
+    "rejects a mismatched or published new product %s",
+    async (key) => {
+      const response = result(fresh);
+      (response.product as Record<string, unknown>)[key] =
+        key === "price" ? 1 : key === "category" ? "Deck" : "PUBLISHED";
+      const { client } = createClient(
+        vi.fn<typeof fetch>().mockResolvedValue(Response.json(response)),
+      );
+      await expect(client.applyOcrIntake(fresh)).rejects.toThrow(AdminApiResponseError);
+    },
+  );
+
+  it.each([
+    "OCR_INTAKE_OPERATION_CONFLICT",
+    "OCR_INTAKE_ROW_CONFLICT",
+    "CATALOG_PRODUCT_DUPLICATE",
+    "CATALOG_IDENTITY_CONFLICT",
+    "CATALOG_PRODUCT_VERSION_CONFLICT",
+  ])("returns safe %s without automatic retry or private bodies", async (code) => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        Response.json({ code, private: "PRIVATE_CATALOG_DATA" }, { status: 409 }),
+      );
+    const { client } = createClient(fetchImplementation);
+    await expect(client.applyOcrIntake(existing)).rejects.toMatchObject({
+      status: 409,
+      responseCode: code,
+    });
+    expect(fetchImplementation).toHaveBeenCalledOnce();
+  });
+});
+
 function saveClient(rawText = "Server canonical text") {
   const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
     new Response(
@@ -64,6 +387,259 @@ function saveClient(rawText = "Server canonical text") {
   );
   return { ...createClient(fetchImplementation), fetchImplementation };
 }
+
+describe("server canonical column mapping", () => {
+  const mapping: OcrColumnMapping = {
+    schemaVersion: 1,
+    headerRow: 0,
+    columns: { productName: 0, brand: null, option: null, quantity: 1 },
+  };
+  const analysis = {
+    mode: "table",
+    mapping,
+    table: {
+      headerRow: 0,
+      columns: [
+        { index: 0, label: "상품명", role: "productName" },
+        { index: 1, label: "수량", role: "quantity" },
+      ],
+    },
+  };
+  const job = {
+    jobId: "ocr-map",
+    version: 2,
+    rawText: "provider source",
+    rows: [REVIEW_ROW],
+    analysis,
+  };
+  it("sends only configuration and parses distinct preview then applied canonical job", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ preview: { ...job, version: 1 } }))
+      .mockResolvedValueOnce(Response.json({ job }));
+    const { client } = createClient(fetchImplementation);
+    expect(
+      await client.remapOcrReview({
+        jobId: job.jobId,
+        version: 1,
+        mapping,
+        preview: true,
+      }),
+    ).toMatchObject({ kind: "preview", preview: { version: 1, analysis } });
+    expect(
+      await client.remapOcrReview({
+        jobId: job.jobId,
+        version: 1,
+        mapping,
+        preview: false,
+      }),
+    ).toEqual({ kind: "saved", job });
+    expect(JSON.parse(String(fetchImplementation.mock.calls[0][1]?.body))).toEqual({
+      version: 1,
+      mapping,
+      preview: true,
+    });
+    expect(JSON.parse(String(fetchImplementation.mock.calls[1][1]?.body))).toEqual({
+      version: 1,
+      mapping,
+    });
+  });
+  it("recovers mapping conflicts through authenticated GET", async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({}, { status: 409 }))
+      .mockResolvedValueOnce(Response.json({ job }));
+    const { client } = createClient(fetchImplementation);
+    expect(
+      await client.remapOcrReview({
+        jobId: job.jobId,
+        version: 1,
+        mapping,
+        preview: false,
+      }),
+    ).toEqual({ kind: "conflict", job });
+    expect(fetchImplementation.mock.calls[1][1]?.method).toBe("GET");
+  });
+  it("does not populate product names from unclassified source or legacy missing fields", async () => {
+    const { client } = createClient(
+      vi.fn<typeof fetch>().mockResolvedValue(
+        Response.json({
+          job: {
+            ...job,
+            analysis: { mode: "unclassified", reason: "header-not-found" },
+            rows: [{ id: "p", sourceText: "Unclassified note" }],
+          },
+        }),
+      ),
+    );
+    expect((await client.loadOcrReview(job.jobId)).rows[0]).toMatchObject({
+      sourceText: "Unclassified note",
+      productName: "",
+      brand: "",
+      option: "",
+      quantity: "",
+    });
+  });
+  it("rejects malformed mapping before transmission", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>();
+    const { client } = createClient(fetchImplementation);
+    await expect(
+      client.remapOcrReview({
+        jobId: job.jobId,
+        version: 1,
+        mapping: { ...mapping, rawText: "secret" } as OcrColumnMapping,
+        preview: true,
+      }),
+    ).rejects.toBeInstanceOf(AdminApiResponseError);
+    expect(fetchImplementation).not.toHaveBeenCalled();
+  });
+  it.each([
+    { ...job, jobId: "different-job" },
+    { ...job, version: 1 },
+  ])("rejects apply responses for another job or version (%#)", async (invalid) => {
+    const { client } = createClient(
+      vi.fn<typeof fetch>().mockResolvedValue(Response.json({ job: invalid })),
+    );
+    await expect(
+      client.remapOcrReview({ jobId: job.jobId, version: 1, mapping, preview: false }),
+    ).rejects.toBeInstanceOf(AdminApiResponseError);
+  });
+  it.each([
+    { ...analysis, mode: "unknown" },
+    {
+      ...analysis,
+      table: {
+        ...analysis.table,
+        columns: [{ index: 4, label: "상품명", role: "productName" }],
+      },
+    },
+    { ...analysis, mapping: { ...mapping, headerRow: 499 } },
+    { ...analysis, table: undefined },
+  ])(
+    "rejects malformed analysis rather than claiming success (%#)",
+    async (invalid) => {
+      const { client } = createClient(
+        vi
+          .fn<typeof fetch>()
+          .mockResolvedValue(Response.json({ job: { ...job, analysis: invalid } })),
+      );
+      await expect(client.loadOcrReview(job.jobId)).rejects.toBeInstanceOf(
+        AdminApiResponseError,
+      );
+    },
+  );
+});
+
+describe("canonical region mapping without a table header", () => {
+  const mapping = {
+    schemaVersion: 2 as const,
+    parserVersion: 1 as const,
+    kind: "regions" as const,
+    image: { width: 1600, height: 820 },
+    firstRow: {
+      productName: { left: 0.1, top: 0.2, right: 0.4, bottom: 0.25 },
+      brand: null,
+      option: null,
+      quantity: { left: 0.7, top: 0.2, right: 0.8, bottom: 0.25 },
+    },
+    tableBottom: 0.8,
+    secondRowY: null,
+    quantityConfirmed: true,
+  };
+  const analysis = {
+    mode: "table",
+    mapping,
+    region: {
+      sourceTokenCount: 5,
+      includedTokenCount: 2,
+      excludedTokenCount: 3,
+      warnings: ["region-excluded-tokens"],
+    },
+  };
+  it("sends only normalized configuration and accepts headerless server previews", async () => {
+    const preview = { jobId: "ocr-region", version: 1, rows: [REVIEW_ROW], analysis };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(Response.json({ preview }));
+    const { client } = createClient(fetchImplementation);
+    expect(
+      await client.remapOcrReview({
+        jobId: preview.jobId,
+        version: 1,
+        mapping,
+        preview: true,
+      }),
+    ).toEqual({ kind: "preview", preview });
+    expect(JSON.parse(String(fetchImplementation.mock.calls[0][1]?.body))).toEqual({
+      version: 1,
+      mapping,
+      preview: true,
+    });
+  });
+  it("rejects unconfirmed quantity and inconsistent source accounting", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        job: {
+          jobId: "ocr-region",
+          version: 1,
+          rawText: "raw",
+          rows: [REVIEW_ROW],
+          analysis: {
+            ...analysis,
+            region: { ...analysis.region, excludedTokenCount: 99 },
+          },
+        },
+      }),
+    );
+    const { client } = createClient(fetchImplementation);
+    await expect(
+      client.remapOcrReview({
+        jobId: "ocr-region",
+        version: 1,
+        mapping: { ...mapping, quantityConfirmed: false },
+        preview: true,
+      }),
+    ).rejects.toBeInstanceOf(AdminApiResponseError);
+    expect(fetchImplementation).not.toHaveBeenCalled();
+    await expect(client.loadOcrReview("ocr-region")).rejects.toBeInstanceOf(
+      AdminApiResponseError,
+    );
+  });
+  it("exposes only allowlisted region failure reasons, not provider text or private error values", async () => {
+    for (const reason of ["region-footer-uncertain", "PRIVATE_USER_EMAIL"]) {
+      const { client } = createClient(
+        vi.fn<typeof fetch>().mockResolvedValue(
+          Response.json(
+            {
+              code: "OCR_JOB_MAPPING_UNUSABLE",
+              analysis: { reason },
+              rawText: "private source",
+              token: "private token",
+              message: "private message",
+            },
+            { status: 400 },
+          ),
+        ),
+      );
+      try {
+        await client.remapOcrReview({
+          jobId: "ocr-region",
+          version: 1,
+          mapping,
+          preview: true,
+        });
+        throw new Error("expected failure");
+      } catch (error) {
+        expect(error).toBeInstanceOf(AdminApiRequestError);
+        expect((error as AdminApiRequestError).mappingReason).toBe(
+          reason === "region-footer-uncertain" ? reason : undefined,
+        );
+        expect(getOcrRequestErrorMessage(error)).toContain("현재 검토본은 유지됩니다.");
+        expect(JSON.stringify(error)).not.toMatch(/private|PRIVATE_USER/u);
+      }
+    }
+  });
+});
 
 describe("development-only local OCR transport", () => {
   function localEnvironment(
@@ -185,7 +761,348 @@ describe("development-only local OCR transport", () => {
   });
 });
 
+describe("explicit pinned HTTPS OCR demo transport", () => {
+  const demoApi = "https://ocr-relay.demo.test";
+  const mapping: OcrColumnMapping = {
+    schemaVersion: 1,
+    headerRow: 0,
+    columns: { productName: 0, brand: null, option: null, quantity: 1 },
+  };
+  const demoJob = {
+    jobId: "ocr-demo-1",
+    version: 2,
+    rawText: "Synthetic PC source",
+    rows: [REVIEW_ROW],
+    analysis: {
+      mode: "table",
+      mapping,
+      table: {
+        headerRow: 0,
+        columns: [
+          { index: 0, label: "Item", role: "productName" },
+          { index: 1, label: "Qty", role: "quantity" },
+        ],
+      },
+    },
+  };
+  function demoEnvironment(
+    pageOrigin = "https://paradays.web.app",
+    url = demoApi,
+    allowedOrigin = demoApi,
+    enabled = "true",
+  ) {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_OCR_DEMO_ENABLED", enabled);
+    vi.stubEnv("NEXT_PUBLIC_OCR_DEMO_API_URL", url);
+    vi.stubEnv("NEXT_PUBLIC_OCR_DEMO_ALLOWED_API_ORIGIN", allowedOrigin);
+    const location = new URL(pageOrigin);
+    vi.stubGlobal("window", {
+      location: {
+        origin: location.origin,
+        protocol: location.protocol,
+        hostname: location.hostname,
+        search: "?ocrApi=https://attacker.test",
+      },
+      localStorage: { getItem: vi.fn(() => "https://attacker.test") },
+    });
+  }
+
+  it("routes only authenticated OCR including remap/conflict GET to the pinned demo", async () => {
+    demoEnvironment();
+    expect(isRemoteOcrDemoMode()).toBe(true);
+    expect(isLocalOcrDevelopmentMode()).toBe(false);
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({ job: { ...demoJob, version: 1 } }, { status: 201 }),
+      )
+      .mockResolvedValueOnce(Response.json({ job: demoJob }))
+      .mockResolvedValueOnce(Response.json({}, { status: 409 }))
+      .mockResolvedValueOnce(Response.json({ job: demoJob }))
+      .mockResolvedValueOnce(Response.json({ preview: demoJob }))
+      .mockResolvedValueOnce(Response.json({ job: { ...demoJob, version: 3 } }))
+      .mockResolvedValueOnce(Response.json({ members: [] }));
+    const { client, getAccessToken } = createClient(fetchImplementation);
+    await client.recognizeInventory({
+      file: new File(
+        [Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])],
+        "synthetic.png",
+        { type: "image/png" },
+      ),
+    });
+    await client.loadOcrReview(demoJob.jobId);
+    expect(
+      await client.saveOcrReview({
+        jobId: demoJob.jobId,
+        version: 1,
+        rows: [REVIEW_ROW],
+      }),
+    ).toEqual({ kind: "conflict", job: demoJob });
+    expect(
+      await client.remapOcrReview({
+        jobId: demoJob.jobId,
+        version: 2,
+        mapping,
+        preview: true,
+      }),
+    ).toMatchObject({ kind: "preview", preview: { version: 2 } });
+    expect(
+      await client.remapOcrReview({
+        jobId: demoJob.jobId,
+        version: 2,
+        mapping,
+        preview: false,
+      }),
+    ).toMatchObject({ kind: "saved", job: { version: 3 } });
+    await client.listMembers();
+    expect(getAccessToken).toHaveBeenCalledTimes(7);
+    expect(fetchImplementation.mock.calls.map(([url]) => url)).toEqual([
+      `${demoApi}/admin/ocr/jobs`,
+      ...Array.from({ length: 5 }, () => `${demoApi}/admin/ocr/jobs/${demoJob.jobId}`),
+      "https://api.example.com/prod/admin/members",
+    ]);
+    for (const [, init] of fetchImplementation.mock.calls.slice(0, 6)) {
+      expect(new Headers(init?.headers).get("authorization")).toBe(
+        "Bearer cognito-admin-access-token",
+      );
+      expect(init).toMatchObject({
+        redirect: "error",
+        credentials: "omit",
+        cache: "no-store",
+      });
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+      expect(String(init?.body ?? "")).not.toMatch(
+        /confidence|ownerSub|sourceRows|box/u,
+      );
+    }
+    expect(fetchImplementation.mock.calls[6][1]).not.toHaveProperty("signal");
+    expect(fetchImplementation.mock.calls[6][1]).not.toHaveProperty("redirect");
+    expect(window.localStorage.getItem).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["https://paradays.web.app", demoApi, demoApi, "false"],
+    ["https://paradays.web.app", demoApi, demoApi, "TRUE"],
+    ["http://paradays.web.app", demoApi, demoApi, "true"],
+    ["https://paradays.web.app.evil.test", demoApi, demoApi, "true"],
+    ["https://other.web.app", demoApi, demoApi, "true"],
+    ["http://localhost:3138", demoApi, demoApi, "true"],
+    [
+      "https://paradays.web.app",
+      "http://ocr-relay.demo.test",
+      "http://ocr-relay.demo.test",
+      "true",
+    ],
+    ["https://paradays.web.app", demoApi, "https://different.demo.test", "true"],
+    ["https://paradays.web.app", demoApi, `${demoApi}/`, "true"],
+    ["https://paradays.web.app", demoApi, "", "true"],
+    ["https://paradays.web.app", `${demoApi}/admin`, demoApi, "true"],
+    [
+      "https://paradays.web.app",
+      `${demoApi}?url=https://attacker.test`,
+      demoApi,
+      "true",
+    ],
+    ["https://paradays.web.app", `${demoApi}#token`, demoApi, "true"],
+    ["https://paradays.web.app", "https://secret@ocr-relay.demo.test", demoApi, "true"],
+    [
+      "https://paradays.web.app",
+      "https://ocr-relay.demo.test:8010",
+      "https://ocr-relay.demo.test:8010",
+      "true",
+    ],
+    ["https://paradays.web.app", "https://127.0.0.1", "https://127.0.0.1", "true"],
+    ["https://paradays.web.app", "https://[::1]", "https://[::1]", "true"],
+    [
+      "https://paradays.web.app",
+      "https://device.local",
+      "https://device.local",
+      "true",
+    ],
+    [
+      "https://paradays.web.app",
+      "https://device.localhost",
+      "https://device.localhost",
+      "true",
+    ],
+    [
+      "https://paradays.web.app",
+      "https://paradays.web.app",
+      "https://paradays.web.app",
+      "true",
+    ],
+    [
+      "https://paradays.web.app",
+      "https://ocr-relay.demo.test.",
+      "https://ocr-relay.demo.test.",
+      "true",
+    ],
+    ["https://paradays.web.app", "not-a-url", demoApi, "true"],
+  ])(
+    "keeps unsafe or disabled demo configuration on Commerce %#",
+    async (pageOrigin, url, allowedOrigin, enabled) => {
+      demoEnvironment(pageOrigin, url, allowedOrigin, enabled);
+      expect(isRemoteOcrDemoMode()).toBe(false);
+      const { client, fetchImplementation } = saveClient();
+      await client.loadOcrReview("ocr-job-1");
+      expect(fetchImplementation.mock.calls[0][0]).toBe(
+        "https://api.example.com/prod/admin/ocr/jobs/ocr-job-1",
+      );
+    },
+  );
+
+  it("does not enable demo during SSR or weaken the local production guard", async () => {
+    demoEnvironment();
+    vi.stubGlobal("window", undefined);
+    expect(isRemoteOcrDemoMode()).toBe(false);
+    const first = saveClient();
+    await first.client.loadOcrReview("ocr-job-1");
+    expect(first.fetchImplementation.mock.calls[0][0]).toContain(
+      "https://api.example.com",
+    );
+    demoEnvironment("http://localhost:3138");
+    vi.stubEnv("NEXT_PUBLIC_LOCAL_OCR_ENABLED", "true");
+    vi.stubEnv("NEXT_PUBLIC_LOCAL_OCR_API_URL", "http://127.0.0.1:8011");
+    expect(isRemoteOcrDemoMode()).toBe(false);
+    expect(isLocalOcrDevelopmentMode()).toBe(false);
+  });
+
+  it("requires authentication before sending demo data", async () => {
+    demoEnvironment();
+    const fetchImplementation = vi.fn<typeof fetch>();
+    const client = createAdminApiClient({
+      config: apiConfig,
+      authorizationTokenProvider: { getAccessToken: () => null },
+      fetchImplementation,
+    });
+    await expect(client.loadOcrReview("ocr-demo-1")).rejects.toThrow();
+    expect(fetchImplementation).not.toHaveBeenCalled();
+  });
+
+  it("bounds the entire demo fetch including a stalled JSON response to 120 seconds", async () => {
+    demoEnvironment();
+    vi.useFakeTimers();
+    try {
+      const fetchImplementation = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue({ ok: true, json: () => new Promise(() => {}) } as Response);
+      const { client } = createClient(fetchImplementation);
+      const result = client.loadOcrReview("ocr-demo-1");
+      const assertion = expect(result).rejects.toMatchObject({
+        code: "OCR_DEMO_CONNECTION_FAILED",
+        timedOut: true,
+      });
+      await vi.advanceTimersByTimeAsync(120000);
+      await assertion;
+      expect(fetchImplementation.mock.calls[0][1]?.signal?.aborted).toBe(true);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reports offline demo without leaking a failing URL, token, or upstream message", async () => {
+    demoEnvironment();
+    const { client } = createClient(
+      vi
+        .fn<typeof fetch>()
+        .mockRejectedValue(
+          new Error("PRIVATE_TOKEN https://private-host.test IMAGE_BYTES"),
+        ),
+    );
+    try {
+      await client.loadOcrReview("ocr-demo-1");
+      throw new Error("expected failure");
+    } catch (error) {
+      expect(error).toBeInstanceOf(AdminOcrDemoConnectionError);
+      expect(String(error) + JSON.stringify(error)).not.toMatch(
+        /PRIVATE_TOKEN|private-host|IMAGE_BYTES/u,
+      );
+      expect(getOcrRequestErrorMessage(error)).toContain("HTTPS 중계");
+      expect(getOcrRequestErrorMessage(error)).toContain("현재 검토본은 유지됩니다.");
+    }
+  });
+
+  it.each([
+    [403, "ADMIN_ROLE_REQUIRED", "admin 그룹"],
+    [403, "LOCAL_OCR_ORIGIN_REQUIRED", "Firebase 접속 허용"],
+    [408, "LOCAL_OCR_BODY_TIMEOUT", "이미지 전송 시간"],
+    [429, "LOCAL_OCR_LIMIT_REACHED", "임시 사용 한도"],
+    [502, "OCR_PROVIDER_REQUEST_FAILED", "담당 PC와 HTTPS 중계"],
+  ])("keeps safe actionable demo errors for %s %s", async (status, code, message) => {
+    demoEnvironment();
+    const { client } = createClient(
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(
+          Response.json({ code, private: "PRIVATE_SERVER_BODY" }, { status }),
+        ),
+    );
+    try {
+      await client.loadOcrReview("ocr-demo-1");
+      throw new Error("expected failure");
+    } catch (error) {
+      expect(error).toBeInstanceOf(AdminApiRequestError);
+      expect(getOcrRequestErrorMessage(error)).toContain(message);
+      expect(JSON.stringify(error)).not.toContain("PRIVATE_SERVER_BODY");
+    }
+  });
+});
+
 describe("createAdminApiClient", () => {
+  it("keeps legacy overview payloads compatible and validates optional live metrics", async () => {
+    const baseMetrics = {
+      asOf: "2026-10-12T01:00:00.000Z",
+      timezone: "Asia/Seoul",
+      todayOrderCount: 3,
+      lowStockCount: 2,
+      lowStockThreshold: 5,
+      activeCouponCount: 4,
+      marketingConsentCount: 7,
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({
+          ...baseMetrics,
+          todayPaidRevenue: 51_000,
+          todaySoldItemCount: 4,
+          todayNewMemberCount: 2,
+        }),
+      )
+      .mockResolvedValueOnce(Response.json(baseMetrics));
+    const { client } = createClient(fetchImplementation);
+
+    await expect(client.loadOverviewMetrics()).resolves.toEqual({
+      ...baseMetrics,
+      todayPaidRevenue: 51_000,
+      todaySoldItemCount: 4,
+      todayNewMemberCount: 2,
+    });
+    await expect(client.loadOverviewMetrics()).resolves.toEqual(baseMetrics);
+  });
+
+  it("rejects malformed optional overview metrics instead of rendering an invented value", async () => {
+    const { client } = createClient(
+      vi.fn<typeof fetch>().mockResolvedValue(
+        Response.json({
+          asOf: "2026-10-12T01:00:00.000Z",
+          timezone: "Asia/Seoul",
+          todayOrderCount: 3,
+          todayPaidRevenue: -1,
+          lowStockCount: 2,
+          lowStockThreshold: 5,
+          activeCouponCount: 4,
+          marketingConsentCount: 7,
+        }),
+      ),
+    );
+
+    await expect(client.loadOverviewMetrics()).rejects.toBeInstanceOf(
+      AdminApiResponseError,
+    );
+  });
+
   it("edited rawText is sent exactly with authenticated PATCH and editable-row allowlist", async () => {
     const { client, fetchImplementation, getAccessToken } = saveClient();
     const rawText = "  수정한 원문\n두 번째 줄  ";
@@ -358,6 +1275,158 @@ describe("createAdminApiClient", () => {
       description: "이미지 데크",
       isVisible: true,
       isFeatured: false,
+    });
+  });
+
+  describe("explicit product comparison price serialization", () => {
+    const draft: AdminProductDraft = {
+      name: "Synthetic product",
+      brand: "Synthetic brand",
+      category: "Deck",
+      sku: "preserved-SKU",
+      price: "109000",
+      compareAtPrice: "",
+      stock: "13",
+      imageUrl: "/images/product-placeholder.svg",
+      sizes: "8.25”, Custom / Mixed CASE",
+      description: "Synthetic description",
+      isVisible: false,
+      isFeatured: true,
+      nameI18n: { ko: "합성 상품", en: "Synthetic product" },
+      descriptionI18n: { ko: ["합성 설명"], en: ["Synthetic description"] },
+      sourceLocale: "ko",
+    };
+
+    it.each([false, true])(
+      "sends an explicit empty comparison price for a versioned edit without altering publication %s",
+      async (isVisible) => {
+        const fetchImplementation = vi
+          .fn<typeof fetch>()
+          .mockResolvedValue(Response.json({}));
+        const { client, getAccessToken } = createClient(fetchImplementation);
+        await client.saveProductDraft({
+          ...draft,
+          productId: "product/legacy +code",
+          version: 7,
+          isVisible,
+        });
+        expect(getAccessToken).toHaveBeenCalledOnce();
+        expect(fetchImplementation).toHaveBeenCalledOnce();
+        const [url, request] = fetchImplementation.mock.calls[0];
+        expect(url).toBe(
+          "https://api.example.com/prod/admin/catalog/products/product%2Flegacy%20%2Bcode",
+        );
+        expect(request?.method).toBe("PATCH");
+        expect(new Headers(request?.headers).get("authorization")).toBe(
+          "Bearer cognito-admin-access-token",
+        );
+        expect(JSON.parse(String(request?.body))).toEqual({
+          ...draft,
+          compareAtPrice: "",
+          isVisible,
+          version: 7,
+        });
+        expect(String(request?.body)).toContain('"compareAtPrice":""');
+      },
+    );
+
+    it.each(["129000", " 129000 ", "0", "not-a-number"])(
+      "preserves the comparison price string without silent parsing for edit %j",
+      async (compareAtPrice) => {
+        const fetchImplementation = vi
+          .fn<typeof fetch>()
+          .mockResolvedValue(Response.json({}));
+        const { client } = createClient(fetchImplementation);
+        await client.saveProductDraft({
+          ...draft,
+          productId: "product-1",
+          version: 8,
+          compareAtPrice,
+        });
+        expect(fetchImplementation).toHaveBeenCalledOnce();
+        const [url, request] = fetchImplementation.mock.calls[0];
+        expect(url).toBe(
+          "https://api.example.com/prod/admin/catalog/products/product-1",
+        );
+        expect(request?.method).toBe("PATCH");
+        expect(JSON.parse(String(request?.body))).toEqual({
+          ...draft,
+          compareAtPrice,
+          version: 8,
+        });
+      },
+    );
+
+    it.each(["129000", " 129000 ", "0", "not-a-number"])(
+      "preserves a supplied new-product comparison price string %j",
+      async (compareAtPrice) => {
+        const fetchImplementation = vi
+          .fn<typeof fetch>()
+          .mockResolvedValue(Response.json({}));
+        const { client } = createClient(fetchImplementation);
+        await client.saveProductDraft({ ...draft, compareAtPrice });
+        expect(fetchImplementation).toHaveBeenCalledOnce();
+        const [url, request] = fetchImplementation.mock.calls[0];
+        expect(url).toBe("https://api.example.com/prod/admin/catalog/products");
+        expect(request?.method).toBe("POST");
+        expect(JSON.parse(String(request?.body))).toEqual({ ...draft, compareAtPrice });
+      },
+    );
+
+    it.each([{}, { productId: "legacy-without-version" }, { version: 7 }])(
+      "keeps blank comparison price omitted on the existing create path %j",
+      async (identity) => {
+        const fetchImplementation = vi
+          .fn<typeof fetch>()
+          .mockResolvedValue(Response.json({}));
+        const { client } = createClient(fetchImplementation);
+        await client.saveProductDraft({ ...draft, ...identity });
+        expect(fetchImplementation).toHaveBeenCalledOnce();
+        const [url, request] = fetchImplementation.mock.calls[0];
+        expect(url).toBe("https://api.example.com/prod/admin/catalog/products");
+        expect(request?.method).toBe("POST");
+        const body = JSON.parse(String(request?.body));
+        expect(body).not.toHaveProperty("compareAtPrice");
+        expect(body).not.toHaveProperty("version");
+        expect(body).not.toHaveProperty("productId");
+        const { compareAtPrice: omitted, ...expected } = draft;
+        expect(omitted).toBe("");
+        expect(body).toEqual(expected);
+      },
+    );
+
+    it("does not send an explicit removal without an authenticated administrator token", async () => {
+      const fetchImplementation = vi.fn<typeof fetch>();
+      const client = createAdminApiClient({
+        config: apiConfig,
+        authorizationTokenProvider: { getAccessToken: () => null },
+        fetchImplementation,
+      });
+      await expect(
+        client.saveProductDraft({ ...draft, productId: "product-1", version: 7 }),
+      ).rejects.toThrow();
+      expect(fetchImplementation).not.toHaveBeenCalled();
+    });
+
+    it("propagates a rejected removal once without retrying or altering the draft", async () => {
+      const fetchImplementation = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(
+          Response.json({ code: "CATALOG_PRODUCT_VERSION_CONFLICT" }, { status: 409 }),
+        );
+      const { client } = createClient(fetchImplementation);
+      const input = Object.freeze({ ...draft, productId: "product-1", version: 7 });
+      await expect(client.saveProductDraft(input)).rejects.toMatchObject({
+        status: 409,
+      });
+      expect(fetchImplementation).toHaveBeenCalledOnce();
+      expect(
+        JSON.parse(String(fetchImplementation.mock.calls[0][1]?.body)),
+      ).toMatchObject({
+        compareAtPrice: "",
+        version: 7,
+      });
+      expect(input).toMatchObject({ compareAtPrice: "", version: 7 });
     });
   });
 

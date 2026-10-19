@@ -350,7 +350,10 @@ export function createAdminApiClient(
         category: draft.category,
         sku: draft.sku || undefined,
         price: draft.price,
-        compareAtPrice: draft.compareAtPrice || undefined,
+        // PATCH의 빈 문자열은 기존 비교가를 지우려는 명시적 요청이며, 생략하면 서버가 기존 값을 유지합니다.
+        compareAtPrice:
+          draft.compareAtPrice ||
+          (draft.productId && typeof draft.version === "number" ? "" : undefined),
         stock: draft.stock || "0",
         imageUrl: draft.imageUrl,
         sizes: draft.sizes,

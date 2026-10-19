@@ -358,8 +358,12 @@ async function updateProduct(
     return jsonResponse(400, { code: "CATALOG_PRODUCT_INVALID" });
   }
 
+  const existingWithoutCompareAtPrice = { ...existingProduct };
+  delete existingWithoutCompareAtPrice.compareAtPrice;
   const updatedProduct: CatalogProductRecord = {
-    ...existingProduct,
+    ...(hasOwn(body, "compareAtPrice")
+      ? existingWithoutCompareAtPrice
+      : existingProduct),
     ...input,
     version: existingProduct.version + 1,
     updatedAt: new Date().toISOString(),

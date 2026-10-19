@@ -3193,7 +3193,7 @@
 .productScreen .productEditor {
   align-items: start;
   gap: 1.25rem;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  grid-template-columns: minmax(0, 1.3fr) minmax(18rem, 0.9fr);
 }
 
 .productScreen .editorForm {
@@ -3208,13 +3208,176 @@
   background: var(--color-paper);
   border: 1px solid var(--color-rule);
   border-radius: 6px;
-  gap: 1rem;
+  gap: 0.8rem;
   min-width: 0;
-  padding: 1.1rem;
+  padding: 1rem;
 }
 
 .productScreen .formGroup + .formGroup {
-  padding-top: 1.1rem;
+  padding-top: 1rem;
+}
+
+.productCompactHeading {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  justify-content: space-between;
+}
+
+.productManagementCode {
+  color: var(--admin-muted);
+  display: grid;
+  font-size: 0.75rem;
+  gap: 0.25rem;
+  max-width: 100%;
+  width: 19.5rem;
+}
+
+.productManagementCode input {
+  background: var(--admin-wash);
+  border: 1px solid var(--product-field-border);
+  border-radius: 4px;
+  color: var(--admin-muted);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  min-height: 2.75rem;
+  min-width: 0;
+  padding: 0.5rem;
+  width: 100%;
+}
+
+.productManagementCode input:focus-visible {
+  outline: 2px solid #2864b4;
+  outline-offset: 3px;
+}
+
+.productScreen .productFormGrid {
+  align-items: start;
+  column-gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.productBrandField,
+.productOptionField {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.productBrandControls {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: minmax(0, 1fr) minmax(4.25rem, 0.7fr);
+}
+
+.productScreen .productBrandControls :is(input, select) {
+  padding-inline: 0.45rem;
+}
+
+.productOptionPicker,
+.productWheelPicker {
+  display: grid;
+  gap: 0.4rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+}
+
+.productWheelPicker {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.productDeckField {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.productScreen .productDeckField > label,
+.productDeckField .productOptionPicker {
+  display: contents;
+}
+
+.productDeckField > label > span,
+.productDeckField :is(button, small) {
+  grid-column: 1 / -1;
+}
+
+.productScreen :is(.productOptionPicker, .productWheelPicker) select {
+  font-size: 0.875rem;
+  padding-inline: 0.35rem;
+}
+
+.productScreen .productOptionField .secondaryButton {
+  font-size: 0.8125rem;
+  padding: 0.45rem;
+}
+
+.productScreen .productOptionError {
+  color: var(--product-danger);
+}
+
+.productLegacyPrice {
+  align-items: center;
+  color: var(--admin-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  gap: 0.5rem;
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.productLegacyPrice strong {
+  color: var(--color-ink);
+  margin-left: 0.25rem;
+}
+
+.productScreen .productLegacyPrice .secondaryButton {
+  font-size: 0.8125rem;
+  padding: 0.45rem 0.6rem;
+}
+
+.productScreen .productImageGroup {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.productImageUpload {
+  align-items: center;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+}
+
+.productImageThumb {
+  aspect-ratio: 1;
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  display: block;
+  object-fit: contain;
+  width: 100%;
+}
+
+.productImageUpload .uploadField {
+  grid-column: auto;
+  min-width: 0;
+}
+
+.productScreen .productImageUpload input[type="file"] {
+  border: 0;
+  padding-inline: 0;
+}
+
+.productImageUpload input[type="file"]::file-selector-button {
+  background: var(--color-paper);
+  border: 1px solid var(--product-field-border);
+  border-radius: 4px;
+  color: var(--color-ink);
+  cursor: pointer;
+  font-family: inherit;
+  margin-right: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.65rem;
 }
 
 .productScreen .formGroup legend {
@@ -3337,9 +3500,9 @@
 .productPreview .storeCardInfo h3 {
   color: var(--color-ink);
   font-family: var(--font-body);
-  font-size: 1.35rem;
+  font-size: 1.2rem;
   line-height: 1.4;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 .productPreview
@@ -3351,7 +3514,33 @@
 }
 
 .productPreview .storeCardOptions {
-  margin-top: 1.25rem;
+  border-top: 1px solid var(--color-rule);
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+}
+
+.productPreviewDescription {
+  border-top: 1px solid var(--color-rule);
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  margin-top: 1rem;
+  padding-top: 0.5rem;
+}
+
+.productPreviewDescription summary {
+  align-content: center;
+  cursor: pointer;
+  min-height: 2.75rem;
+}
+
+.productPreviewDescription summary:focus-visible {
+  outline: 2px solid #2864b4;
+  outline-offset: 3px;
+}
+
+.productPreviewDescription .storeCardDescription {
+  margin-block: 0.35rem;
 }
 
 .productPreview .storeCardSizes span {
@@ -3374,7 +3563,7 @@
   font-weight: 750;
   letter-spacing: -0.03em;
   line-height: 1.4;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
 }
 
 .productPreviewPrice > span {
@@ -3441,6 +3630,19 @@
   .productScreen .formGroup {
     grid-template-columns: minmax(0, 1fr);
     padding: 1rem;
+  }
+
+  .productScreen .productFormGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .productManagementCode {
+    width: 100%;
+  }
+
+  .productImageUpload {
+    gap: 0.75rem;
+    grid-template-columns: 5rem minmax(0, 1fr);
   }
 
   .productScreen .formActions {

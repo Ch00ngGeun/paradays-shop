@@ -1232,15 +1232,24 @@ async function fillProduct(page: Page, name = "SYNTHETIC_REDESIGN_DECK") {
   await page.getByRole("textbox", { name: "상품명", exact: false }).fill(name);
   await page
     .locator("#admin-panel-products")
-    .getByLabel("브랜드", { exact: false })
+    .getByRole("textbox", { name: "브랜드", exact: false })
     .fill("NOVA");
-  await page.getByLabel("SKU / 관리 코드", { exact: true }).fill("TEST-SKU-825");
+  const sku = await page.getByLabel("SKU / 관리 코드", { exact: true }).inputValue();
+  expect(sku).toMatch(PRODUCT_SKU_UUID);
+  await expect(page.getByLabel("SKU / 관리 코드", { exact: true })).toHaveAttribute(
+    "readonly",
+    "",
+  );
   await page.getByRole("spinbutton", { name: "판매가", exact: false }).fill("89000");
   await page.getByRole("spinbutton", { name: /재고/ }).fill("13");
   await page
     .getByRole("textbox", { name: "사이즈 / 옵션", exact: false })
     .fill("8.25 inch, 8.5 inch");
+  return sku;
 }
+
+const PRODUCT_SKU_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function productPreview(page: Page) {
   return page.locator("#admin-panel-products aside").first();
@@ -1297,7 +1306,7 @@ test("product redesign: empty and missing-option public submissions do not write
   expect(audit.syntheticWrites).toEqual([]);
 });
 
-test("product redesign: a private create sends the entered SKU stock options and translated fields exactly once", async ({
+test("product redesign: a private create sends the generated SKU stock options and translated fields exactly once", async ({
   page,
 }) => {
   const commands: Record<string, unknown>[] = [];
@@ -1311,18 +1320,20 @@ test("product redesign: a private create sends the entered SKU stock options and
     },
   });
   await newProduct(page);
-  await fillProduct(page);
+  const sku = await fillProduct(page);
+  await page.getByRole("checkbox", { name: "신상품 배지 표시", exact: true }).check();
   await page.getByRole("button", { name: "비공개로 저장", exact: true }).click();
   await expect.poll(() => commands.length).toBe(1);
   expect(commands[0]).toMatchObject({
     name: "SYNTHETIC_REDESIGN_DECK",
     brand: "NOVA",
     category: "Deck",
-    sku: "TEST-SKU-825",
+    sku,
     price: "89000",
     stock: "13",
     sizes: "8.25 inch, 8.5 inch",
     isVisible: false,
+    isFeatured: true,
     sourceLocale: "ko",
     nameI18n: { en: "SYNTHETIC_REDESIGN_DECK", ko: "SYNTHETIC_REDESIGN_DECK" },
   });
@@ -1532,7 +1543,7 @@ test("product redesign: rejected save leaves the entered draft editable and is n
       }),
   });
   await newProduct(page);
-  await fillProduct(page);
+  const sku = await fillProduct(page);
   await page.getByRole("button", { name: "비공개로 저장", exact: true }).click();
   await expect(page.locator("#admin-panel-products").getByRole("alert")).toContainText(
     "상품을 저장하지 못했습니다",
@@ -1540,9 +1551,7 @@ test("product redesign: rejected save leaves the entered draft editable and is n
   await expect(page.getByRole("textbox", { name: "상품명", exact: false })).toHaveValue(
     "SYNTHETIC_REDESIGN_DECK",
   );
-  await expect(page.getByLabel("SKU / 관리 코드", { exact: true })).toHaveValue(
-    "TEST-SKU-825",
-  );
+  await expect(page.getByLabel("SKU / 관리 코드", { exact: true })).toHaveValue(sku);
   await expect(
     page.getByRole("button", { name: "비공개로 저장", exact: true }),
   ).toBeEnabled();
@@ -1629,6 +1638,600 @@ test("product redesign: mobile editor and preview stay usable within 375 CSS pix
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBe(true);
 });
+
+test("product form refinement: generated management codes remain private and stable until an explicit new draft", async ({
+  page,
+}) => {
+  const audit = await setup(page, { path: "/admin?section=products" });
+  await newProduct(page);
+  const code = page.getByRole("textbox", { name: "SKU / 관리 코드", exact: true });
+  const firstCode = await code.inputValue();
+  expect(firstCode).toMatch(PRODUCT_SKU_UUID);
+  expect(firstCode).not.toBe(new URL(page.url()).searchParams.get("editor"));
+  await expect(code).toHaveAttribute("readonly", "");
+  await page
+    .getByRole("textbox", { name: "상품명", exact: false })
+    .fill("TEST_SKU_DRAFT");
+  await page
+    .getByRole("combobox", { name: "카테고리", exact: true })
+    .selectOption("Wheels");
+  await expect(code).toHaveValue(firstCode);
+  const editorUrl = page.url();
+  await page.goBack();
+  await expect(
+    page.getByRole("button", { name: "새 상품 등록", exact: true }),
+  ).toBeVisible();
+  await page.goForward();
+  await expect(page).toHaveURL(editorUrl);
+  await expect(code).toHaveValue(firstCode);
+  await expect(page.getByRole("textbox", { name: "상품명", exact: false })).toHaveValue(
+    "TEST_SKU_DRAFT",
+  );
+  const persistentSurfaces = await page.evaluate(() =>
+    JSON.stringify({
+      href: location.href,
+      history: history.state,
+      session: { ...sessionStorage },
+      local: { ...localStorage },
+    }),
+  );
+  expect(persistentSurfaces).not.toContain(firstCode);
+  await page.getByRole("button", { name: "새 초안", exact: true }).click();
+  const resetCode = await code.inputValue();
+  expect(resetCode).toMatch(PRODUCT_SKU_UUID);
+  expect(resetCode).not.toBe(firstCode);
+  await page.getByRole("button", { name: "← 목록으로", exact: true }).click();
+  await newProduct(page);
+  const nextCode = await code.inputValue();
+  expect(nextCode).toMatch(PRODUCT_SKU_UUID);
+  expect([firstCode, resetCode]).not.toContain(nextCode);
+  expect(audit.syntheticWrites).toEqual([]);
+});
+
+test("product form refinement: a legacy product without a management code stays blank across editing and reset", async ({
+  page,
+}) => {
+  const commands: Record<string, unknown>[] = [];
+  const audit = await setup(page, {
+    path: "/admin?section=products",
+    products: true,
+    handleProductMutation: async (route) => {
+      commands.push(route.request().postDataJSON() as Record<string, unknown>);
+      await respond(route, {});
+    },
+  });
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: products[0]!.name })
+    .getByRole("button", { name: "수정", exact: true })
+    .click();
+  const code = page.getByRole("textbox", { name: "SKU / 관리 코드", exact: true });
+  await expect(code).toHaveValue("");
+  await expect(code).toHaveAttribute("readonly", "");
+  await page.getByRole("button", { name: "입력 초기화", exact: true }).click();
+  await expect(code).toHaveValue("");
+  await page
+    .getByRole("textbox", { name: "상품명", exact: false })
+    .fill("TEST_LEGACY_EMPTY_SKU");
+  await page.getByRole("textbox", { name: "브랜드", exact: false }).fill("TEST");
+  await page.getByRole("spinbutton", { name: "판매가", exact: false }).fill("10000");
+  await page.getByRole("button", { name: "비공개 수정 저장", exact: true }).click();
+  await expect.poll(() => commands.length).toBe(1);
+  expect(commands[0]).toMatchObject({
+    version: 1,
+    name: "TEST_LEGACY_EMPTY_SKU",
+    isVisible: false,
+  });
+  expect(commands[0]).not.toHaveProperty("sku");
+  expect(audit.syntheticWrites).toEqual([
+    "PATCH https://api.sales.test/prod/admin/catalog/products/prd_synthetic_A",
+  ]);
+});
+
+test("product form refinement: brand typing and the right-hand choice list retain the exact selected or custom brand", async ({
+  page,
+}) => {
+  const commands: Record<string, unknown>[] = [];
+  const audit = await setup(page, {
+    path: "/admin?section=products",
+    catalogProducts: [
+      { ...products[0], brandName: "NOVA" },
+      { ...products[1], brandName: " nova " },
+      { ...products[1], productId: "prd_synthetic_C", brandName: "RIVER" },
+    ],
+    handleProductMutation: async (route) => {
+      commands.push(route.request().postDataJSON() as Record<string, unknown>);
+      await respond(route, {});
+    },
+  });
+  await newProduct(page);
+  const input = page.getByRole("textbox", { name: "브랜드", exact: false });
+  const choice = page.getByRole("combobox", { name: "브랜드 선택", exact: true });
+  const labels = await choice.locator("option").allTextContents();
+  expect(labels.filter((label) => label.trim().toLowerCase() === "nova")).toEqual([
+    "NOVA",
+  ]);
+  expect(labels).toContain("RIVER");
+  expect(labels).toContain("기타");
+  await input.fill("TEST_MANUAL_BRAND");
+  await choice.selectOption({ label: "RIVER" });
+  await expect(input).toHaveValue("RIVER");
+  await expect(productPreview(page)).toContainText("RIVER");
+  await choice.selectOption({ label: "기타" });
+  await input.fill("TEST_CUSTOM_BRAND");
+  await expect(productPreview(page)).toContainText("TEST_CUSTOM_BRAND");
+  await page
+    .getByRole("textbox", { name: "상품명", exact: false })
+    .fill("TEST_CUSTOM_BRAND_DECK");
+  await page.getByRole("spinbutton", { name: "판매가", exact: false }).fill("10000");
+  await page.getByRole("button", { name: "비공개로 저장", exact: true }).click();
+  await expect.poll(() => commands.length).toBe(1);
+  expect(commands[0]).toMatchObject({ brand: "TEST_CUSTOM_BRAND", isVisible: false });
+  expect(audit.syntheticWrites).toEqual([
+    "POST https://api.sales.test/prod/admin/catalog/products",
+  ]);
+});
+
+test("product form refinement: deck choices append only explicitly and category changes preserve legacy multi-options", async ({
+  page,
+}) => {
+  const audit = await setup(page, { path: "/admin?section=products" });
+  await newProduct(page);
+  const raw = page.getByRole("textbox", { name: "사이즈 / 옵션", exact: false });
+  const chooser = page.getByRole("combobox", { name: "데크 규격 선택", exact: true });
+  const labels = await chooser.locator("option").allTextContents();
+  for (const width of ["7.5", "7.75", "8.0", "8.125", "8.25", "8.5"]) {
+    expect(labels.some((label) => label.includes(width))).toBe(true);
+  }
+  expect(labels.some((label) => /직접\s*입력/.test(label))).toBe(true);
+  const legacy = " 8.25\u2033 , SPECIAL / blue ";
+  await raw.fill(legacy);
+  await chooser.selectOption("8.125");
+  await expect(raw).toHaveValue(legacy);
+  await expect(productPreview(page)).not.toContainText("8.125 inch");
+  await page.getByRole("button", { name: "옵션 추가", exact: true }).click();
+  await expect(raw).toHaveValue(`${legacy}, 8.125 inch`);
+  await expect(productPreview(page)).toContainText("8.125 inch");
+  await chooser.selectOption("8.125");
+  await page.getByRole("button", { name: "옵션 추가", exact: true }).click();
+  await expect(raw).toHaveValue(`${legacy}, 8.125 inch`);
+  await page
+    .getByRole("combobox", { name: "카테고리", exact: true })
+    .selectOption("Wheels");
+  await expect(raw).toHaveValue(`${legacy}, 8.125 inch`);
+  await expect(chooser).toHaveCount(0);
+  await expect(
+    page.getByRole("combobox", { name: "바퀴 크기 선택", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("combobox", { name: "카테고리", exact: true })
+    .selectOption("Deck");
+  await expect(raw).toHaveValue(`${legacy}, 8.125 inch`);
+  await chooser.selectOption("manual");
+  await expect(raw).toBeFocused();
+  await expect(raw).toHaveValue(`${legacy}, 8.125 inch`);
+  await raw.fill(`${legacy}, 8.125 inch, TEST_CUSTOM_8.375`);
+  await expect(productPreview(page)).toContainText("TEST_CUSTOM_8.375");
+  expect(audit.syntheticWrites).toEqual([]);
+});
+
+test("product form refinement: wheel size and hardness ranges form one complete purchase option in the save payload", async ({
+  page,
+}) => {
+  const commands: Record<string, unknown>[] = [];
+  const audit = await setup(page, {
+    path: "/admin?section=products",
+    handleProductMutation: async (route) => {
+      commands.push(route.request().postDataJSON() as Record<string, unknown>);
+      await respond(route, {});
+    },
+  });
+  await newProduct(page);
+  await fillProduct(page, "TEST_WHEEL_COMPOSITE");
+  const raw = page.getByRole("textbox", { name: "사이즈 / 옵션", exact: false });
+  await raw.fill("");
+  await page
+    .getByRole("combobox", { name: "카테고리", exact: true })
+    .selectOption("Wheels");
+  const diameter = page.getByRole("combobox", { name: "바퀴 크기 선택", exact: true });
+  const hardness = page.getByRole("combobox", { name: "경도 선택", exact: true });
+  const diameterValues = await diameter
+    .locator("option")
+    .evaluateAll((items) =>
+      items
+        .map((item) => (item as HTMLOptionElement).value)
+        .filter((value) => /^\d+$/.test(value)),
+    );
+  const hardnessValues = await hardness
+    .locator("option")
+    .evaluateAll((items) =>
+      items
+        .map((item) => (item as HTMLOptionElement).value)
+        .filter((value) => /^\d+$/.test(value)),
+    );
+  expect(diameterValues).toEqual(
+    Array.from({ length: 11 }, (_, index) => String(index + 50)),
+  );
+  expect(hardnessValues).toEqual(
+    Array.from({ length: 22 }, (_, index) => String(index + 80)),
+  );
+  const add = page.getByRole("button", { name: "옵션 추가", exact: true });
+  await diameter.selectOption("54");
+  await expect(raw).toHaveValue("");
+  await expect(add).toBeDisabled();
+  const publish = page.getByRole("checkbox", {
+    name: "저장 후 스토어에 공개",
+    exact: true,
+  });
+  await publish.check();
+  await page.getByRole("button", { name: "저장 후 스토어 공개", exact: true }).click();
+  await expect(page.locator("#admin-panel-products").getByRole("alert")).toContainText(
+    "최소 한 개의 옵션",
+  );
+  expect(commands).toEqual([]);
+  await hardness.selectOption("99");
+  await expect(raw).toHaveValue("");
+  await expect(productPreview(page)).not.toContainText("54mm / 99a");
+  await page.getByRole("button", { name: "저장 후 스토어 공개", exact: true }).click();
+  await expect(page.locator("#admin-panel-products").getByRole("alert")).toContainText(
+    "최소 한 개의 옵션",
+  );
+  expect(commands).toEqual([]);
+  await publish.uncheck();
+  await add.click();
+  await expect(raw).toHaveValue("54mm / 99a");
+  await expect(productPreview(page)).toContainText("54mm / 99a");
+  await page.getByRole("button", { name: "비공개로 저장", exact: true }).click();
+  await expect.poll(() => commands.length).toBe(1);
+  expect(commands[0]).toMatchObject({
+    category: "Wheels",
+    sizes: "54mm / 99a",
+    isVisible: false,
+  });
+  expect(String(commands[0]!.sizes).split(",")).toHaveLength(1);
+  expect(audit.syntheticWrites).toEqual([
+    "POST https://api.sales.test/prod/admin/catalog/products",
+  ]);
+});
+
+test("product form refinement: raw option count and length limits stop writes without erasing entered legacy text", async ({
+  page,
+}) => {
+  const audit = await setup(page, { path: "/admin?section=products" });
+  await newProduct(page);
+  await fillProduct(page);
+  const raw = page.getByRole("textbox", { name: "사이즈 / 옵션", exact: false });
+  const chooser = page.getByRole("combobox", { name: "데크 규격 선택", exact: true });
+  const twenty = Array.from({ length: 20 }, (_, index) => `LEGACY_${index}`).join(", ");
+  await raw.fill(twenty);
+  await chooser.selectOption("7.5");
+  await page.getByRole("button", { name: "옵션 추가", exact: true }).click();
+  await expect(raw).toHaveValue(twenty);
+  await expect(page.locator("#admin-panel-products").getByRole("alert")).toContainText(
+    "20",
+  );
+  const twentyOne = `${twenty}, OVERFLOW`;
+  await raw.fill(twentyOne);
+  await page.getByRole("button", { name: "비공개로 저장", exact: true }).click();
+  await expect(raw).toHaveValue(twentyOne);
+  await expect(page.locator("#admin-panel-products").getByRole("alert")).toContainText(
+    "20",
+  );
+  const tooLong = "한".repeat(51);
+  await raw.fill(tooLong);
+  await page.getByRole("button", { name: "비공개로 저장", exact: true }).click();
+  await expect(raw).toHaveValue(tooLong);
+  await expect(page.locator("#admin-panel-products").getByRole("alert")).toContainText(
+    "50",
+  );
+  expect(audit.syntheticWrites).toEqual([]);
+});
+
+test("product form refinement: exactly twenty fifty-character options remain valid and are sent without truncation", async ({
+  page,
+}) => {
+  const commands: Record<string, unknown>[] = [];
+  const audit = await setup(page, {
+    path: "/admin?section=products",
+    handleProductMutation: async (route) => {
+      commands.push(route.request().postDataJSON() as Record<string, unknown>);
+      await respond(route, {});
+    },
+  });
+  await newProduct(page);
+  await fillProduct(page);
+  const exactBoundary = Array.from(
+    { length: 20 },
+    (_, index) => `${"한".repeat(48)}${String(index).padStart(2, "0")}`,
+  ).join(", ");
+  await page
+    .getByRole("textbox", { name: "사이즈 / 옵션", exact: false })
+    .fill(exactBoundary);
+  await page.getByRole("button", { name: "비공개로 저장", exact: true }).click();
+  await expect.poll(() => commands.length).toBe(1);
+  expect(commands[0]).toHaveProperty("sizes", exactBoundary);
+  expect(
+    String(commands[0]!.sizes)
+      .split(",")
+      .map((option) => option.trim()),
+  ).toHaveLength(20);
+  expect(audit.syntheticWrites).toEqual([
+    "POST https://api.sales.test/prod/admin/catalog/products",
+  ]);
+});
+
+test("product form refinement: editor changes discard pending option selections without mixing A and B draft options", async ({
+  page,
+}) => {
+  const audit = await setup(page, { path: "/admin?section=products", products: true });
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: products[0]!.name })
+    .getByRole("button", { name: "수정", exact: true })
+    .click();
+  const raw = page.getByRole("textbox", { name: "사이즈 / 옵션", exact: false });
+  await raw.fill("TEST_A_LEGACY");
+  const chooser = page.getByRole("combobox", { name: "데크 규격 선택", exact: true });
+  await chooser.selectOption("8.5");
+  const firstUrl = page.url();
+  await select(page, "products");
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: products[1]!.name })
+    .getByRole("button", { name: "수정", exact: true })
+    .click();
+  await expect(raw).toHaveValue("TEST");
+  await expect(chooser).not.toHaveValue("8.5");
+  await expect(
+    page.getByRole("button", { name: "옵션 추가", exact: true }),
+  ).toBeDisabled();
+  await raw.fill("TEST_B_LEGACY");
+  await page.goBack();
+  await expect(
+    page.getByRole("button", { name: "새 상품 등록", exact: true }),
+  ).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(firstUrl);
+  await expect(raw).toHaveValue("TEST_A_LEGACY");
+  await expect(chooser).not.toHaveValue("8.5");
+  expect(audit.syntheticWrites).toEqual([]);
+});
+
+test("product form refinement: an existing compare-at price and management code survive reset and an ordinary edit", async ({
+  page,
+}) => {
+  const commands: Record<string, unknown>[] = [];
+  const audit = await setup(page, {
+    path: "/admin?section=products",
+    catalogProducts: [
+      { ...products[0], sku: "LEGACY-SKU-825", compareAtPrice: 20000, version: 7 },
+    ],
+    handleProductMutation: async (route) => {
+      commands.push(route.request().postDataJSON() as Record<string, unknown>);
+      await respond(route, {});
+    },
+  });
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: products[0]!.name })
+    .getByRole("button", { name: "수정", exact: true })
+    .click();
+  const code = page.getByRole("textbox", { name: "SKU / 관리 코드", exact: true });
+  const sales = page.getByRole("group", { name: "판매 정보", exact: true });
+  const legacyPrice = sales.getByText(/^기존 정가\s*₩?20,000/);
+  await expect(code).toHaveValue("LEGACY-SKU-825");
+  await expect(legacyPrice).toBeVisible();
+  await expect(page.getByRole("textbox", { name: /정가/ })).toHaveCount(0);
+  await expect(page.getByRole("spinbutton", { name: /정가/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "입력 초기화", exact: true }).click();
+  await expect(code).toHaveValue("LEGACY-SKU-825");
+  await expect(legacyPrice).toBeVisible();
+  await page
+    .getByRole("textbox", { name: "상품명", exact: false })
+    .fill("TEST_LEGACY_COMPARE_AT");
+  await page.getByRole("textbox", { name: "브랜드", exact: false }).fill("TEST");
+  await page.getByRole("spinbutton", { name: "판매가", exact: false }).fill("15000");
+  await page.getByRole("button", { name: "비공개 수정 저장", exact: true }).click();
+  await expect.poll(() => commands.length).toBe(1);
+  expect(commands[0]).toMatchObject({
+    sku: "LEGACY-SKU-825",
+    compareAtPrice: "20000",
+    price: "15000",
+    version: 7,
+  });
+  expect(audit.syntheticWrites).toEqual([
+    "PATCH https://api.sales.test/prod/admin/catalog/products/prd_synthetic_A",
+  ]);
+});
+
+test("product form refinement: compare-at removal requires confirmation and resetting an edit restores the original value", async ({
+  page,
+}) => {
+  const commands: Record<string, unknown>[] = [];
+  const audit = await setup(page, {
+    path: "/admin?section=products",
+    catalogProducts: [
+      { ...products[0], sku: "LEGACY-SKU", compareAtPrice: 20000, version: 7 },
+    ],
+    handleProductMutation: async (route) => {
+      commands.push(route.request().postDataJSON() as Record<string, unknown>);
+      await respond(route, {});
+    },
+  });
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: products[0]!.name })
+    .getByRole("button", { name: "수정", exact: true })
+    .click();
+  await page.getByRole("spinbutton", { name: "판매가", exact: false }).fill("25000");
+  await page.getByRole("button", { name: "비공개 수정 저장", exact: true }).click();
+  await expect(page.locator("#admin-panel-products").getByRole("alert")).toContainText(
+    "정가",
+  );
+  expect(commands).toEqual([]);
+  const remove = page.getByRole("button", { name: "기존 정가 제거", exact: true });
+  const legacyPrice = page
+    .getByRole("group", { name: "판매 정보", exact: true })
+    .getByText(/^기존 정가\s*₩?20,000/);
+  page.once("dialog", (dialog) => void dialog.dismiss());
+  await remove.click();
+  await expect(legacyPrice).toBeVisible();
+  expect(commands).toEqual([]);
+  page.once("dialog", (dialog) => void dialog.accept());
+  await remove.click();
+  await expect(remove).toHaveCount(0);
+  await expect(
+    page.getByRole("status").filter({ hasText: "기존 정가 제거 예정" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "입력 초기화", exact: true }).click();
+  await expect(legacyPrice).toBeVisible();
+  await expect(remove).toBeVisible();
+  expect(commands).toEqual([]);
+  page.once("dialog", (dialog) => void dialog.accept());
+  await remove.click();
+  await expect(remove).toHaveCount(0);
+  await page
+    .getByRole("textbox", { name: "상품명", exact: false })
+    .fill("TEST_EXPLICIT_COMPARE_AT_REMOVAL");
+  await page.getByRole("textbox", { name: "브랜드", exact: false }).fill("TEST");
+  await page.getByRole("spinbutton", { name: "판매가", exact: false }).fill("25000");
+  await page.getByRole("button", { name: "비공개 수정 저장", exact: true }).click();
+  await expect.poll(() => commands.length).toBe(1);
+  expect(Object.prototype.hasOwnProperty.call(commands[0], "compareAtPrice")).toBe(
+    true,
+  );
+  expect(commands[0]).toMatchObject({
+    compareAtPrice: "",
+    price: "25000",
+    sku: "LEGACY-SKU",
+    version: 7,
+  });
+  expect(audit.syntheticWrites).toEqual([
+    "PATCH https://api.sales.test/prod/admin/catalog/products/prd_synthetic_A",
+  ]);
+});
+
+for (const width of [1440, 375]) {
+  test(`product form refinement: ${width}px compact cards preserve image-description-publication order and accessible controls`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
+    const audit = await setup(page, {
+      path: "/admin?section=products",
+      products: true,
+    });
+    await newProduct(page);
+    await fillProduct(page, "TEST_COMPACT_LAYOUT_DECK");
+    const panel = page.locator("#admin-panel-products");
+    const image = panel.getByRole("group", { name: "대표 이미지", exact: true });
+    const description = panel.getByRole("group", { name: "상품 설명", exact: true });
+    const publication = panel.getByRole("group", { name: "공개 설정", exact: true });
+    await expect(image).toBeVisible();
+    await expect(description).toBeVisible();
+    await expect(publication).toBeVisible();
+    const imageBox = (await image.boundingBox())!;
+    const descriptionBox = (await description.boundingBox())!;
+    const publicationBox = (await publication.boundingBox())!;
+    expect(descriptionBox.y).toBeGreaterThanOrEqual(imageBox.y + imageBox.height);
+    expect(publicationBox.y).toBeGreaterThanOrEqual(
+      descriptionBox.y + descriptionBox.height,
+    );
+    const descriptionInput = panel.getByRole("textbox", {
+      name: "상품 설명",
+      exact: false,
+    });
+    await descriptionInput.fill("TEST_FIRST_DESCRIPTION\nTEST_SECOND_DESCRIPTION");
+    await expect(productPreview(page)).toContainText("TEST_FIRST_DESCRIPTION");
+    await expect(
+      publication.getByRole("checkbox", { name: "저장 후 스토어에 공개", exact: true }),
+    ).not.toBeChecked();
+    const badge = publication.getByRole("checkbox", {
+      name: "신상품 배지 표시",
+      exact: true,
+    });
+    await badge.check();
+    await expect(badge).toBeChecked();
+    await expect(productPreview(page)).toContainText("NEW");
+    await expect(panel.getByRole("spinbutton", { name: /정가/ })).toHaveCount(0);
+    await page.evaluate(() => scrollTo(0, 0));
+    const brandInput = panel.getByRole("textbox", { name: "브랜드", exact: false });
+    const brandSelect = panel.getByRole("combobox", {
+      name: "브랜드 선택",
+      exact: true,
+    });
+    const brandInputBox = (await brandInput.boundingBox())!;
+    const brandSelectBox = (await brandSelect.boundingBox())!;
+    expect(brandSelectBox.x).toBeGreaterThanOrEqual(
+      brandInputBox.x + brandInputBox.width,
+    );
+    await panel
+      .getByRole("combobox", { name: "데크 규격 선택", exact: true })
+      .selectOption("8.25");
+    for (const control of [
+      brandInput,
+      brandSelect,
+      panel.getByRole("combobox", { name: "카테고리", exact: true }),
+      panel.getByRole("combobox", { name: "데크 규격 선택", exact: true }),
+      panel.getByRole("button", { name: "옵션 추가", exact: true }),
+      panel.getByRole("button", { name: "비공개로 저장", exact: true }),
+    ]) {
+      await expect(control).toBeEnabled();
+      const box = (await control.boundingBox())!;
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
+    }
+    await brandInput.focus();
+    await page.keyboard.press("Tab");
+    await expect(brandSelect).toBeFocused();
+    if (width === 1440) {
+      const nameBox = (await panel
+        .getByRole("textbox", { name: "상품명", exact: false })
+        .boundingBox())!;
+      const categoryBox = (await panel
+        .getByRole("combobox", { name: "카테고리", exact: true })
+        .boundingBox())!;
+      expect(Math.abs(nameBox.y - brandInputBox.y)).toBeLessThanOrEqual(2);
+      expect(Math.abs(nameBox.y - categoryBox.y)).toBeLessThanOrEqual(2);
+      expect(brandInputBox.x).toBeGreaterThan(nameBox.x);
+      expect(categoryBox.x).toBeGreaterThan(brandSelectBox.x);
+      const priceBox = (await panel
+        .getByRole("spinbutton", { name: "판매가", exact: false })
+        .boundingBox())!;
+      const stockBox = (await panel
+        .getByRole("spinbutton", { name: /재고/ })
+        .boundingBox())!;
+      const optionBox = (await panel
+        .getByRole("textbox", { name: "사이즈 / 옵션", exact: false })
+        .boundingBox())!;
+      expect(Math.abs(priceBox.y - stockBox.y)).toBeLessThanOrEqual(2);
+      expect(Math.abs(priceBox.y - optionBox.y)).toBeLessThanOrEqual(2);
+      expect(stockBox.x).toBeGreaterThan(priceBox.x);
+      expect(optionBox.x).toBeGreaterThan(stockBox.x);
+      const previewBox = (await productPreview(page).boundingBox())!;
+      const basicBox = (await panel
+        .getByRole("group", { name: "기본 정보", exact: true })
+        .boundingBox())!;
+      expect(previewBox.x).toBeGreaterThanOrEqual(basicBox.x + basicBox.width);
+    }
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    ).toBe(true);
+    await page.evaluate(() => scrollTo(0, 0));
+    const screenshot = testInfo.outputPath(`product-form-refinement-${width}.png`);
+    await page.screenshot({ path: screenshot, fullPage: true });
+    console.log(`Product form refinement screenshot: ${screenshot}`);
+    if (width === 375) {
+      await page.setViewportSize({ width: 320, height: 844 });
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      ).toBe(true);
+      await expect(brandInput).toBeEditable();
+      await expect(brandSelect).toBeEnabled();
+    }
+    expect(audit.syntheticWrites).toEqual([]);
+  });
+}
 
 test("product redesign: delete actions retain readable hover and keyboard-focus contrast in both themes", async ({
   page,
