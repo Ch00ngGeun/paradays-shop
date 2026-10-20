@@ -3659,7 +3659,14 @@
 
 .inventoryScreen .inventoryToolbar {
   align-items: end;
+  display: grid;
   gap: 0.85rem;
+  grid-template-columns: minmax(12rem, 22rem) repeat(3, minmax(7.5rem, 1fr)) auto;
+}
+
+.inventoryScreen .inventorySearch,
+.inventoryScreen .inventoryFilter {
+  min-width: 0;
 }
 
 .inventoryScreen :is(.inventorySearch input, .inventoryFilter select, .stockStepInput) {
@@ -3940,6 +3947,10 @@
 }
 
 @media (max-width: 1200px) {
+  .inventoryScreen .inventoryToolbar {
+    grid-template-columns: minmax(12rem, 1fr) repeat(2, minmax(7.5rem, 1fr));
+  }
+
   .inventoryWorkspace {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3952,7 +3963,7 @@
 @media (max-width: 767px) {
   .inventoryScreen .inventoryToolbar {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .inventoryScreen .inventorySearch {

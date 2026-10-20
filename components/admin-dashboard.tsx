@@ -3241,8 +3241,43 @@ function InventorySection({
   savingIds: ReadonlySet<string>;
 }>) {
   const [filterQuery, setFilterQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [brandFilter, setBrandFilter] = useState("");
   const [stockFilter, setStockFilter] = useState<"all" | "inStock" | "low" | "soldOut">(
     "all",
+  );
+  const categoryChoices = useMemo(() => {
+    const labels = new Map([
+      ["Deck", "데크"],
+      ["Complete", "컴플리트"],
+      ["Trucks", "트럭"],
+      ["Wheels", "휠"],
+      ["Bearings", "베어링"],
+      ["Top", "상의"],
+      ["Bottom", "하의"],
+      ["Outerwear", "아우터"],
+      ["Shoes", "신발"],
+      ["Accessories", "액세서리"],
+      ["Hardware", "하드웨어"],
+      ["Protection", "보호장비"],
+      ["Other", "기타"],
+    ]);
+    for (const category of [
+      ...products.map((product) => product.category),
+      categoryFilter,
+    ]) {
+      if (category.trim() && !labels.has(category)) {
+        labels.set(category, category);
+      }
+    }
+    return [...labels.entries()];
+  }, [categoryFilter, products]);
+  const brandChoices = useMemo(
+    () =>
+      [...new Set([...products.map((product) => product.brand), brandFilter])]
+        .filter((brand) => brand.trim())
+        .sort((left, right) => left.localeCompare(right, "ko")),
+    [brandFilter, products],
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const inventoryFocusFrameRef = useRef<number | null>(null);
@@ -3274,6 +3309,14 @@ function InventorySection({
 
     return products
       .filter((product) => {
+        if (categoryFilter && product.category !== categoryFilter) {
+          return false;
+        }
+
+        if (brandFilter && product.brand !== brandFilter) {
+          return false;
+        }
+
         if (query) {
           const haystack =
             `${product.name} ${product.brand} ${product.sku ?? ""} ${product.category}`.toLowerCase();
@@ -3298,7 +3341,7 @@ function InventorySection({
       })
       .slice()
       .sort((left, right) => left.name.localeCompare(right.name, "ko"));
-  }, [filterQuery, products, stockFilter]);
+  }, [brandFilter, categoryFilter, filterQuery, products, stockFilter]);
 
   return (
     <div className={`${styles.sectionStack} ${styles.inventoryScreen}`}>
@@ -3316,6 +3359,34 @@ function InventorySection({
             type="search"
             value={filterQuery}
           />
+        </label>
+        <label className={styles.inventoryFilter}>
+          <span>카테고리</span>
+          <select
+            onChange={(event) => setCategoryFilter(event.target.value)}
+            value={categoryFilter}
+          >
+            <option value="">전체 카테고리</option>
+            {categoryChoices.map(([category, label]) => (
+              <option key={category} value={category}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className={styles.inventoryFilter}>
+          <span>브랜드</span>
+          <select
+            onChange={(event) => setBrandFilter(event.target.value)}
+            value={brandFilter}
+          >
+            <option value="">전체 브랜드</option>
+            {brandChoices.map((brand) => (
+              <option key={brand} value={brand}>
+                {brand}
+              </option>
+            ))}
+          </select>
         </label>
         <label className={styles.inventoryFilter}>
           <span>재고</span>
