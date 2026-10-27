@@ -710,9 +710,7 @@ function parseStoredAuthSession(
         username: parsed.user.username,
         groups: [...parsed.user.groups],
         ...(parsed.user.email ? { email: parsed.user.email } : {}),
-        ...(parsed.user.displayName
-          ? { displayName: parsed.user.displayName }
-          : {}),
+        ...(parsed.user.displayName ? { displayName: parsed.user.displayName } : {}),
       },
     };
   } catch {

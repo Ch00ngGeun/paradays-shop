@@ -28,7 +28,8 @@ export function rememberAuthReturnPath(path?: string) {
   }
 
   const candidate =
-    path ?? `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    path ??
+    `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
   if (!isSafeAuthReturnPath(candidate)) {
     return;
