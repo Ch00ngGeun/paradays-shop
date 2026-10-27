@@ -3,12 +3,12 @@
  * 기능: 허용된 카탈로그 필드만 DynamoDB에 기록하고, 버전 조건식으로 동시 편집 덮어쓰기를 막음.
  */
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
-  DeleteCommand,
   GetCommand,
-  PutCommand,
   ScanCommand,
+  TransactWriteCommand,
+  type TransactWriteCommandInput,
 } from "@aws-sdk/lib-dynamodb";
 import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
@@ -16,6 +16,11 @@ import type {
 } from "aws-lambda";
 
 import { authorizeAdmin } from "./admin-auth.js";
+import {
+  findCatalogDuplicateIds,
+  parseCatalogIntakeRequest,
+  type CatalogIntakeRequest,
+} from "./catalog-intake.js";
 import { documentClient, getRequiredEnvironment } from "./dynamodb-client.js";
 import { jsonResponse } from "./http-response.js";
 import { isRecord, parseJsonBody, readBoundedString } from "./request-helpers.js";
@@ -49,6 +54,10 @@ export type CatalogProductRecord = Readonly<{
   /** 공개 상품 GSI가 사용할 고정 partition 값. status와 같은 값만 저장합니다. */
   publicationStatus: CatalogProductStatus;
   inventoryQuantity: number;
+  /** Server-owned holds; omitted legacy value means zero, never accepted from an admin body. */
+  inventoryReserved?: number;
+  /** Outstanding proven sales keep their catalog identity until physically restored. */
+  inventoryCommitted?: number;
   featured: boolean;
   image?: string;
   images: readonly string[];
@@ -131,6 +140,14 @@ type CatalogCategory = (typeof CATALOG_CATEGORIES)[number];
 const PRODUCT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{2,96}$/;
 const MAX_PRICE = 100_000_000;
 const MAX_INVENTORY = 1_000_000;
+const CATALOG_REVISION_KEY = "~catalog_revision";
+const CATALOG_RECEIPT_PREFIX = "~catalog_receipt_";
+const INTERNAL_KEY_PATTERN = /^~catalog_(?:revision|(?:receipt|claim)_[a-f0-9]{64})$/;
+const MAX_IDENTITY_SCAN_PAGES = 1_000;
+const MAX_IDENTITY_SCAN_RAW_ITEMS = 1_000_000;
+const MAX_IDENTITY_SCAN_PRODUCTS = 5_000;
+const IDENTITY_SCAN_PAGE_LIMIT = 1_000;
+const IDENTITY_SCAN_DEADLINE_MS = 5_000;
 
 type ProductInput = Omit<
   CatalogProductRecord,
@@ -258,6 +275,17 @@ async function createProduct(
   userSub: string,
 ) {
   const body = parseJsonBody(event);
+  if (
+    isRecord(body) &&
+    (hasOwn(body, "inventoryReserved") || hasOwn(body, "inventoryCommitted"))
+  )
+    return jsonResponse(400, { code: "CATALOG_RESERVED_SERVER_OWNED" });
+  if (isRecord(body) && hasOwn(body, "action")) {
+    const intake = parseCatalogIntakeRequest(body);
+    return intake
+      ? commitCatalogIntake(catalogTableName, intake, userSub)
+      : jsonResponse(400, { code: "OCR_INTAKE_INVALID" });
+  }
   const input = parseProductInput(body);
 
   if (!input) {
@@ -283,22 +311,396 @@ async function createProduct(
   };
 
   try {
+    const revision = await readCatalogRevision(catalogTableName);
+    if (requestedProductId) {
+      const existing = await readProduct(catalogTableName, requestedProductId);
+      if (existing === undefined) throw new Error("CATALOG_READ_UNAVAILABLE");
+      if (existing) return jsonResponse(409, { code: "CATALOG_PRODUCT_ID_CONFLICT" });
+    }
+    const duplicates = await readCatalogDuplicates(catalogTableName, product);
+    if (duplicates.length) {
+      return jsonResponse(409, {
+        code: "CATALOG_PRODUCT_DUPLICATE",
+        productIds: duplicates,
+      });
+    }
     await documentClient.send(
-      new PutCommand({
-        TableName: catalogTableName,
-        Item: product,
-        ConditionExpression: "attribute_not_exists(productId)",
+      new TransactWriteCommand({
+        TransactItems: [
+          revisionWrite(catalogTableName, revision),
+          {
+            Put: {
+              TableName: catalogTableName,
+              Item: product,
+              ConditionExpression: "attribute_not_exists(productId)",
+            },
+          },
+        ],
       }),
     );
   } catch (error) {
     if (isConditionalWriteError(error)) {
-      return jsonResponse(409, { code: "CATALOG_PRODUCT_ID_CONFLICT" });
+      return jsonResponse(409, { code: "CATALOG_IDENTITY_CONFLICT" });
     }
 
     return jsonResponse(503, { code: "CATALOG_STORAGE_UNAVAILABLE" });
   }
 
   return jsonResponse(201, { product: toAdminCatalogProduct(product) });
+}
+
+type IntakeReceipt = Readonly<{
+  operationId: string;
+  kind: "existing" | "new";
+  quantity: number;
+  beforeStock: number;
+  afterStock: number;
+  replayed: boolean;
+}>;
+type IntakeOutcome = Readonly<{ product: AdminCatalogProduct; receipt: IntakeReceipt }>;
+
+/** A durable receipt and the product mutation commit together. A replay never recomputes or adds stock. */
+async function commitCatalogIntake(
+  catalogTableName: string,
+  input: CatalogIntakeRequest,
+  userSub: string,
+): Promise<APIGatewayProxyResultV2> {
+  const receiptKey = `${CATALOG_RECEIPT_PREFIX}${sha256(input.operationId)}`;
+  const ownerHash = sha256(userSub);
+  const claimKeys = input.source.rowIds.map(
+    (rowId) => `~catalog_claim_${sha256(JSON.stringify([input.source.jobId, rowId]))}`,
+  );
+  const payload: Record<string, unknown> = { ...input };
+  delete payload.action;
+  const payloadHash = sha256(JSON.stringify(payload));
+  const replay = async () => {
+    const response = await documentClient.send(
+      new GetCommand({
+        TableName: catalogTableName,
+        Key: { productId: receiptKey },
+        ConsistentRead: true,
+      }),
+    );
+    if (!response.Item) return null;
+    const item = response.Item;
+    if (
+      item.recordType !== "CATALOG_INTAKE_RECEIPT" ||
+      item.ownerHash !== ownerHash ||
+      item.payloadHash !== payloadHash
+    ) {
+      return jsonResponse(409, { code: "OCR_INTAKE_OPERATION_CONFLICT" });
+    }
+    if (!isStoredIntakeOutcome(item.outcome, input))
+      throw new Error("CATALOG_RECEIPT_INVALID");
+    return jsonResponse(200, {
+      product: toAdminCatalogProduct({
+        ...item.outcome.product,
+        publicationStatus: item.outcome.product.status,
+        createdBy: "",
+        updatedBy: "",
+      }),
+      receipt: {
+        operationId: item.outcome.receipt.operationId,
+        kind: item.outcome.receipt.kind,
+        quantity: item.outcome.receipt.quantity,
+        beforeStock: item.outcome.receipt.beforeStock,
+        afterStock: item.outcome.receipt.afterStock,
+        replayed: true,
+      },
+    });
+  };
+
+  try {
+    const previous = await replay();
+    if (previous) return previous;
+    // Read the revision before identity scans. Every handler mutation changes it in its transaction.
+    const revision = await readCatalogRevision(catalogTableName);
+    const timestamp = new Date().toISOString();
+    let product: CatalogProductRecord;
+    let beforeStock: number;
+    let productWrite: NonNullable<TransactWriteCommandInput["TransactItems"]>[number];
+    if (input.kind === "existing") {
+      const existing = await readProduct(catalogTableName, input.existing.productId);
+      if (existing === undefined) throw new Error("CATALOG_READ_UNAVAILABLE");
+      if (!existing) return jsonResponse(404, { code: "CATALOG_PRODUCT_NOT_FOUND" });
+      if (existing.version !== input.existing.version)
+        return jsonResponse(409, {
+          code: "CATALOG_PRODUCT_VERSION_CONFLICT",
+          product: toAdminCatalogProduct(existing),
+        });
+      beforeStock = existing.inventoryQuantity;
+      const afterStock = beforeStock + input.quantity;
+      if (!isInventoryQuantity(afterStock))
+        return jsonResponse(400, { code: "OCR_INTAKE_INVALID" });
+      product = {
+        ...existing,
+        inventoryQuantity: afterStock,
+        version: existing.version + 1,
+        updatedAt: timestamp,
+        updatedBy: userSub,
+      };
+      productWrite = {
+        Put: {
+          TableName: catalogTableName,
+          Item: product,
+          ConditionExpression: "#version = :expectedVersion",
+          ExpressionAttributeNames: { "#version": "version" },
+          ExpressionAttributeValues: { ":expectedVersion": input.existing.version },
+        },
+      };
+    } else {
+      const productId = `prd_${randomUUID()}`;
+      const normalized = parseProductInput({
+        slug: productId,
+        name: input.product.name,
+        brandName: input.product.brandName,
+        ...(input.product.sku ? { sku: input.product.sku } : {}),
+        price: input.product.price,
+        category: input.product.category,
+        sizes: input.product.option ? [input.product.option] : [],
+        stock: input.quantity,
+        status: "DRAFT",
+        featured: false,
+      });
+      if (!normalized) return jsonResponse(400, { code: "OCR_INTAKE_INVALID" });
+      product = {
+        ...normalized,
+        productId,
+        version: 1,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        createdBy: userSub,
+        updatedBy: userSub,
+      };
+      beforeStock = 0;
+      const duplicates = await readCatalogDuplicates(catalogTableName, product);
+      if (duplicates.length)
+        return jsonResponse(409, {
+          code: "CATALOG_PRODUCT_DUPLICATE",
+          productIds: duplicates,
+        });
+      productWrite = {
+        Put: {
+          TableName: catalogTableName,
+          Item: product,
+          ConditionExpression: "attribute_not_exists(productId)",
+        },
+      };
+    }
+    const outcome: IntakeOutcome = {
+      product: toAdminCatalogProduct(product),
+      receipt: {
+        operationId: input.operationId,
+        kind: input.kind,
+        quantity: input.quantity,
+        beforeStock,
+        afterStock: product.inventoryQuantity,
+        replayed: false,
+      },
+    };
+    await documentClient.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          revisionWrite(catalogTableName, revision),
+          productWrite,
+          {
+            Put: {
+              TableName: catalogTableName,
+              Item: {
+                productId: receiptKey,
+                recordType: "CATALOG_INTAKE_RECEIPT",
+                ownerHash,
+                payloadHash,
+                outcome,
+                createdAt: timestamp,
+              },
+              ConditionExpression: "attribute_not_exists(productId)",
+            },
+          },
+          ...claimKeys.map((productId) => ({
+            Put: {
+              TableName: catalogTableName,
+              Item: {
+                productId,
+                recordType: "CATALOG_INTAKE_ROW_CLAIM",
+                operationHash: sha256(input.operationId),
+                ownerHash,
+              },
+              ConditionExpression: "attribute_not_exists(productId)",
+            },
+          })),
+        ],
+      }),
+    );
+    return jsonResponse(input.kind === "new" ? 201 : 200, outcome);
+  } catch (error) {
+    if (isConditionalWriteError(error)) {
+      try {
+        const previous = await replay();
+        if (previous) return previous;
+        // A row remains claimed even if the original group is split, merged, or retargeted.
+        for (const productId of claimKeys) {
+          const claim = await documentClient.send(
+            new GetCommand({
+              TableName: catalogTableName,
+              Key: { productId },
+              ConsistentRead: true,
+            }),
+          );
+          if (claim.Item) return jsonResponse(409, { code: "OCR_INTAKE_ROW_CONFLICT" });
+        }
+      } catch {
+        return jsonResponse(503, { code: "CATALOG_STORAGE_UNAVAILABLE" });
+      }
+      return jsonResponse(409, {
+        code:
+          input.kind === "existing"
+            ? "CATALOG_PRODUCT_VERSION_CONFLICT"
+            : "CATALOG_IDENTITY_CONFLICT",
+      });
+    }
+    return jsonResponse(503, { code: "CATALOG_STORAGE_UNAVAILABLE" });
+  }
+}
+
+/** Internal rows have no publication/slug/stock at the top level, and no TTL is assumed. */
+async function readCatalogRevision(catalogTableName: string): Promise<number> {
+  const response = await documentClient.send(
+    new GetCommand({
+      TableName: catalogTableName,
+      Key: { productId: CATALOG_REVISION_KEY },
+      ConsistentRead: true,
+    }),
+  );
+  if (!response.Item) return 0;
+  if (
+    response.Item.recordType !== "CATALOG_IDENTITY_REVISION" ||
+    !Number.isSafeInteger(response.Item.version) ||
+    response.Item.version < 1 ||
+    response.Item.version >= Number.MAX_SAFE_INTEGER
+  )
+    throw new Error("CATALOG_REVISION_INVALID");
+  return response.Item.version as number;
+}
+
+function revisionWrite(
+  catalogTableName: string,
+  revision: number,
+): NonNullable<TransactWriteCommandInput["TransactItems"]>[number] {
+  return {
+    Put: {
+      TableName: catalogTableName,
+      Item: {
+        productId: CATALOG_REVISION_KEY,
+        recordType: "CATALOG_IDENTITY_REVISION",
+        version: revision + 1,
+      },
+      ...(revision === 0
+        ? { ConditionExpression: "attribute_not_exists(productId)" }
+        : {
+            ConditionExpression: "#version = :expectedVersion",
+            ExpressionAttributeNames: { "#version": "version" },
+            ExpressionAttributeValues: { ":expectedVersion": revision },
+          }),
+    },
+  };
+}
+
+/** Strong reads plus a transaction revision check cover legacy rows without adding a table/index. */
+async function readCatalogDuplicates(
+  catalogTableName: string,
+  incoming: CatalogProductRecord,
+  excludedProductId?: string,
+): Promise<readonly string[]> {
+  let cursor: Record<string, unknown> | undefined;
+  let scanned = 0;
+  const products: CatalogProductRecord[] = [];
+  const abort = new AbortController();
+  const deadline = Date.now() + IDENTITY_SCAN_DEADLINE_MS;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      abort.abort();
+      reject(new Error("CATALOG_IDENTITY_SCAN_TIMEOUT"));
+    }, IDENTITY_SCAN_DEADLINE_MS);
+    timer.unref?.();
+  });
+  try {
+    for (let page = 0; page < MAX_IDENTITY_SCAN_PAGES; page += 1) {
+      if (Date.now() >= deadline) throw new Error("CATALOG_IDENTITY_SCAN_TIMEOUT");
+      const response = await Promise.race([
+        documentClient.send(
+          new ScanCommand({
+            TableName: catalogTableName,
+            ConsistentRead: true,
+            Limit: IDENTITY_SCAN_PAGE_LIMIT,
+            ExclusiveStartKey: cursor,
+          }),
+          { abortSignal: abort.signal },
+        ),
+        timeout,
+      ]);
+      if (Date.now() >= deadline) throw new Error("CATALOG_IDENTITY_SCAN_TIMEOUT");
+      scanned += Math.max(response.ScannedCount ?? 0, response.Items?.length ?? 0);
+      if (scanned > MAX_IDENTITY_SCAN_RAW_ITEMS)
+        throw new Error("CATALOG_IDENTITY_SCAN_LIMIT");
+      for (const item of response.Items ?? []) {
+        if (
+          typeof item.productId === "string" &&
+          INTERNAL_KEY_PATTERN.test(item.productId)
+        )
+          continue;
+        if (!isCatalogProductRecord(item))
+          throw new Error("CATALOG_IDENTITY_RECORD_INVALID");
+        products.push(item);
+        if (products.length > MAX_IDENTITY_SCAN_PRODUCTS)
+          throw new Error("CATALOG_IDENTITY_SCAN_LIMIT");
+      }
+      if (Date.now() >= deadline) throw new Error("CATALOG_IDENTITY_SCAN_TIMEOUT");
+      cursor = response.LastEvaluatedKey as Record<string, unknown> | undefined;
+      if (!cursor) {
+        const duplicates = findCatalogDuplicateIds(
+          incoming,
+          products,
+          excludedProductId,
+        );
+        if (Date.now() >= deadline) throw new Error("CATALOG_IDENTITY_SCAN_TIMEOUT");
+        return duplicates;
+      }
+    }
+    throw new Error("CATALOG_IDENTITY_SCAN_LIMIT");
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+    abort.abort();
+  }
+}
+
+function isStoredIntakeOutcome(
+  value: unknown,
+  input: CatalogIntakeRequest,
+): value is IntakeOutcome {
+  if (!isRecord(value) || !isRecord(value.product) || !isRecord(value.receipt))
+    return false;
+  const receipt = value.receipt;
+  return Boolean(
+    readProductId(value.product.productId) &&
+      readVersion(value.product.version) &&
+      parseProductInput(value.product) &&
+      typeof value.product.createdAt === "string" &&
+      typeof value.product.updatedAt === "string" &&
+      receipt.operationId === input.operationId &&
+      receipt.kind === input.kind &&
+      receipt.quantity === input.quantity &&
+      isInventoryQuantity(receipt.beforeStock) &&
+      isInventoryQuantity(receipt.afterStock) &&
+      receipt.afterStock === receipt.beforeStock + receipt.quantity &&
+      value.product.inventoryQuantity === receipt.afterStock &&
+      receipt.replayed === false,
+  );
+}
+
+function sha256(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
 }
 
 /** GET item: 저장 원본이 아닌 allowlist 기반 관리자 shape만 반환합니다. */
@@ -330,6 +732,8 @@ async function updateProduct(
   }
 
   const expectedVersion = readVersion(body.version);
+  if (hasOwn(body, "inventoryReserved") || hasOwn(body, "inventoryCommitted"))
+    return jsonResponse(400, { code: "CATALOG_RESERVED_SERVER_OWNED" });
 
   if (!expectedVersion) {
     return jsonResponse(400, { code: "CATALOG_PRODUCT_VERSION_REQUIRED" });
@@ -358,6 +762,16 @@ async function updateProduct(
     return jsonResponse(400, { code: "CATALOG_PRODUCT_INVALID" });
   }
 
+  const reserved = existingProduct.inventoryReserved ?? 0;
+  if (
+    input.inventoryQuantity < reserved ||
+    (reserved > 0 &&
+      ["sizes", "price", "name", "brandName", "sku"].some((field) =>
+        hasOwn(body, field),
+      ))
+  )
+    return jsonResponse(409, { code: "CATALOG_PRODUCT_RESERVED" });
+
   const existingWithoutCompareAtPrice = { ...existingProduct };
   delete existingWithoutCompareAtPrice.compareAtPrice;
   const updatedProduct: CatalogProductRecord = {
@@ -371,13 +785,36 @@ async function updateProduct(
   };
 
   try {
+    const revision = await readCatalogRevision(catalogTableName);
+    const identityChanged = ["name", "brandName", "brand", "sku", "sizes"].some(
+      (field) => hasOwn(body, field),
+    );
+    if (identityChanged) {
+      const duplicates = await readCatalogDuplicates(
+        catalogTableName,
+        updatedProduct,
+        productId,
+      );
+      if (duplicates.length)
+        return jsonResponse(409, {
+          code: "CATALOG_PRODUCT_DUPLICATE",
+          productIds: duplicates,
+        });
+    }
     await documentClient.send(
-      new PutCommand({
-        TableName: catalogTableName,
-        Item: updatedProduct,
-        ConditionExpression: "#version = :expectedVersion",
-        ExpressionAttributeNames: { "#version": "version" },
-        ExpressionAttributeValues: { ":expectedVersion": expectedVersion },
+      new TransactWriteCommand({
+        TransactItems: [
+          revisionWrite(catalogTableName, revision),
+          {
+            Put: {
+              TableName: catalogTableName,
+              Item: updatedProduct,
+              ConditionExpression: "#version = :expectedVersion",
+              ExpressionAttributeNames: { "#version": "version" },
+              ExpressionAttributeValues: { ":expectedVersion": expectedVersion },
+            },
+          },
+        ],
       }),
     );
   } catch (error) {
@@ -407,13 +844,25 @@ async function deleteProduct(
   }
 
   try {
+    const revision = await readCatalogRevision(catalogTableName);
     await documentClient.send(
-      new DeleteCommand({
-        TableName: catalogTableName,
-        Key: { productId },
-        ConditionExpression: "#version = :expectedVersion",
-        ExpressionAttributeNames: { "#version": "version" },
-        ExpressionAttributeValues: { ":expectedVersion": expectedVersion },
+      new TransactWriteCommand({
+        TransactItems: [
+          revisionWrite(catalogTableName, revision),
+          {
+            Delete: {
+              TableName: catalogTableName,
+              Key: { productId },
+              ConditionExpression:
+                "#version = :expectedVersion AND (attribute_not_exists(inventoryReserved) OR inventoryReserved = :zero) AND (attribute_not_exists(inventoryCommitted) OR inventoryCommitted = :zero)",
+              ExpressionAttributeNames: { "#version": "version" },
+              ExpressionAttributeValues: {
+                ":expectedVersion": expectedVersion,
+                ":zero": 0,
+              },
+            },
+          },
+        ],
       }),
     );
   } catch (error) {
@@ -462,6 +911,13 @@ export function isCatalogProductRecord(value: unknown): value is CatalogProductR
     isCatalogProductStatus(value.status) &&
     value.publicationStatus === value.status &&
     isInventoryQuantity(value.inventoryQuantity) &&
+    (value.inventoryReserved === undefined ||
+      (isInventoryQuantity(value.inventoryReserved) &&
+        value.inventoryReserved <= value.inventoryQuantity)) &&
+    (value.inventoryCommitted === undefined ||
+      (typeof value.inventoryCommitted === "number" &&
+        Number.isSafeInteger(value.inventoryCommitted) &&
+        value.inventoryCommitted >= 0)) &&
     typeof value.featured === "boolean" &&
     (value.image === undefined || typeof value.image === "string") &&
     isStringArray(value.images) &&
@@ -508,7 +964,7 @@ export function toPublicCatalogProduct(
         }
       : {}),
     sizes: [...product.sizes],
-    inventoryQuantity: product.inventoryQuantity,
+    inventoryQuantity: product.inventoryQuantity - (product.inventoryReserved ?? 0),
     featured: product.featured,
   };
 }
@@ -1074,9 +1530,7 @@ function isCatalogNameI18n(value: unknown): value is CatalogNameI18n {
   );
 }
 
-function isCatalogDescriptionI18n(
-  value: unknown,
-): value is CatalogDescriptionI18n {
+function isCatalogDescriptionI18n(value: unknown): value is CatalogDescriptionI18n {
   return (
     isRecord(value) &&
     isStringArray(value.en) &&
@@ -1119,7 +1573,7 @@ function readListLimit(value: unknown) {
 }
 
 function encodeCursor(value: unknown) {
-  if (!isRecord(value) || !readProductId(value.productId)) {
+  if (!isRecord(value) || !isCatalogStorageKey(value.productId)) {
     return undefined;
   }
 
@@ -1138,7 +1592,7 @@ function decodeCursor(value: unknown) {
       Buffer.from(value, "base64url").toString("utf8"),
     );
 
-    return isRecord(parsed) && readProductId(parsed.productId)
+    return isRecord(parsed) && isCatalogStorageKey(parsed.productId)
       ? { productId: parsed.productId }
       : undefined;
   } catch {
@@ -1159,6 +1613,20 @@ function isConditionalWriteError(error: unknown) {
     typeof error === "object" &&
     error !== null &&
     "name" in error &&
-    error.name === "ConditionalCheckFailedException"
+    (error.name === "ConditionalCheckFailedException" ||
+      (error.name === "TransactionCanceledException" &&
+        "CancellationReasons" in error &&
+        Array.isArray(error.CancellationReasons) &&
+        error.CancellationReasons.some(
+          (reason: unknown) =>
+            isRecord(reason) && reason.Code === "ConditionalCheckFailed",
+        )))
+  );
+}
+
+function isCatalogStorageKey(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    Boolean(readProductId(value) || INTERNAL_KEY_PATTERN.test(value))
   );
 }
