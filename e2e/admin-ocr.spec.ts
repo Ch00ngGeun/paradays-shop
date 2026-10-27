@@ -468,11 +468,11 @@ test.describe("ocr redesign:", () => {
     await setupInventoryReviewApi(page);
     const stages = page.getByRole("list", { name: "OCR 등록 흐름", exact: true });
     await expect(stages.getByRole("listitem")).toHaveText([
-      "1이미지 선택",
-      "2OCR 인식",
-      "3내용 검토",
-      "4검토본 저장",
-      "5입고 반영",
+      "1이미지 선택 (현재 단계)",
+      "2OCR 인식 (예정)",
+      "3내용 검토 (예정)",
+      "4검토본 저장 (예정)",
+      "5입고 반영 (예정)",
     ]);
     await expect(stages.locator('[aria-current="step"]')).toContainText("이미지 선택");
     await expect(summaryMetric(page, "검토 행")).toHaveText("0행");
@@ -495,7 +495,9 @@ test.describe("ocr redesign:", () => {
     );
     expect(inventory.intakes).toHaveLength(0);
     await page.getByRole("button", { name: "검토본 저장", exact: true }).click();
-    await expect(stages.locator('[aria-current="step"]')).toContainText("검토본 저장");
+    // Saved review completes step 4; stock application is the separate current step.
+    await expect(stages.locator('[aria-current="step"]')).toContainText("입고 반영");
+    await expect(stages.locator('[data-state="complete"]')).toHaveCount(4);
     await expect(
       page.getByRole("region", { name: "검토본 입고 반영", exact: true }),
     ).toBeVisible();

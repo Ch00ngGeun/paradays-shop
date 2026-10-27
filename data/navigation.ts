@@ -69,6 +69,3 @@ export const menuRootAll: NavigationItem = {
 export const menuLeafTops: NavigationItem[] = [
   { id: "sale", label: { en: "SALE", ko: "SALE" } },
 ];
-
-/** @deprecated menuLeafTops 사용 — 기존 import 호환용 별칭 */
-export const menuSingles = menuLeafTops;
