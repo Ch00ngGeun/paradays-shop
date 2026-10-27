@@ -1,0 +1,176 @@
+.badge,
+.notice {
+  background: var(--status-background);
+  border: 1px solid var(--status-border);
+  color: var(--status-text);
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.danger {
+  --status-background: #fef2f2;
+  --status-text: #991b1b;
+  --status-mark: #b91c1c;
+  --status-border: #edb3b3;
+}
+
+.success {
+  --status-background: #e9f7ef;
+  --status-text: #14532d;
+  --status-mark: #166534;
+  --status-border: #a0cbb0;
+}
+
+.warning {
+  --status-background: #fff5d6;
+  --status-text: #713f12;
+  --status-mark: #92400e;
+  --status-border: #d8b469;
+}
+
+.neutral {
+  --status-background: #f1f3f5;
+  --status-text: #374151;
+  --status-mark: #4b5563;
+  --status-border: #abb0ba;
+}
+
+.badge {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 7px;
+  line-height: 1.5;
+  padding: 4px 9px;
+  vertical-align: middle;
+}
+
+.dot {
+  background: var(--status-mark);
+  border: 1px solid var(--status-mark);
+  border-radius: 50%;
+  flex: 0 0 8px;
+  height: 8px;
+  width: 8px;
+}
+
+.badgeText,
+.content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.label {
+  font-weight: 700;
+}
+
+.badgeDetails {
+  font-weight: 400;
+}
+
+.notice {
+  align-items: flex-start;
+  border-inline-start: 3px solid var(--status-mark);
+  border-radius: 8px;
+  display: flex;
+  font-size: 14px;
+  gap: 10px;
+  line-height: 1.6;
+  padding: 12px 14px;
+}
+
+.icon {
+  color: var(--status-mark);
+  flex: 0 0 22px;
+  height: 22px;
+  margin-top: 1px;
+  width: 22px;
+}
+
+.content {
+  flex: 1 1 auto;
+}
+
+.heading {
+  display: block;
+  font-weight: 700;
+}
+
+.message {
+  margin-top: 3px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.message > :first-child {
+  margin-top: 0;
+}
+
+.message > :last-child {
+  margin-bottom: 0;
+}
+
+:global(:root[data-theme="dark"]) .danger {
+  --status-background: #3b181b;
+  --status-text: #fecaca;
+  --status-mark: #fca5a5;
+  --status-border: #9c555a;
+}
+
+:global(:root[data-theme="dark"]) .success {
+  --status-background: #142d21;
+  --status-text: #bbf7d0;
+  --status-mark: #86efac;
+  --status-border: #4b8963;
+}
+
+:global(:root[data-theme="dark"]) .warning {
+  --status-background: #342710;
+  --status-text: #fde68a;
+  --status-mark: #fcd34d;
+  --status-border: #a58a45;
+}
+
+:global(:root[data-theme="dark"]) .neutral {
+  --status-background: #262b33;
+  --status-text: #e5e7eb;
+  --status-mark: #cbd5e1;
+  --status-border: #828b99;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge,
+  .notice,
+  .dot,
+  .icon {
+    animation: none;
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .badge,
+  .notice {
+    background: Canvas;
+    border-color: CanvasText;
+    color: CanvasText;
+    forced-color-adjust: auto;
+  }
+
+  .notice {
+    border-inline-start-color: CanvasText;
+  }
+
+  .dot {
+    background: CanvasText;
+    border-color: CanvasText;
+  }
+
+  .icon {
+    color: CanvasText;
+  }
+}
