@@ -31,9 +31,7 @@ describe("auth form-validation", () => {
     expect(isValidPassword("Abcd1234!xyz")).toBe(true);
     expect(isValidPassword("Abcd123!")).toBe(false);
     expect(isValidPassword("short1!")).toBe(false);
-    expect(getPasswordRuleStates("Abcd1234!xyz").every((rule) => rule.met)).toBe(
-      true,
-    );
+    expect(getPasswordRuleStates("Abcd1234!xyz").every((rule) => rule.met)).toBe(true);
     expect(passwordsMatch("Abcd1234!xyz", "Abcd1234!xyz")).toBe(true);
     expect(passwordsMatch("Abcd1234!xyz", "Abcd1234!xyZ")).toBe(false);
   });

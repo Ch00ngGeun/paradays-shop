@@ -13,8 +13,9 @@ describe("isFirebasePhoneAuthAvailable", () => {
     vi.stubEnv("NEXT_PUBLIC_FIREBASE_APP_ID", "1:123:web:abc");
     vi.stubEnv("NEXT_PUBLIC_FIREBASE_PHONE_AUTH_ENABLED", "");
 
-    const { isFirebasePhoneAuthAvailable, isFirebasePhoneAuthEnabled } =
-      await import("@/lib/auth/firebase-phone-auth");
+    const { isFirebasePhoneAuthAvailable, isFirebasePhoneAuthEnabled } = await import(
+      "@/lib/auth/firebase-phone-auth"
+    );
 
     expect(isFirebasePhoneAuthEnabled()).toBe(false);
     expect(isFirebasePhoneAuthAvailable()).toBe(false);
@@ -27,8 +28,9 @@ describe("isFirebasePhoneAuthAvailable", () => {
     vi.stubEnv("NEXT_PUBLIC_FIREBASE_APP_ID", "1:123:web:abc");
     vi.stubEnv("NEXT_PUBLIC_FIREBASE_PHONE_AUTH_ENABLED", "true");
 
-    const { isFirebasePhoneAuthAvailable, isFirebasePhoneAuthEnabled } =
-      await import("@/lib/auth/firebase-phone-auth");
+    const { isFirebasePhoneAuthAvailable, isFirebasePhoneAuthEnabled } = await import(
+      "@/lib/auth/firebase-phone-auth"
+    );
 
     expect(isFirebasePhoneAuthEnabled()).toBe(true);
     expect(isFirebasePhoneAuthAvailable()).toBe(true);
