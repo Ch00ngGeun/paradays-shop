@@ -202,10 +202,9 @@ function stableSku(slug: string) {
 }
 
 async function main() {
-  const client = DynamoDBDocumentClient.from(
-    new DynamoDBClient({ region: REGION }),
-    { marshallOptions: { removeUndefinedValues: true } },
-  );
+  const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region: REGION }), {
+    marshallOptions: { removeUndefinedValues: true },
+  });
 
   for (const product of products) {
     const images = product.images?.length ? [...product.images] : [product.image];
