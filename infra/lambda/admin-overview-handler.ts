@@ -1,6 +1,6 @@
 /**
  * 역할: 관리자 운영 현황 카드에 쓸 집계만 안전하게 반환함.
- * 기능: 오늘(KST) 주문 수, 저재고 상품 수, 활성 쿠폰 수, 마케팅 동의 회원 수를 산출함.
+ * 기능: 오늘(KST) 주문·결제완료 매출·판매 수량, 저재고 상품, 쿠폰, 마케팅 동의 회원을 산출함.
  */
 
 import { ScanCommand } from "@aws-sdk/lib-dynamodb";
@@ -47,21 +47,24 @@ export async function handler(
     return jsonResponse(503, { code: "OVERVIEW_CONFIGURATION_UNAVAILABLE" });
   }
 
-  const todayStartIso = startOfTodayKstIso();
+  const observedAt = new Date();
+  const todayStartIso = startOfTodayKstIso(observedAt);
 
   try {
-    const [todayOrderCount, lowStockCount, activeCouponCount, marketingConsentCount] =
+    const [todayOrderMetrics, lowStockCount, activeCouponCount, marketingConsentCount] =
       await Promise.all([
-        countTodayOrders(orderTableName, todayStartIso),
+        countTodayOrderMetrics(orderTableName, todayStartIso, observedAt.getTime()),
         countLowStockProducts(catalogTableName),
         countActiveCoupons(couponTableName),
         countMarketingConsent(profileTableName),
       ]);
 
     return jsonResponse(200, {
-      asOf: new Date().toISOString(),
+      asOf: observedAt.toISOString(),
       timezone: "Asia/Seoul",
-      todayOrderCount,
+      todayOrderCount: todayOrderMetrics.orderCount,
+      todayPaidRevenue: todayOrderMetrics.paidRevenue,
+      todaySoldItemCount: todayOrderMetrics.soldItemCount,
       lowStockCount,
       lowStockThreshold: LOW_STOCK_THRESHOLD,
       activeCouponCount,
@@ -72,26 +75,72 @@ export async function handler(
   }
 }
 
-async function countTodayOrders(tableName: string, todayStartIso: string) {
-  let count = 0;
+type TodayOrderMetrics = Readonly<{
+  orderCount: number;
+  paidRevenue: number;
+  soldItemCount: number;
+}>;
+
+type PaidOrderMetrics = Readonly<{
+  revenue: number;
+  soldItemCount: number;
+}>;
+
+/** 생성 시각과 결제 승인 시각을 각각 KST 당일 기준으로 집계함. */
+async function countTodayOrderMetrics(
+  tableName: string,
+  todayStartIso: string,
+  observedAtMilliseconds: number,
+): Promise<TodayOrderMetrics> {
+  const todayStartMilliseconds = Date.parse(todayStartIso);
+
+  if (!Number.isFinite(todayStartMilliseconds)) {
+    throw new Error("KST_DATE_UNAVAILABLE");
+  }
+
+  let orderCount = 0;
+  let paidRevenue = 0;
+  let soldItemCount = 0;
   let exclusiveStartKey: Record<string, unknown> | undefined;
 
   for (let page = 0; page < MAX_SCAN_PAGES; page += 1) {
     const response = await documentClient.send(
       new ScanCommand({
         TableName: tableName,
-        ProjectionExpression: "createdAt",
+        ProjectionExpression: "createdAt, paidAt, #status, #total, #lines",
+        ExpressionAttributeNames: {
+          "#status": "status",
+          "#total": "total",
+          "#lines": "lines",
+        },
         ExclusiveStartKey: exclusiveStartKey,
       }),
     );
 
     for (const item of response.Items ?? []) {
+      if (!isRecord(item)) {
+        continue;
+      }
+
       if (
-        isRecord(item) &&
-        typeof item.createdAt === "string" &&
-        item.createdAt >= todayStartIso
+        isTimestampWithinToday(
+          item.createdAt,
+          todayStartMilliseconds,
+          observedAtMilliseconds,
+        )
       ) {
-        count += 1;
+        orderCount = addSafeMetric(orderCount, 1);
+      }
+
+      const paidMetrics = readTodayPaidOrderMetrics(
+        item,
+        todayStartMilliseconds,
+        observedAtMilliseconds,
+      );
+
+      if (paidMetrics) {
+        paidRevenue = addSafeMetric(paidRevenue, paidMetrics.revenue);
+        soldItemCount = addSafeMetric(soldItemCount, paidMetrics.soldItemCount);
       }
     }
 
@@ -104,7 +153,85 @@ async function countTodayOrders(tableName: string, todayStartIso: string) {
     }
   }
 
-  return count;
+  return { orderCount, paidRevenue, soldItemCount };
+}
+
+/** PAID 상태와 결제 승인 시각을 모두 만족할 때만 매출·수량에 포함함. */
+function readTodayPaidOrderMetrics(
+  item: Record<string, unknown>,
+  todayStartMilliseconds: number,
+  observedAtMilliseconds: number,
+): PaidOrderMetrics | null {
+  if (item.status !== "PAID" || typeof item.paidAt !== "string") {
+    return null;
+  }
+
+  const paidAtMilliseconds = Date.parse(item.paidAt);
+
+  if (!Number.isFinite(paidAtMilliseconds)) {
+    throw new Error("ORDER_PAID_AT_INVALID");
+  }
+
+  if (
+    paidAtMilliseconds < todayStartMilliseconds ||
+    paidAtMilliseconds > observedAtMilliseconds
+  ) {
+    return null;
+  }
+
+  if (!isSafeMetricValue(item.total) || !Array.isArray(item.lines)) {
+    throw new Error("ORDER_METRICS_INVALID");
+  }
+
+  let soldItemCount = 0;
+
+  for (const line of item.lines) {
+    if (!isRecord(line) || !isPositiveSafeMetricValue(line.quantity)) {
+      throw new Error("ORDER_LINE_METRICS_INVALID");
+    }
+
+    soldItemCount = addSafeMetric(soldItemCount, line.quantity);
+  }
+
+  return { revenue: item.total, soldItemCount };
+}
+
+/** 날짜 문자열이 관측 시각까지의 KST 당일 범위에 있는지 확인함. */
+function isTimestampWithinToday(
+  value: unknown,
+  todayStartMilliseconds: number,
+  observedAtMilliseconds: number,
+) {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  const timestamp = Date.parse(value);
+
+  return (
+    Number.isFinite(timestamp) &&
+    timestamp >= todayStartMilliseconds &&
+    timestamp <= observedAtMilliseconds
+  );
+}
+
+/** DB 숫자 오염·집계 오버플로를 오류로 처리해 임의의 수치를 노출하지 않음. */
+function addSafeMetric(current: number, increment: number) {
+  const next = current + increment;
+
+  if (!Number.isSafeInteger(next) || next < 0) {
+    throw new Error("ORDER_METRICS_OVERFLOW");
+  }
+
+  return next;
+}
+
+function isSafeMetricValue(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+function isPositiveSafeMetricValue(value: unknown): value is number {
+  return isSafeMetricValue(value) && value > 0;
 }
 
 async function countLowStockProducts(tableName: string) {
@@ -162,7 +289,9 @@ async function countActiveCoupons(tableName: string) {
       // 관리자 화면에서 만드는 초안(DRAFT)도 포함해 카드가 즉시 반영되게 함
       if (
         isRecord(item) &&
-        (item.status === "ACTIVE" || item.status === "DRAFT" || item.status === "PAUSED")
+        (item.status === "ACTIVE" ||
+          item.status === "DRAFT" ||
+          item.status === "PAUSED")
       ) {
         count += 1;
       }
@@ -212,14 +341,14 @@ async function countMarketingConsent(tableName: string) {
 }
 
 /** Asia/Seoul 기준 오늘 00:00의 UTC ISO 문자열 */
-function startOfTodayKstIso() {
+function startOfTodayKstIso(referenceDate: Date) {
   const formatter = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Seoul",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
   });
-  const parts = formatter.formatToParts(new Date());
+  const parts = formatter.formatToParts(referenceDate);
   const year = parts.find((part) => part.type === "year")?.value;
   const month = parts.find((part) => part.type === "month")?.value;
   const day = parts.find((part) => part.type === "day")?.value;
