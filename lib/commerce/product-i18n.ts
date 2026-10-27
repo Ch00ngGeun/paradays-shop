@@ -30,8 +30,7 @@ export function getLocalizedProductDescription(
   locale: Locale,
 ) {
   const localized = product.descriptionI18n?.[locale];
-  const lines =
-    localized && localized.length > 0 ? localized : product.description;
+  const lines = localized && localized.length > 0 ? localized : product.description;
 
   // i18n.ko가 영문 복사본인 시드/레거시 데이터도 KO 사전으로 한 번 더 변환.
   // 이미 한글인 줄은 사전에 없어 원문 그대로 유지됨.
