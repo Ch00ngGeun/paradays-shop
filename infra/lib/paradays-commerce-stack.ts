@@ -51,6 +51,7 @@ export interface CommerceStackProps extends StackProps {
 interface CommerceFunctionOptions {
   readonly entryFileName: string;
   readonly environment: Record<string, string>;
+  readonly timeoutSeconds?: number;
   readonly networking?: Readonly<{
     vpc: ec2.IVpc;
     vpcSubnets: ec2.SubnetSelection;
@@ -93,7 +94,7 @@ function createCommerceFunction(
     handler: "handler",
     runtime: lambda.Runtime.NODEJS_22_X,
     architecture: lambda.Architecture.ARM_64,
-    timeout: Duration.seconds(15),
+    timeout: Duration.seconds(options.timeoutSeconds ?? 15),
     memorySize: 256,
     tracing: lambda.Tracing.ACTIVE,
     logGroup,
@@ -473,8 +474,7 @@ export class CommerceStack extends Stack {
     const preSignUpFunction = createCommerceFunction(this, "CognitoPreSignUpFunction", {
       entryFileName: "cognito-presignup-handler.ts",
       environment: {
-        FIREBASE_WEB_API_KEY:
-          process.env.FIREBASE_WEB_API_KEY ?? "",
+        FIREBASE_WEB_API_KEY: process.env.FIREBASE_WEB_API_KEY ?? "",
       },
     });
     userPool.addTrigger(cognito.UserPoolOperation.PRE_SIGN_UP, preSignUpFunction);
@@ -610,6 +610,17 @@ export class CommerceStack extends Stack {
       deletionProtection: isProduction,
       removalPolicy: dataRemovalPolicy,
     });
+    /** Manual sales and immutable close snapshots never share order/catalog item namespaces. */
+    const salesLedgerTable = new dynamodb.Table(this, "SalesLedgerTable", {
+      tableName: `${namePrefix}-sales-ledger`,
+      partitionKey: { name: "businessDay", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "entryId", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      deletionProtection: true,
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
     catalogTable.addGlobalSecondaryIndex({
       indexName: "publicationStatus-updatedAt-index",
       partitionKey: {
@@ -721,10 +732,12 @@ export class CommerceStack extends Stack {
       entryFileName: "checkout-handler.ts",
       environment: {
         ORDER_TABLE_NAME: orderTable.tableName,
+        CATALOG_TABLE_NAME: catalogTable.tableName,
         TOSS_PAYMENTS_SECRET_ARN: tossPaymentsSecret.secretArn,
       },
     });
     orderTable.grantReadWriteData(checkoutFunction);
+    catalogTable.grantReadData(checkoutFunction);
     tossPaymentsSecret.grantRead(checkoutFunction);
 
     /** Toss redirect 성공 후 서버 승인을 맡는 공개 confirmation API입니다. */
@@ -735,11 +748,13 @@ export class CommerceStack extends Stack {
         entryFileName: "payment-confirm-handler.ts",
         environment: {
           ORDER_TABLE_NAME: orderTable.tableName,
+          CATALOG_TABLE_NAME: catalogTable.tableName,
           TOSS_PAYMENTS_SECRET_ARN: tossPaymentsSecret.secretArn,
         },
       },
     );
     orderTable.grantReadWriteData(paymentConfirmFunction);
+    catalogTable.grantReadWriteData(paymentConfirmFunction);
     tossPaymentsSecret.grantRead(paymentConfirmFunction);
 
     /** PG 재조회와 주문 상태 전이를 맡는 공개 webhook API입니다. */
@@ -750,12 +765,14 @@ export class CommerceStack extends Stack {
         entryFileName: "payment-webhook-handler.ts",
         environment: {
           ORDER_TABLE_NAME: orderTable.tableName,
+          CATALOG_TABLE_NAME: catalogTable.tableName,
           PAYMENT_EVENT_TABLE_NAME: paymentEventTable.tableName,
           TOSS_PAYMENTS_SECRET_ARN: tossPaymentsSecret.secretArn,
         },
       },
     );
     orderTable.grantReadWriteData(paymentWebhookFunction);
+    catalogTable.grantReadWriteData(paymentWebhookFunction);
     paymentEventTable.grantReadWriteData(paymentWebhookFunction);
     tossPaymentsSecret.grantRead(paymentWebhookFunction);
 
@@ -764,11 +781,13 @@ export class CommerceStack extends Stack {
       entryFileName: "admin-refund-handler.ts",
       environment: {
         ORDER_TABLE_NAME: orderTable.tableName,
+        CATALOG_TABLE_NAME: catalogTable.tableName,
         TOSS_PAYMENTS_SECRET_ARN: tossPaymentsSecret.secretArn,
         USER_POOL_ID: userPool.userPoolId,
       },
     });
     orderTable.grantReadWriteData(adminRefundFunction);
+    catalogTable.grantReadWriteData(adminRefundFunction);
     tossPaymentsSecret.grantRead(adminRefundFunction);
 
     /** admin group에서만 상품의 draft·발행 상태를 바꾸도록 서버 handler를 둡니다. */
@@ -852,6 +871,30 @@ export class CommerceStack extends Stack {
     couponTable.grantReadData(adminOverviewFunction);
     profileTable.grantReadData(adminOverviewFunction);
 
+    const adminSalesFunction = createCommerceFunction(this, "AdminSalesFunction", {
+      entryFileName: "admin-sales-handler.ts",
+      timeoutSeconds: 28,
+      environment: {
+        SALES_LEDGER_TABLE_NAME: salesLedgerTable.tableName,
+        ORDER_TABLE_NAME: orderTable.tableName,
+        CATALOG_TABLE_NAME: catalogTable.tableName,
+        USER_POOL_ID: userPool.userPoolId,
+      },
+    });
+    salesLedgerTable.grant(
+      adminSalesFunction,
+      "dynamodb:GetItem",
+      "dynamodb:Query",
+      "dynamodb:PutItem",
+    );
+    catalogTable.grant(
+      adminSalesFunction,
+      "dynamodb:GetItem",
+      "dynamodb:UpdateItem",
+      "dynamodb:PutItem",
+    );
+    orderTable.grant(adminSalesFunction, "dynamodb:Scan");
+
     /** 브랜드·쿠폰·마케팅 초안은 admin group이 server-side 검증 뒤에만 관리합니다. */
     const adminOperationsFunction = createCommerceFunction(
       this,
@@ -914,6 +957,7 @@ export class CommerceStack extends Stack {
       adminCatalogFunction,
       adminCatalogUploadFunction,
       adminOverviewFunction,
+      adminSalesFunction,
       adminOperationsFunction,
       adminOcrFunction,
     ]) {
@@ -992,6 +1036,10 @@ export class CommerceStack extends Stack {
       "AdminOverviewIntegration",
       adminOverviewFunction,
     );
+    const adminSalesIntegration = new apigwv2Integrations.HttpLambdaIntegration(
+      "AdminSalesIntegration",
+      adminSalesFunction,
+    );
     const adminOperationsIntegration = new apigwv2Integrations.HttpLambdaIntegration(
       "AdminOperationsIntegration",
       adminOperationsFunction,
@@ -1045,7 +1093,7 @@ export class CommerceStack extends Stack {
     });
     commerceApi.addRoutes({
       path: "/admin/orders/{orderId}/refunds",
-      methods: [apigwv2.HttpMethod.POST],
+      methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST],
       integration: adminRefundIntegration,
       authorizer: jwtAuthorizer,
     });
@@ -1075,6 +1123,12 @@ export class CommerceStack extends Stack {
       path: "/admin/overview",
       methods: [apigwv2.HttpMethod.GET],
       integration: adminOverviewIntegration,
+      authorizer: jwtAuthorizer,
+    });
+    commerceApi.addRoutes({
+      path: "/admin/sales/{businessDay}",
+      methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST],
+      integration: adminSalesIntegration,
       authorizer: jwtAuthorizer,
     });
     commerceApi.addRoutes({
@@ -1198,6 +1252,10 @@ export class CommerceStack extends Stack {
     new CfnOutput(this, "CatalogTableName", {
       value: catalogTable.tableName,
       exportName: `${outputPrefix}CatalogTableName`,
+    });
+    new CfnOutput(this, "SalesLedgerTableName", {
+      value: salesLedgerTable.tableName,
+      exportName: `${outputPrefix}SalesLedgerTableName`,
     });
     new CfnOutput(this, "ProductImageBucketName", {
       value: productImageBucket.bucketName,
