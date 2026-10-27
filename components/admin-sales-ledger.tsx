@@ -13,6 +13,8 @@ import {
 } from "@/lib/commerce/admin-sales-api-client";
 import styles from "./admin-sales-ledger.module.css";
 import { AdminSalesSimulationPanel } from "./admin-sales-simulation";
+import { AdminStepper, type AdminStep } from "./admin-stepper";
+import { AdminNotice } from "./admin-status";
 
 type Row = {
   productId: string | null;
@@ -90,11 +92,19 @@ const showTime = (iso: string) =>
     hour12: false,
   }).format(new Date(iso));
 const newId = () => `sale_${crypto.randomUUID()}`;
-const statusLabels = { DRAFT: "보류 초안", POSTED: "확정", VOID: "폐기" };
+const statusLabels = { DRAFT: "작성 중", POSTED: "완료", VOID: "폐기" };
+const methodLabels = { CARD: "카드", CASH: "현금", TRANSFER: "이체" };
+const methodOrder = ["CARD", "CASH", "TRANSFER"] as const;
+const methodNet = (totals: DayReport["totals"], method: SaleEntry["method"]) =>
+  method === "CARD"
+    ? totals.card
+    : method === "CASH"
+      ? totals.cash
+      : (totals.transfer ?? 0);
 const warnings: Record<string, string> = {
-  UNPOSTED_SALES: "확정하지 않은 초안이 남아 있습니다.",
+  UNPOSTED_SALES: "작성 중 전표가 남아 있습니다.",
   UNMATCHED_OR_AMOUNT_MISMATCH:
-    "상품 미매칭 또는 줄 합계와 전표 금액이 다른 초안이 있습니다.",
+    "상품 미매칭 또는 줄 합계와 전표 금액이 다른 작성 중 전표가 있습니다.",
   ONLINE_REFUND_HISTORY_UNAVAILABLE:
     "온라인 환불의 날짜별 근거가 부족합니다. 확인 전 마감할 수 없습니다.",
   ONLINE_CHANGED_AFTER_CLOSE:
@@ -169,7 +179,7 @@ function SalesModeSession({
             <span aria-hidden="true">◇</span> 실제 변경 없음
           </span>
           <h3>연습하기</h3>
-          <p>가상 상품으로 카드·현금 판매부터 재고 반영·일마감까지 연습합니다.</p>
+          <p>가상 상품으로 카드·현금·이체 판매부터 재고 반영·일마감까지 연습합니다.</p>
           <label className={styles.check}>
             <input
               type="checkbox"
@@ -202,9 +212,9 @@ function SalesModeSession({
             <span aria-hidden="true">●</span> 실제 장부·재고 변경
           </span>
           <h3>실제 운영</h3>
-          <p className={styles.warning}>
+          <AdminNotice status="attention">
             판매를 확정하면 실제 재고가 차감됩니다. 연습하려면 ‘연습하기’를 선택하세요.
-          </p>
+          </AdminNotice>
           <p className={styles.muted}>기존 미확정 요청은 실제 운영에서 확인합니다.</p>
           <button
             aria-label="실제 운영 열기 · 실제 매출·일마감 열기"
@@ -248,6 +258,7 @@ function ActualSalesLedgerPanel({
   const [observedNow, setObservedNow] = useState(Date.now);
   const busyRef = useRef(false);
   const [notice, setNotice] = useState("");
+  const [noticeKind, setNoticeKind] = useState<"neutral" | "attention">("neutral");
   const storageKey = `paradays.admin-sales.pending.${user?.sub ?? "admin"}`;
   const storedAttempt = useSyncExternalStore(
     subscribePending,
@@ -299,6 +310,7 @@ function ActualSalesLedgerPanel({
     busyRef.current = true;
     setBusy(true);
     setNotice("");
+    setNoticeKind("neutral");
     setResolutionConfirmed(false);
     try {
       const next = await client().getDay(targetDay);
@@ -315,6 +327,7 @@ function ActualSalesLedgerPanel({
       } else setNotice("한국 시간 기준 장부를 조회했습니다.");
     } catch {
       setReport(null);
+      setNoticeKind("attention");
       setNotice(
         "장부를 조회하지 못했습니다. 로그인·권한·연결을 확인하고 다시 조회해 주세요. 미완료 집계로 마감하지 않습니다.",
       );
@@ -331,6 +344,7 @@ function ActualSalesLedgerPanel({
     busyRef.current = true;
     setBusy(true);
     setNotice("");
+    setNoticeKind("neutral");
     setResolutionRead(false);
     setResolutionConfirmed(false);
     if (mutation && !retry) remember({ day: targetDay, command: frozen });
@@ -339,6 +353,7 @@ function ActualSalesLedgerPanel({
       if ("preview" in result) {
         setPreview(result);
         setStockConfirmed(false);
+        setNoticeKind("attention");
         setNotice("아래 재고 변동을 확인한 뒤 판매를 확정해 주세요.");
         return;
       }
@@ -356,6 +371,7 @@ function ActualSalesLedgerPanel({
           setReport(await client().getDay(targetDay));
         } catch {
           setReport(null);
+          setNoticeKind("attention");
           setNotice(
             "요청 처리 응답은 확인했습니다. 최신 합계 조회가 실패했으므로 장부를 다시 조회해 주세요.",
           );
@@ -372,6 +388,7 @@ function ActualSalesLedgerPanel({
       const uncertain =
         mutation && (!(error instanceof AdminSalesError) || error.resultUncertain);
       if (!uncertain) remember(null);
+      setNoticeKind("attention");
       setNotice(
         uncertain
           ? "처리 결과가 확정되지 않았습니다. 다른 쓰기를 잠갔습니다. 같은 요청 재시도 또는 결과 재조회로 확인해 주세요."
@@ -432,8 +449,22 @@ function ActualSalesLedgerPanel({
     Number(cashCompared) === report.totals.cash &&
     closeConfirmed &&
     !locked;
+  const hasDrafts = !!report?.entries.some((e) => e.status === "DRAFT");
+  const closed = report?.status === "CLOSED";
+  const ledgerSteps: AdminStep[] = [
+    { label: "장부 조회", state: report ? "complete" : "current" },
+    {
+      label: "판매 전표 정리",
+      state: !report ? "upcoming" : hasDrafts ? "current" : "complete",
+    },
+    {
+      label: "일마감",
+      state: !report || hasDrafts ? "upcoming" : closed ? "complete" : "current",
+    },
+  ];
   return (
     <section className={styles.panel} aria-labelledby="sales-ledger-title">
+      <AdminStepper label="실제 매출 작업 흐름" steps={ledgerSteps} />
       <header className={styles.header}>
         <div>
           <div className={styles.titleRow}>
@@ -442,7 +473,9 @@ function ActualSalesLedgerPanel({
               <span aria-hidden="true">●</span> 실제 운영 · 장부·재고 변경
             </span>
           </div>
-          <p>카드·현금 전표와 하루 매출을 대조합니다. 날짜·시각은 한국 시간입니다.</p>
+          <p>
+            카드·현금·이체 전표와 하루 매출을 대조합니다. 날짜·시각은 한국 시간입니다.
+          </p>
         </div>
         <button
           type="button"
@@ -455,10 +488,10 @@ function ActualSalesLedgerPanel({
         </button>
       </header>
       {locked ? (
-        <p className={styles.warning}>
+        <AdminNotice status="neutral">
           실제 요청이 진행 중이거나 결과 확인 대기 중입니다. 요청을 정리한 뒤 모드를
           변경할 수 있습니다.
-        </p>
+        </AdminNotice>
       ) : null}
       <form
         className={styles.toolbar}
@@ -489,58 +522,61 @@ function ActualSalesLedgerPanel({
         </button>
       </form>
       {notice ? (
-        <p role="status" className={styles.notice}>
-          {notice}
-        </p>
+        <div role="status">
+          <AdminNotice status={noticeKind}>{notice}</AdminNotice>
+        </div>
       ) : null}
       {attempt ? (
-        <section className={styles.warning} aria-label="미확정 요청 보호">
-          <h3>처리 결과 확인 필요</h3>
-          <p>
-            영업일 {attempt.day} · 요청 {attempt.command.action} ·{" "}
-            {"entryId" in attempt.command
-              ? attempt.command.entryId
-              : attempt.command.operationId}
-          </p>
-          <p>
-            입력 변경·다른 전표 처리·마감을 잠갔습니다. 원래 요청의 번호와 내용을 그대로
-            유지합니다.
-          </p>
-          <div className={styles.actions}>
+        <section aria-label="미확정 요청 보호">
+          <AdminNotice status="blocking">
+            <h3>처리 결과 확인 필요</h3>
+            <p>
+              영업일 {attempt.day} · 요청 {attempt.command.action} ·{" "}
+              {"entryId" in attempt.command
+                ? attempt.command.entryId
+                : attempt.command.operationId}
+            </p>
+            <p>
+              입력 변경·다른 전표 처리·마감을 잠갔습니다. 원래 요청의 번호와 내용을
+              그대로 유지합니다.
+            </p>
+            <div className={styles.actions}>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void run(attempt.day, attempt.command, true)}
+              >
+                같은 요청 재시도
+              </button>
+              <button type="button" disabled={busy} onClick={() => void load(true)}>
+                결과 재조회
+              </button>
+            </div>
+            <label className={styles.check}>
+              <input
+                type="checkbox"
+                checked={resolutionConfirmed}
+                disabled={!resolutionRead || busy}
+                onChange={(e) => setResolutionConfirmed(e.target.checked)}
+              />
+              재조회한 장부에서 처리 결과를 직접 확인했습니다
+            </label>
             <button
               type="button"
-              disabled={busy}
-              onClick={() => void run(attempt.day, attempt.command, true)}
+              disabled={!resolutionRead || !resolutionConfirmed || busy}
+              onClick={() => {
+                remember(null);
+                setDraft(null);
+                setSelectedId(null);
+                setNoticeKind("neutral");
+                setNotice(
+                  "직접 확인한 결과에 따라 미확정 요청 잠금을 해제했습니다. 필요한 전표를 다시 선택해 주세요.",
+                );
+              }}
             >
-              같은 요청 재시도
+              미확정 요청 잠금 해제
             </button>
-            <button type="button" disabled={busy} onClick={() => void load(true)}>
-              결과 재조회
-            </button>
-          </div>
-          <label className={styles.check}>
-            <input
-              type="checkbox"
-              checked={resolutionConfirmed}
-              disabled={!resolutionRead || busy}
-              onChange={(e) => setResolutionConfirmed(e.target.checked)}
-            />
-            재조회한 장부에서 처리 결과를 직접 확인했습니다
-          </label>
-          <button
-            type="button"
-            disabled={!resolutionRead || !resolutionConfirmed || busy}
-            onClick={() => {
-              remember(null);
-              setDraft(null);
-              setSelectedId(null);
-              setNotice(
-                "직접 확인한 결과에 따라 미확정 요청 잠금을 해제했습니다. 필요한 전표를 다시 선택해 주세요.",
-              );
-            }}
-          >
-            미확정 요청 잠금 해제
-          </button>
+          </AdminNotice>
         </section>
       ) : null}
       {report ? (
@@ -578,6 +614,13 @@ function ActualSalesLedgerPanel({
             </article>
             <article>
               <span aria-hidden="true" className={styles.metricSymbol}>
+                ⇄
+              </span>
+              <span>오프라인 이체 순매출</span>
+              <strong>{money(report.totals.transfer ?? 0)}</strong>
+            </article>
+            <article>
+              <span aria-hidden="true" className={styles.metricSymbol}>
                 Σ
               </span>
               <span>통합 순매출</span>
@@ -585,19 +628,20 @@ function ActualSalesLedgerPanel({
             </article>
           </div>
           {report.warnings.length ? (
-            <div className={styles.warning} aria-label="마감 경고">
-              <strong>마감 전 확인 필요</strong>
-              <ul>
-                {report.warnings.map((w) => (
-                  <li key={w}>{warnings[w] ?? w}</li>
-                ))}
-              </ul>
+            <div aria-label="마감 경고">
+              <AdminNotice status="attention" title="마감 전 확인 필요">
+                <ul>
+                  {report.warnings.map((w) => (
+                    <li key={w}>{warnings[w] ?? w}</li>
+                  ))}
+                </ul>
+              </AdminNotice>
             </div>
           ) : null}
           {!report.complete ? (
-            <p className={styles.warning}>
+            <AdminNotice status="attention">
               집계가 완료되지 않았습니다. 최신 장부를 다시 조회한 뒤 마감해 주세요.
-            </p>
+            </AdminNotice>
           ) : null}
           <details className={`${styles.block} ${styles.reconciliationDetails}`}>
             <summary>확정 매출 대조표·집계 기준</summary>
@@ -613,7 +657,7 @@ function ActualSalesLedgerPanel({
                   </tr>
                 </thead>
                 <tbody>
-                  {(["CARD", "CASH"] as const).map((method) => {
+                  {methodOrder.map((method) => {
                     const sales = report.entries.filter(
                       (e) => e.status === "POSTED" && e.method === method,
                     );
@@ -625,16 +669,10 @@ function ActualSalesLedgerPanel({
                         .reduce((s, e) => s + e.amount, 0);
                     return (
                       <tr key={method}>
-                        <th scope="row">
-                          오프라인 {method === "CARD" ? "카드" : "현금"}
-                        </th>
+                        <th scope="row">오프라인 {methodLabels[method]}</th>
                         <td>{money(gross)}</td>
                         <td>{money(refunds)}</td>
-                        <td>
-                          {money(
-                            method === "CARD" ? report.totals.card : report.totals.cash,
-                          )}
-                        </td>
+                        <td>{money(methodNet(report.totals, method))}</td>
                       </tr>
                     );
                   })}
@@ -713,7 +751,7 @@ function ActualSalesLedgerPanel({
                   </button>
                 </div>
                 <p>
-                  초안·폐기 전표는 합계에서 제외됩니다. 카드번호·고객 개인정보는
+                  작성 중·폐기 전표는 합계에서 제외됩니다. 카드번호·고객 개인정보는
                   입력하지 마세요.
                 </p>
                 <div className={styles.tableWrap}>
@@ -734,7 +772,9 @@ function ActualSalesLedgerPanel({
                         <tr key={e.entryId} data-testid={`ledger-entry-${e.entryId}`}>
                           <td>{showTime(e.soldAt)}</td>
                           <td>
-                            {e.method === "CARD" ? "카드" : "현금"}{" "}
+                            <span className={styles.methodChip} data-method={e.method}>
+                              {methodLabels[e.method]}
+                            </span>{" "}
                             {e.kind === "REVERSAL" ? "반대전표" : "판매"}
                           </td>
                           <td>
@@ -789,9 +829,11 @@ function ActualSalesLedgerPanel({
               </section>
               {draft ? (
                 <section className={styles.block} aria-label="판매 전표 편집">
-                  <h3>{draft.expectedVersion ? "보류 초안 수정" : "새 판매 전표"}</h3>
+                  <h3>
+                    {draft.expectedVersion ? "작성 중 전표 수정" : "새 판매 전표"}
+                  </h3>
                   <p className={styles.muted}>
-                    전표 번호 {draft.entryId} · 저장은 보류 초안이며 재고를 바꾸지
+                    전표 번호 {draft.entryId} · 저장은 작성 중 상태이며 재고를 바꾸지
                     않습니다.
                   </p>
                   <form
@@ -837,6 +879,7 @@ function ActualSalesLedgerPanel({
                           >
                             <option value="CARD">카드</option>
                             <option value="CASH">현금</option>
+                            <option value="TRANSFER">이체</option>
                           </select>
                         </label>
                         <label>
@@ -845,7 +888,7 @@ function ActualSalesLedgerPanel({
                             value={draft.reference}
                             maxLength={64}
                             required
-                            placeholder="CARD-001 / CASH-001"
+                            placeholder="CARD-001 / CASH-001 / TRANSFER-001"
                             onChange={(e) => updateDraft({ reference: e.target.value })}
                           />
                         </label>
@@ -1066,16 +1109,16 @@ function ActualSalesLedgerPanel({
                         </button>
                       </p>
                       {unmatched ? (
-                        <p className={styles.warning}>
+                        <AdminNotice status="warning">
                           미매칭 상품·옵션이 있습니다. 초안 보관은 가능하며 재고 반영 전
                           연결해야 합니다.
-                        </p>
+                        </AdminNotice>
                       ) : null}
                       {mismatched ? (
-                        <p className={styles.warning}>
+                        <AdminNotice status="warning">
                           상품 줄 합계와 전표 금액이 다릅니다. 초안 보관은 가능하며 재고
                           반영 전 대조해야 합니다.
-                        </p>
+                        </AdminNotice>
                       ) : null}
                       <button type="submit" disabled={!draftValid}>
                         초안 저장
@@ -1106,6 +1149,7 @@ function ActualSalesLedgerPanel({
                         <label>
                           보류 전표 폐기 사유
                           <input
+                            required
                             value={voidReason}
                             maxLength={300}
                             disabled={locked || !open}
@@ -1189,7 +1233,7 @@ function ActualSalesLedgerPanel({
                 </section>
               ) : null}
               {selected && selected.status !== "DRAFT" ? (
-                <section className={styles.block} aria-label="확정 전표 상세">
+                <section className={styles.block} aria-label="판매 전표 상세">
                   <h3>
                     {selected.reference} · {statusLabels[selected.status]}
                   </h3>
@@ -1219,14 +1263,15 @@ function ActualSalesLedgerPanel({
                       <h4>원전표 전체 반대전표</h4>
                       <p>
                         원전표를 고치지 않고 전체 금액의 반대전표를 기록합니다. 실제
-                        카드 취소·현금 환급은 별도로 처리하며, 검수 확인을 선택한
-                        경우에만 전 수량을 복원합니다.
+                        카드 취소·현금 환급·이체 반환은 별도로 처리하며, 검수 확인을
+                        선택한 경우에만 전 수량을 복원합니다.
                       </p>
                       <div className={styles.fields}>
                         <label>
                           반대전표 영업일
                           <input
                             type="date"
+                            required
                             value={reverseDay}
                             max={today()}
                             min={selected.businessDay}
@@ -1244,6 +1289,7 @@ function ActualSalesLedgerPanel({
                           반대전표 판매일시 (한국 시간)
                           <input
                             type="datetime-local"
+                            required
                             value={reverseTime}
                             min={`${reverseDay}T00:00`}
                             max={
@@ -1261,6 +1307,7 @@ function ActualSalesLedgerPanel({
                         <label className={styles.wide}>
                           반대전표 사유
                           <input
+                            required
                             value={reverseReason}
                             maxLength={300}
                             disabled={locked}
@@ -1357,23 +1404,28 @@ function ActualSalesLedgerPanel({
                   <dd>{money(report.totals.cash)}</dd>
                 </div>
                 <div>
+                  <dt>이체 순매출</dt>
+                  <dd>{money(report.totals.transfer ?? 0)}</dd>
+                </div>
+                <div>
                   <dt>통합 순매출</dt>
                   <dd>{money(report.totals.combinedNet)}</dd>
                 </div>
               </dl>
               {report.entries.some((entry) => entry.status === "DRAFT") ? (
-                <p className={styles.warning}>
-                  확정 대기 전표{" "}
+                <AdminNotice status="attention">
+                  작성 중 전표{" "}
                   {report.entries.filter((entry) => entry.status === "DRAFT").length}건
-                </p>
+                </AdminNotice>
               ) : null}
               <p>
                 현금 대조액은 현금 판매에서 반대전표를 뺀 순매출이며 금고
-                잔액·시재·입금액이 아닙니다.
+                잔액·시재·입금액이 아닙니다. 카드·이체 금액은 현금 대조에 포함하지
+                않습니다.
               </p>
               <p>
-                카드 원문과 현금 수기장부를 대조하고, 온라인 주문을 오프라인 전표에도
-                중복 기록하지 않았는지 직접 확인해 주세요.
+                카드 원문·이체 입금 내역과 현금 수기장부를 대조하고, 온라인 주문을
+                오프라인 전표에도 중복 기록하지 않았는지 직접 확인해 주세요.
               </p>
               {open ? (
                 <>
@@ -1382,6 +1434,7 @@ function ActualSalesLedgerPanel({
                     <input
                       type="number"
                       step="1"
+                      required
                       value={cashCompared}
                       disabled={locked}
                       onChange={(e) => {
@@ -1429,7 +1482,7 @@ function ActualSalesLedgerPanel({
                           : report.warnings.length
                             ? "마감 경고를 먼저 확인하세요."
                             : report.entries.some((entry) => entry.status === "DRAFT")
-                              ? "확정 대기 전표를 먼저 확인하세요."
+                              ? "작성 중 전표를 먼저 확인하세요."
                               : cashCompared.trim() === "" ||
                                   Number(cashCompared) !== report.totals.cash
                                 ? "현금 순매출 대조액을 확인하세요."
@@ -1446,6 +1499,7 @@ function ActualSalesLedgerPanel({
                   <label>
                     재개방 사유
                     <input
+                      required
                       value={reopenReason}
                       maxLength={300}
                       disabled={locked}
@@ -1487,7 +1541,8 @@ function ActualSalesLedgerPanel({
                     </p>
                     <p>
                       카드 순매출 {money(s.totals.card)} · 현금 순매출{" "}
-                      {money(s.totals.cash)} · 오프라인 반대전표{" "}
+                      {money(s.totals.cash)} · 이체 순매출{" "}
+                      {money(s.totals.transfer ?? 0)} · 오프라인 반대전표{" "}
                       {money(s.totals.offlineRefunds)} · 온라인 총매출{" "}
                       {money(s.totals.onlineGross)} · 온라인 환불{" "}
                       {money(s.totals.onlineRefunds)} · 온라인 순매출{" "}

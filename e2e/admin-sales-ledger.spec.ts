@@ -839,7 +839,7 @@ test("sales redesign: draft and unresolved online warnings remain visible and pr
     entries: [sale({ entryId: "sale_pending_001", status: "DRAFT" })],
   });
   await expect(page.getByTestId("ledger-entry-sale_pending_001")).toContainText(
-    "보류 초안",
+    "작성 중",
   );
   await page.getByLabel("현금 순매출 수기 대조액", { exact: true }).fill("0");
   const acknowledged = page.getByLabel(
@@ -854,7 +854,7 @@ test("sales redesign: draft and unresolved online warnings remain visible and pr
   state.entries = [sale({ entryId: "sale_pending_001", status: "POSTED" })];
   state.warnings = ["ONLINE_PAYMENT_RESULT_PENDING"];
   await loadDay(page);
-  await expect(page.getByTestId("ledger-entry-sale_pending_001")).toContainText("확정");
+  await expect(page.getByTestId("ledger-entry-sale_pending_001")).toContainText("완료");
   await expect(page.getByLabel("마감 경고", { exact: true })).toContainText(
     "온라인 결제 결과가 확인 대기 중입니다",
   );
@@ -997,4 +997,171 @@ test("unknown operation survives refresh; a report read alone cannot unlock a ne
   ).toBeEnabled();
   expect(state.posts).toHaveLength(1);
   expect(state.stockMoves).toBe(0);
+});
+
+test("transfer: saved, posted and shown in gray apart from card and cash; cash comparison excludes it", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const state = await setup(page, {
+    entries: [
+      sale({ entryId: "sale_card_001", reference: "CARD-001", status: "POSTED" }),
+      sale({
+        entryId: "sale_cash_001",
+        reference: "CASH-001",
+        status: "POSTED",
+        method: "CASH",
+        amount: 7000,
+      }),
+    ],
+    onlineEvents: [],
+  });
+  await newDraft(page, true);
+  await page
+    .getByRole("combobox", { name: "결제 구분", exact: true })
+    .selectOption("TRANSFER");
+  await page.getByLabel("전표 참조번호", { exact: true }).fill("TRANSFER-001");
+  await page.getByRole("button", { name: "초안 저장", exact: true }).click();
+  await expect.poll(() => state.entries.length).toBe(3);
+  expect(state.posts[0]).toMatchObject({ action: "save", method: "TRANSFER" });
+  await page.getByRole("button", { name: "재고 반영 미리보기", exact: true }).click();
+  await page
+    .getByLabel("상품·옵션·수량과 재고 변동을 확인했습니다", { exact: true })
+    .check();
+  await page.getByRole("button", { name: "판매 확정·재고 반영", exact: true }).click();
+  await expect.poll(() => state.stock).toBe(9);
+
+  const transferId = state.entries.find((e) => e.method === "TRANSFER")!.entryId;
+  const chip = (id: string) =>
+    page.getByTestId(`ledger-entry-${id}`).locator("[data-method]");
+  await expect(chip(transferId)).toHaveText("이체");
+  await expect(chip("sale_card_001")).toHaveText("카드");
+  await expect(chip("sale_cash_001")).toHaveText("현금");
+  const colors = await Promise.all(
+    [transferId, "sale_card_001", "sale_cash_001"].map((id) =>
+      chip(id).evaluate((el) => getComputedStyle(el).backgroundColor),
+    ),
+  );
+  expect(colors).toEqual([
+    "rgb(241, 243, 245)",
+    "rgb(232, 241, 253)",
+    "rgb(233, 247, 239)",
+  ]);
+  await expect(page.getByTestId(`ledger-entry-${transferId}`)).toContainText(
+    "이체 판매",
+  );
+
+  for (const [label, amount] of [
+    ["오프라인 카드 순매출", "10,000원"],
+    ["오프라인 현금 순매출", "7,000원"],
+    ["오프라인 이체 순매출", "10,000원"],
+    ["통합 순매출", "27,000원"],
+  ])
+    await expect(metric(page, label).locator("strong")).toHaveText(amount);
+  await expect(page.locator("dl").filter({ hasText: "이체 순매출" })).toContainText(
+    "이체 순매출10,000원",
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("transfer-desktop.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 375, height: 900 });
+  await expectNoDocumentOverflow(page);
+  await page.screenshot({
+    path: testInfo.outputPath("transfer-mobile.png"),
+    fullPage: true,
+  });
+  console.log(`Transfer screenshots: ${testInfo.outputPath()}`);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.getByText("확정 매출 대조표·집계 기준", { exact: true }).click();
+  const totals = page.getByRole("table", {
+    name: "확정 매출 대조표 · 원화",
+    exact: true,
+  });
+  await expect(
+    totals.getByRole("row", {
+      name: "오프라인 이체 10,000원 0원 10,000원",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    totals.getByRole("row", {
+      name: "오프라인 합계 27,000원 0원 27,000원",
+      exact: true,
+    }),
+  ).toBeVisible();
+
+  const close = page.getByRole("button", { name: CLOSE_DAY, exact: true });
+  const acknowledged = page.getByLabel(
+    "온라인·오프라인 매출과 경고를 모두 확인했습니다",
+    { exact: true },
+  );
+  // Cash plus transfer is not the cash amount; only cash compares.
+  await page.getByLabel("현금 순매출 수기 대조액", { exact: true }).fill("17000");
+  await acknowledged.check();
+  await expect(close).toBeDisabled();
+  await page.getByLabel("현금 순매출 수기 대조액", { exact: true }).fill("7000");
+  await expect(acknowledged).not.toBeChecked();
+  await acknowledged.check();
+  await close.click();
+  await expect.poll(() => state.status).toBe("CLOSED");
+  expect(state.posts.at(-1)).toMatchObject({
+    action: "close",
+    cashComparedAmount: 7000,
+  });
+  expect(state.snapshots[0]!.totals.transfer).toBe(10000);
+});
+
+async function ledgerFlow(page: Page) {
+  return page
+    .getByRole("list", { name: "실제 매출 작업 흐름", exact: true })
+    .getByRole("listitem")
+    .evaluateAll((items) => items.map((item) => (item as HTMLElement).dataset.state));
+}
+
+test("work flow: actual sales steps follow drafts and the server close status", async ({
+  page,
+}) => {
+  const state = await setup(page, {
+    entries: [sale({ entryId: "sale_draft_001", status: "DRAFT" })],
+  });
+  await expect
+    .poll(() => ledgerFlow(page))
+    .toEqual(["complete", "current", "upcoming"]);
+  state.entries = [sale({ method: "CASH", status: "POSTED" })];
+  await loadDay(page);
+  await expect
+    .poll(() => ledgerFlow(page))
+    .toEqual(["complete", "complete", "current"]);
+  await page.getByLabel("현금 순매출 수기 대조액", { exact: true }).fill("10000");
+  await page
+    .getByLabel("온라인·오프라인 매출과 경고를 모두 확인했습니다", { exact: true })
+    .check();
+  await page.getByRole("button", { name: CLOSE_DAY, exact: true }).click();
+  await expect.poll(() => state.status).toBe("CLOSED");
+  await expect
+    .poll(() => ledgerFlow(page))
+    .toEqual(["complete", "complete", "complete"]);
+  expect(state.stockMoves).toBe(0);
+});
+
+test("required fields: empty sales inputs that block a step use the selected-box blue until filled", async ({
+  page,
+}) => {
+  await setup(page, { entries: [sale({ method: "CASH", status: "POSTED" })] });
+  const look = (label: string) =>
+    page.getByLabel(label, { exact: true }).evaluate((element) => {
+      const style = getComputedStyle(element);
+      return [style.backgroundColor, style.borderTopColor];
+    });
+  const required = ["rgb(242, 246, 250)", "rgb(40, 100, 180)"];
+  const cash = page.getByLabel("현금 순매출 수기 대조액", { exact: true });
+  await expect(cash).toHaveAttribute("required", "");
+  expect(await look("현금 순매출 수기 대조액")).toEqual(required);
+  await cash.fill("10000");
+  expect(await look("현금 순매출 수기 대조액")).not.toEqual(required);
+  // Optional memo never turns blue.
+  await page.getByRole("button", { name: NEW_ENTRY, exact: true }).click();
+  expect(await look("메모")).not.toEqual(required);
+  expect(await look("전표 참조번호")).toEqual(required);
 });
