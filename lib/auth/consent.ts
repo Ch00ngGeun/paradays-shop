@@ -47,16 +47,3 @@ export function saveConsentReceipt(
 
   return receipt;
 }
-
-export function readConsentReceipt(): ConsentReceipt | null {
-  try {
-    const raw = window.sessionStorage.getItem(CONSENT_STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
-
-    return JSON.parse(raw) as ConsentReceipt;
-  } catch {
-    return null;
-  }
-}
