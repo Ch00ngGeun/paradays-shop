@@ -22,12 +22,25 @@ export type TossPayment = Readonly<{
   orderId: string;
   totalAmount: number;
   status: string;
+  method: string | null;
+  currency: string;
+  balanceAmount: number;
+  cancels: readonly Readonly<{
+    transactionKey: string;
+    cancelAmount: number;
+    cancelStatus: string;
+    cancelReason: string;
+    canceledAt?: string;
+  }>[];
   approvedAt?: string;
 }>;
 
 /** 외부 PG 통신 실패를 Lambda handler가 안전한 502로 바꾸기 위한 오류입니다. */
 export class TossPaymentsApiError extends Error {
-  constructor(readonly status: number | null = null) {
+  constructor(
+    readonly status: number | null = null,
+    readonly providerCode?: string,
+  ) {
     super("TOSS_PAYMENTS_API_ERROR");
     this.name = "TossPaymentsApiError";
   }
@@ -99,18 +112,22 @@ export async function cancelTossPayment({
   paymentKey,
   orderId,
   cancelReason,
+  cancelAmount,
+  operationId,
 }: Readonly<{
   credentials: TossPaymentsCredentials;
   paymentKey: string;
   orderId: string;
   cancelReason: string;
+  cancelAmount?: number;
+  operationId?: string;
 }>): Promise<TossPayment> {
   return requestTossPayment({
     credentials,
     method: "POST",
     path: `/v1/payments/${encodeURIComponent(paymentKey)}/cancel`,
-    idempotencyKey: `refund-${orderId}`,
-    body: { cancelReason },
+    idempotencyKey: operationId ? `cancel-${operationId}` : `refund-${orderId}`,
+    body: { cancelReason, ...(cancelAmount === undefined ? {} : { cancelAmount }) },
   });
 }
 
@@ -168,6 +185,8 @@ async function requestTossPayment({
   try {
     response = await fetch(new URL(path, TOSS_PAYMENTS_API_ORIGIN), {
       method,
+      redirect: "error",
+      signal: AbortSignal.timeout(5_000),
       headers: {
         Authorization: `Basic ${Buffer.from(`${credentials.secretKey}:`).toString("base64")}`,
         "Content-Type": "application/json",
@@ -180,7 +199,19 @@ async function requestTossPayment({
   }
 
   if (!response.ok) {
-    throw new TossPaymentsApiError(response.status);
+    let code: string | undefined;
+    try {
+      const error: unknown = await response.json();
+      if (
+        isRecord(error) &&
+        typeof error.code === "string" &&
+        /^[A-Z0-9_]{1,80}$/.test(error.code)
+      )
+        code = error.code;
+    } catch {
+      /* no verified structured rejection */
+    }
+    throw new TossPaymentsApiError(response.status, code);
   }
 
   let responseBody: unknown;
@@ -191,26 +222,133 @@ async function requestTossPayment({
     throw new TossPaymentsApiError(response.status);
   }
 
-  if (!isTossPayment(responseBody)) {
+  const payment = parseTossPayment(responseBody);
+  if (!payment) {
     throw new TossPaymentsApiError(response.status);
   }
 
-  return responseBody;
+  return payment;
 }
 
 /** Toss API의 결제 응답이 서버 비교에 필요한 필드를 갖췄는지 좁힙니다. */
-function isTossPayment(value: unknown): value is TossPayment {
+export function parseTossPayment(value: unknown): TossPayment | null {
+  if (
+    !(
+      isRecord(value) &&
+      typeof value.paymentKey === "string" &&
+      Boolean(value.paymentKey) &&
+      typeof value.orderId === "string" &&
+      Boolean(value.orderId) &&
+      typeof value.totalAmount === "number" &&
+      Number.isSafeInteger(value.totalAmount) &&
+      value.totalAmount >= 0 &&
+      typeof value.balanceAmount === "number" &&
+      Number.isSafeInteger(value.balanceAmount) &&
+      value.balanceAmount >= 0 &&
+      value.balanceAmount <= value.totalAmount &&
+      (value.method === null || typeof value.method === "string") &&
+      typeof value.currency === "string" &&
+      typeof value.status === "string" &&
+      Boolean(value.status) &&
+      (value.approvedAt == null || typeof value.approvedAt === "string")
+    )
+  )
+    return null;
+  const cancels = value.cancels == null ? [] : value.cancels;
+  if (
+    !Array.isArray(cancels) ||
+    cancels.length > 200 ||
+    !cancels.every(
+      (c) =>
+        isRecord(c) &&
+        typeof c.transactionKey === "string" &&
+        c.transactionKey.length > 0 &&
+        typeof c.cancelReason === "string" &&
+        typeof c.cancelStatus === "string" &&
+        typeof c.cancelAmount === "number" &&
+        (c.canceledAt === undefined ||
+          (typeof c.canceledAt === "string" &&
+            Number.isFinite(Date.parse(c.canceledAt)))) &&
+        Number.isSafeInteger(c.cancelAmount) &&
+        c.cancelAmount > 0,
+    )
+  )
+    return null;
+  return {
+    paymentKey: value.paymentKey as string,
+    orderId: value.orderId as string,
+    totalAmount: value.totalAmount as number,
+    balanceAmount: value.balanceAmount as number,
+    status: value.status as string,
+    method: value.method as string | null,
+    currency: value.currency as string,
+    cancels,
+    ...(typeof value.approvedAt === "string" ? { approvedAt: value.approvedAt } : {}),
+  };
+}
+
+/** Monetary proof only: physical restocking additionally needs the order's debit/fulfillment ledger. */
+export function paymentMatchesOrder(
+  payment: TossPayment,
+  order: { orderId: string; total: number },
+  paymentKey: string,
+): boolean {
   return (
-    isRecord(value) &&
-    typeof value.paymentKey === "string" &&
-    Boolean(value.paymentKey) &&
-    typeof value.orderId === "string" &&
-    Boolean(value.orderId) &&
-    typeof value.totalAmount === "number" &&
-    Number.isSafeInteger(value.totalAmount) &&
-    typeof value.status === "string" &&
-    Boolean(value.status) &&
-    (value.approvedAt === undefined || typeof value.approvedAt === "string")
+    payment.orderId === order.orderId &&
+    payment.paymentKey === paymentKey &&
+    payment.totalAmount === order.total &&
+    ["카드", "간편결제"].includes(payment.method ?? "") &&
+    payment.currency === "KRW"
+  );
+}
+/** Only explicit, documented non-processing rejections qualify. Never classify timeout/5xx/already-processing as failure. */
+export function definitiveApprovalRejection(
+  error: unknown,
+): error is TossPaymentsApiError {
+  return (
+    error instanceof TossPaymentsApiError &&
+    [400, 401, 403, 404].includes(error.status ?? 0) &&
+    [
+      "NOT_FOUND_PAYMENT",
+      "NOT_FOUND_PAYMENT_SESSION",
+      "REJECT_CARD_PAYMENT",
+      "REJECT_CARD_COMPANY",
+      "INVALID_REJECT_CARD",
+      "INVALID_STOPPED_CARD",
+      "INVALID_CARD_LOST_OR_STOLEN",
+      "BELOW_MINIMUM_AMOUNT",
+      "INVALID_API_KEY",
+      "UNAUTHORIZED_KEY",
+    ].includes(error.providerCode ?? "")
+  );
+}
+export function definitiveRefundRejection(
+  error: unknown,
+): error is TossPaymentsApiError {
+  return (
+    error instanceof TossPaymentsApiError &&
+    [400, 403].includes(error.status ?? 0) &&
+    [
+      "EXCEED_CANCEL_AMOUNT_DISCOUNT_AMOUNT",
+      "REFUND_REJECTED",
+      "NOT_CANCELABLE_AMOUNT",
+      "NOT_CANCELABLE_PAYMENT",
+      "EXCEED_MAX_REFUND_DUE",
+    ].includes(error.providerCode ?? "")
+  );
+}
+export function verifiedCancellation(payment: TossPayment): boolean {
+  const keys = new Set(payment.cancels.map((c) => c.transactionKey));
+  return (
+    ["CANCELED", "PARTIAL_CANCELED"].includes(payment.status) &&
+    payment.cancels.length > 0 &&
+    keys.size === payment.cancels.length &&
+    payment.cancels.every((c) => c.cancelStatus === "DONE") &&
+    payment.cancels.reduce((sum, c) => sum + c.cancelAmount, 0) ===
+      payment.totalAmount - payment.balanceAmount &&
+    (payment.status === "CANCELED"
+      ? payment.balanceAmount === 0
+      : payment.balanceAmount > 0)
   );
 }
 
