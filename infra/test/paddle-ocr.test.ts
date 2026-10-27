@@ -134,6 +134,85 @@ test("canonical base64 rejects corrupt alphabet, whitespace, padding, URLs and p
   }
 });
 
+test("decomposed Hangul file names pass without changing their original code units", () => {
+  const fileName = "\u1109\u1173\u110f\u1173\u1105\u1175\u11ab\u1109\u1163\u11ba2.png";
+  const parsed = parseOcrImageUpload(createUpload(PNG_SIGNATURE, fileName));
+  assert.equal(parsed.ok, true);
+  if (parsed.ok) {
+    assert.equal(parsed.image.fileName, fileName);
+    assert.notEqual(parsed.image.fileName, "스크린샷2.png");
+    assert.deepEqual(
+      [...parsed.image.fileName].map((character) => character.charCodeAt(0)),
+      [...fileName].map((character) => character.charCodeAt(0)),
+    );
+  }
+});
+
+test("standalone Hangul jamo remain valid at the start or inside file names", () => {
+  for (const jamo of [
+    "\u1100",
+    "\u11ff",
+    "\u3131",
+    "\u318e",
+    "\ua960",
+    "\ua97c",
+    "\ud7b0",
+    "\ud7c6",
+    "\ud7cb",
+    "\ud7fb",
+  ]) {
+    for (const fileName of [jamo + ".png", "image-" + jamo + ".png"]) {
+      const parsed = parseOcrImageUpload(createUpload(PNG_SIGNATURE, fileName));
+      assert.equal(parsed.ok, true);
+      if (parsed.ok) assert.equal(parsed.image.fileName, fileName);
+    }
+  }
+});
+
+test("decomposed Hangul keeps the original 120 UTF-16 code unit boundary", () => {
+  const fileName = "\u1100\u1161".repeat(58) + ".png";
+  assert.equal(fileName.length, 120);
+  const parsed = parseOcrImageUpload(createUpload(PNG_SIGNATURE, fileName));
+  assert.equal(parsed.ok, true);
+  if (parsed.ok) assert.equal(parsed.image.fileName, fileName);
+  assert.deepEqual(
+    parseOcrImageUpload(createUpload(PNG_SIGNATURE, "\u1100" + fileName)),
+    { ok: false, code: "OCR_IMAGE_INVALID" },
+  );
+});
+
+test("Hangul jamo support does not allow unsafe or unrelated Unicode file names", () => {
+  const decomposed = "\u1100\u1161";
+  for (const fileName of [
+    "../" + decomposed + ".png",
+    "a/" + decomposed + ".png",
+    "a\\" + decomposed + ".png",
+    " " + decomposed + ".png",
+    decomposed + ".png ",
+    "." + decomposed + ".png",
+    "_" + decomposed + ".png",
+    "-" + decomposed + ".png",
+    "a\u0000.png",
+    "a\nb.png",
+    "a\tb.png",
+    "a\r.png",
+    "😀.png",
+    "e\u0301.png",
+    "a\u200d.png",
+    "a\u202e.png",
+    "\u3130.png",
+    "\u318f.png",
+    "\ua97d.png",
+    "\ud7c7.png",
+    "\ud7fc.png",
+  ]) {
+    assert.deepEqual(parseOcrImageUpload(createUpload(PNG_SIGNATURE, fileName)), {
+      ok: false,
+      code: "OCR_IMAGE_INVALID",
+    });
+  }
+});
+
 test("file-name 120 boundary, unsupported MIME and unsafe name stay safe", () => {
   assert.equal(
     parseOcrImageUpload(createUpload(PNG_SIGNATURE, "가".repeat(116) + ".png")).ok,
@@ -520,6 +599,10 @@ test("canonical result.ocrResults[0].prunedResult 배열에서 OCR 행을 읽습
   assert.deepEqual(recognition, {
     rawText: "PARADAYS\n입고 수량 2",
     rows: [
+      { id: "ocr_1", sourceText: "PARADAYS", confidence: 0.99 },
+      { id: "ocr_2", sourceText: "입고 수량 2", confidence: 0.8 },
+    ],
+    sourceRows: [
       { id: "ocr_1", sourceText: "PARADAYS", confidence: 0.99 },
       { id: "ocr_2", sourceText: "입고 수량 2", confidence: 0.8 },
     ],
