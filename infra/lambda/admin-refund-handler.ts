@@ -1,154 +1,147 @@
-/**
- * 역할: Cognito admin group 운영자가 PAID 주문을 Toss Payments 전체 취소로 환불함.
- * 기능: 역할·주문 상태·paymentKey를 서버에서 확인하고, PG 성공 후에만 REFUNDED 상태를 기록함.
- */
-
-import { GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+/** Minimal admin order operations on the existing refund function; no browser or client payment proof. */
 import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
 } from "aws-lambda";
-
 import { authorizeAdmin } from "./admin-auth.js";
-import { documentClient, getRequiredEnvironment } from "./dynamodb-client.js";
+import { getRequiredEnvironment } from "./dynamodb-client.js";
 import { jsonResponse } from "./http-response.js";
-import { isOrderRecord, type OrderRecord } from "./order-record.js";
-import { isRecord, parseJsonBody, readBoundedString } from "./request-helpers.js";
+import { InventoryError, operationKey } from "./order-inventory-domain.js";
+import { readOrder, releaseUnattemptedReservation } from "./order-inventory-store.js";
+import type { OrderRecord } from "./order-record.js";
 import {
-  cancelTossPayment,
-  getTossPaymentsCredentials,
-  TossPaymentsApiError,
-} from "./toss-payments.js";
+  confirmFulfillment,
+  ensureLegacyFinancialLedger,
+  receiveReturn,
+  refundIntent,
+  startRefund,
+  syncRefundPayment,
+} from "./order-refunds.js";
+import { isRecord, parseJsonBody } from "./request-helpers.js";
+import { getTossPayment, getTossPaymentsCredentials } from "./toss-payments.js";
 
-/** POST /admin/orders/{orderId}/refunds: admin group 전체 환불 요청만 허용합니다. */
+export function adminOrderSummary(order: OrderRecord) {
+  const ledger = order.inventory;
+  return {
+    orderId: order.orderId,
+    status: order.status,
+    paymentStatus: order.paymentStatus,
+    total: order.total,
+    createdAt: order.createdAt,
+    lines: order.lines.map((line, index) => ({
+      ...line,
+      line: index,
+      canceledQuantity: ledger?.canceled[index] ?? 0,
+      restoredQuantity: ledger?.restored[index] ?? 0,
+    })),
+    inventory: ledger
+      ? {
+          state: ledger.state,
+          fulfillment: ledger.fulfillment,
+          expiresAt: ledger.expiresAt,
+          refundedAmount: ledger.refundedAmount,
+          lastFailure: ledger.lastFailure ?? null,
+          pendingRefund: ledger.pendingRefund
+            ? {
+                operationId: ledger.pendingRefund.operationId,
+                amount: ledger.pendingRefund.amount,
+                createdAt: ledger.pendingRefund.createdAt,
+              }
+            : null,
+        }
+      : null,
+  };
+}
 export async function handler(
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
 ): Promise<APIGatewayProxyResultV2> {
-  const authorization = await authorizeAdmin(event);
-
-  if (!authorization.ok) {
-    return jsonResponse(authorization.statusCode, { code: authorization.code });
-  }
-
-  const orderId = event.pathParameters?.orderId;
-  const body = parseJsonBody(event);
-
-  if (!orderId || !isRecord(body)) {
-    return jsonResponse(400, { code: "REFUND_BODY_INVALID" });
-  }
-
-  const cancelReason = readBoundedString(body.cancelReason, 200);
-
-  if (!cancelReason) {
-    return jsonResponse(400, { code: "REFUND_REASON_REQUIRED" });
-  }
-
-  let orderTableName: string;
-  let tossSecretArn: string;
-
+  const auth = await authorizeAdmin(event);
+  if (!auth.ok) return jsonResponse(auth.statusCode, { code: auth.code });
+  const id = event.pathParameters?.orderId;
+  if (!id || !/^[A-Za-z0-9_-]{6,64}$/.test(id))
+    return jsonResponse(400, { code: "ORDER_ID_INVALID" });
+  const method = event.requestContext.http.method;
+  if (!["GET", "POST"].includes(method))
+    return jsonResponse(405, { code: "METHOD_NOT_ALLOWED" });
   try {
-    orderTableName = getRequiredEnvironment("ORDER_TABLE_NAME");
-    tossSecretArn = getRequiredEnvironment("TOSS_PAYMENTS_SECRET_ARN");
-  } catch {
-    return jsonResponse(503, { code: "REFUND_CONFIGURATION_UNAVAILABLE" });
-  }
-
-  const order = await getOrder(orderTableName, orderId);
-
-  if (!order) {
-    return jsonResponse(404, { code: "ORDER_NOT_FOUND" });
-  }
-
-  if (order.status === "REFUNDED") {
-    return jsonResponse(200, { orderId: order.orderId, status: order.status });
-  }
-
-  if (order.status !== "PAID" || !order.providerPaymentKey) {
-    return jsonResponse(409, { code: "ORDER_NOT_REFUNDABLE" });
-  }
-
-  let credentials;
-  let payment;
-
-  try {
-    credentials = await getTossPaymentsCredentials(tossSecretArn);
-    payment = await cancelTossPayment({
-      credentials,
-      paymentKey: order.providerPaymentKey,
+    let order = await readOrder(id);
+    if (!order) return jsonResponse(404, { code: "ORDER_NOT_FOUND" });
+    if (method === "GET") return jsonResponse(200, { order: adminOrderSummary(order) });
+    const body = parseJsonBody(event);
+    if (!isRecord(body)) return jsonResponse(400, { code: "ORDER_OPERATION_INVALID" });
+    if (body.action === "fulfillment")
+      order = await confirmFulfillment(
+        order,
+        body.state,
+        String(body.operationId ?? ""),
+      );
+    else if (body.action === "return")
+      order = await receiveReturn(
+        order,
+        body.rows,
+        body.receiptId,
+        body.resalableConfirmed,
+        String(body.operationId ?? ""),
+      );
+    else if (
+      body.action === "refund" ||
+      (body.action === undefined && typeof body.cancelReason === "string")
+    ) {
+      const legacyFull = body.action === undefined;
+      if (legacyFull && order.status === "REFUNDED")
+        return jsonResponse(200, {
+          order: adminOrderSummary(order),
+          orderId: order.orderId,
+          status: order.status,
+        });
+      // Preserve the former full-refund API for historic orders without manufacturing stock proof.
+      if (legacyFull && order.inventory && order.inventory.state !== "LEGACY")
+        return jsonResponse(400, { code: "REFUND_PHYSICAL_DISPOSITION_REQUIRED" });
+      order = await ensureLegacyFinancialLedger(order);
+      const request = legacyFull
+        ? {
+            action: "refund",
+            operationId: `legacy_${operationKey(order.orderId)}`,
+            disposition: "COMPENSATION",
+            cancelReason: body.cancelReason,
+            cancelAmount: order.total - (order.financialRefundedAmount ?? 0),
+            rows: [],
+          }
+        : body;
+      const intent = refundIntent(order, request);
+      // Completed replay does not need provider credentials or a second monetary request.
+      const credentials = await getTossPaymentsCredentials(
+        getRequiredEnvironment("TOSS_PAYMENTS_SECRET_ARN"),
+      );
+      order = await startRefund(order, intent, credentials);
+    } else if (body.action === "reconcile") {
+      if (
+        order.inventory?.state === "RESERVED" &&
+        !order.inventory.approvalAttemptedAt &&
+        Date.parse(order.inventory.expiresAt) <= Date.now()
+      ) {
+        order = await releaseUnattemptedReservation(order);
+        return jsonResponse(200, { order: adminOrderSummary(order) });
+      }
+      const paymentKey = order.inventory?.paymentKey ?? order.providerPaymentKey;
+      if (!paymentKey) return jsonResponse(409, { code: "PAYMENT_KEY_UNAVAILABLE" });
+      const credentials = await getTossPaymentsCredentials(
+        getRequiredEnvironment("TOSS_PAYMENTS_SECRET_ARN"),
+      );
+      order = await syncRefundPayment(
+        order,
+        await getTossPayment({ credentials, paymentKey }),
+      );
+    } else return jsonResponse(400, { code: "ORDER_OPERATION_INVALID" });
+    return jsonResponse(200, {
+      order: adminOrderSummary(order),
       orderId: order.orderId,
-      cancelReason,
+      status: order.status,
     });
   } catch (error) {
-    if (error instanceof TossPaymentsApiError) {
-      return jsonResponse(502, { code: "REFUND_PROVIDER_REQUEST_FAILED" });
-    }
-
-    return jsonResponse(502, { code: "REFUND_PROVIDER_REQUEST_FAILED" });
-  }
-
-  if (payment.orderId !== order.orderId) {
-    return jsonResponse(502, { code: "REFUND_PROVIDER_MISMATCH" });
-  }
-
-  const updatedOrder = await markOrderRefunded(orderTableName, order, payment.status);
-
-  if (!updatedOrder) {
-    return jsonResponse(409, { code: "REFUND_STATE_CONFLICT" });
-  }
-
-  return jsonResponse(200, {
-    orderId: updatedOrder.orderId,
-    status: updatedOrder.status,
-  });
-}
-
-/** 관리자 요청도 primary key로 주문을 읽고 storage 오류와 not found를 구분합니다. */
-async function getOrder(orderTableName: string, orderId: string) {
-  try {
-    const response = await documentClient.send(
-      new GetCommand({
-        TableName: orderTableName,
-        Key: { orderId },
-        ConsistentRead: true,
-      }),
-    );
-
-    return isOrderRecord(response.Item) ? response.Item : null;
-  } catch {
-    return null;
-  }
-}
-
-/** PG 취소 뒤 PAID 상태에서만 REFUNDED로 조건부 전이해 중복 환불 상태를 막습니다. */
-async function markOrderRefunded(
-  orderTableName: string,
-  order: OrderRecord,
-  paymentStatus: string,
-) {
-  const timestamp = new Date().toISOString();
-
-  try {
-    const response = await documentClient.send(
-      new UpdateCommand({
-        TableName: orderTableName,
-        Key: { orderId: order.orderId },
-        ConditionExpression: "#status = :paid",
-        UpdateExpression:
-          "SET #status = :refunded, paymentStatus = :paymentStatus, providerPaymentStatus = :paymentStatus, refundedAt = :refundedAt, updatedAt = :updatedAt",
-        ExpressionAttributeNames: { "#status": "status" },
-        ExpressionAttributeValues: {
-          ":paid": "PAID",
-          ":refunded": "REFUNDED",
-          ":paymentStatus": paymentStatus,
-          ":refundedAt": timestamp,
-          ":updatedAt": timestamp,
-        },
-        ReturnValues: "ALL_NEW",
-      }),
-    );
-
-    return isOrderRecord(response.Attributes) ? response.Attributes : null;
-  } catch {
-    return null;
+    return jsonResponse(error instanceof InventoryError ? error.status : 503, {
+      code:
+        error instanceof InventoryError ? error.code : "ORDER_OPERATION_UNAVAILABLE",
+    });
   }
 }
