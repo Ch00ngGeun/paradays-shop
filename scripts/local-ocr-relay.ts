@@ -4,6 +4,12 @@ import { createServer, type IncomingMessage } from "node:http";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import {
+  isOcrMapping,
+  parseOcrTableRows,
+  type OcrMapping,
+  type OcrTableParseResult,
+} from "../infra/lambda/ocr-table-parser.js";
+import {
   MAX_PADDLE_OCR_RESPONSE_BYTES,
   parseOcrImageUpload,
   parseRecognitionResponse,
@@ -13,13 +19,18 @@ type RecordValue = Record<string, unknown>;
 type Row = RecordValue & { id: string; sourceText: string };
 type Job = {
   jobId: string;
+  ownerSub: string;
   version: number;
   rawText: string;
   rows: Row[];
+  sourceRows?: Row[];
+  mapping?: OcrMapping;
   expiresAt: number;
 };
 export type RelayOptions = {
   origin: string;
+  /** Explicit opt-in adds only https://paradays.web.app; local origin remains required. */
+  demoEnabled?: boolean;
   port: number;
   issuer: string;
   clientId: string;
@@ -40,6 +51,7 @@ class Failure extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
+    readonly details?: RecordValue,
   ) {
     super(code);
   }
@@ -108,6 +120,7 @@ export function createLocalOcrRelay(options: RelayOptions) {
     origin.protocol !== "http:" ||
     !["localhost", "127.0.0.1"].includes(origin.hostname) ||
     origin.origin !== options.origin ||
+    (options.demoEnabled !== undefined && typeof options.demoEnabled !== "boolean") ||
     !/^https:\/\/cognito-idp\.[a-z0-9-]+\.amazonaws\.com\/[a-z0-9-]+_[A-Za-z0-9]+$/.test(
       options.issuer,
     ) ||
@@ -131,6 +144,10 @@ export function createLocalOcrRelay(options: RelayOptions) {
   }
   const fetcher = options.fetcher ?? fetch;
   const now = options.now ?? Date.now;
+  const allowedOrigins = new Set([
+    options.origin,
+    ...(options.demoEnabled === true ? ["https://paradays.web.app"] : []),
+  ]);
   const jobs = new Map<string, Job>();
   let keys: RecordValue[] = [];
   let keysExpire = 0;
@@ -138,6 +155,32 @@ export function createLocalOcrRelay(options: RelayOptions) {
   let active = false;
   let rateWindow = now();
   let requests = 0;
+  let demoRateWindow = now();
+  let demoRequests = 0;
+  let demoCheapRequests = 0;
+  let demoActiveRequests = 0;
+  let demoPendingBodies = 0;
+
+  // Public demo traffic shares a cheap pre-auth/health/preflight budget; signed requests
+  // have a separate lower budget. No decoded token data enters either rate key.
+  function checkDemoRate(cheap: boolean) {
+    if (now() - demoRateWindow >= 60000) {
+      demoRateWindow = now();
+      demoRequests = 0;
+      demoCheapRequests = 0;
+    }
+    if (cheap ? ++demoCheapRequests > 240 : ++demoRequests > 120)
+      throw new Failure(429, "LOCAL_OCR_LIMIT_REACHED");
+  }
+  function checkOcrLimits() {
+    if (active) throw new Failure(429, "OCR_PROVIDER_BUSY");
+    if (now() - rateWindow >= 60000) {
+      requests = 0;
+      rateWindow = now();
+    }
+    if (++requests > 30 || jobs.size >= 100)
+      throw new Failure(429, "LOCAL_OCR_LIMIT_REACHED");
+  }
 
   async function loadKeys() {
     if (!keyRequest) {
@@ -218,6 +261,7 @@ export function createLocalOcrRelay(options: RelayOptions) {
         !claims["cognito:groups"].includes("admin")
       )
         throw new Failure(403, "ADMIN_ROLE_REQUIRED");
+      return claims.sub;
     } catch (error) {
       throw error instanceof Failure && error.status === 403
         ? error
@@ -226,14 +270,25 @@ export function createLocalOcrRelay(options: RelayOptions) {
   }
 
   const server = createServer(async (request, response) => {
+    let demoRequestReserved = false;
+    let demoBodyReserved = false;
+    let providerReserved = false;
+    const allowedOrigin =
+      typeof request.headers.origin === "string" &&
+      allowedOrigins.has(request.headers.origin)
+        ? request.headers.origin
+        : undefined;
     function send(status: number, body: unknown) {
       response.writeHead(status, {
         "content-type": "application/json",
         "cache-control": "no-store",
         "x-content-type-options": "nosniff",
-        ...(request.headers.origin === options.origin
+        ...(options.demoEnabled === true && status >= 400
+          ? { connection: "close" }
+          : {}),
+        ...(allowedOrigin
           ? {
-              "access-control-allow-origin": options.origin,
+              "access-control-allow-origin": allowedOrigin,
               vary: "Origin",
               "access-control-allow-methods": "GET,POST,PATCH,OPTIONS",
               "access-control-allow-headers":
@@ -251,16 +306,23 @@ export function createLocalOcrRelay(options: RelayOptions) {
       )
         throw new Failure(403, "LOCAL_OCR_ORIGIN_REQUIRED");
       if (request.url === "/healthz" && request.method === "GET") {
+        if (options.demoEnabled === true) checkDemoRate(true);
         send(200, { mode: "local", storage: "memory", restartLosesReviews: true });
         return;
       }
-      if (request.headers.origin !== options.origin)
-        throw new Failure(403, "LOCAL_OCR_ORIGIN_REQUIRED");
+      if (!allowedOrigin) throw new Failure(403, "LOCAL_OCR_ORIGIN_REQUIRED");
+      if (options.demoEnabled === true) checkDemoRate(true);
       if (request.method === "OPTIONS") {
         send(204, null);
         return;
       }
-      await authenticate(request);
+      if (options.demoEnabled === true) {
+        if (demoActiveRequests >= 4) throw new Failure(429, "LOCAL_OCR_LIMIT_REACHED");
+        demoActiveRequests++;
+        demoRequestReserved = true;
+      }
+      const subject = await authenticate(request);
+      if (options.demoEnabled === true) checkDemoRate(false);
       const match =
         /^\/admin\/ocr\/jobs(?:\/([A-Za-z0-9][A-Za-z0-9._-]{2,127}))?$/.exec(
           request.url ?? "",
@@ -268,10 +330,11 @@ export function createLocalOcrRelay(options: RelayOptions) {
       if (!match) throw new Failure(404, "ADMIN_OCR_ROUTE_NOT_FOUND");
       for (const [id, job] of jobs) if (job.expiresAt <= now()) jobs.delete(id);
       const jobId = match[1];
-      if (jobId && request.method === "GET") {
-        const job = jobs.get(jobId);
-        if (!job) throw new Failure(404, "OCR_JOB_NOT_FOUND");
-        send(200, { job: publicJob(job) });
+      const ownedJob = jobId ? jobs.get(jobId) : undefined;
+      if (jobId && (!ownedJob || ownedJob.ownerSub !== subject))
+        throw new Failure(404, "OCR_JOB_NOT_FOUND");
+      if (ownedJob && request.method === "GET") {
+        send(200, { job: publicJob(ownedJob) });
         return;
       }
       if (
@@ -281,15 +344,26 @@ export function createLocalOcrRelay(options: RelayOptions) {
         throw new Failure(405, "METHOD_NOT_ALLOWED");
       if (!String(request.headers["content-type"] ?? "").startsWith("application/json"))
         throw new Failure(400, "OCR_JOB_BODY_INVALID");
-      const body = await requestBody(request);
-      if (!jobId) {
-        if (active) throw new Failure(429, "OCR_PROVIDER_BUSY");
-        if (now() - rateWindow >= 60000) {
-          requests = 0;
-          rateWindow = now();
+      if (options.demoEnabled === true) {
+        if (!jobId) {
+          checkOcrLimits();
+          active = true;
+          providerReserved = true;
         }
-        if (++requests > 30 || jobs.size >= 100)
-          throw new Failure(429, "LOCAL_OCR_LIMIT_REACHED");
+        if (demoPendingBodies >= 2) throw new Failure(429, "LOCAL_OCR_LIMIT_REACHED");
+        demoPendingBodies++;
+        demoBodyReserved = true;
+      }
+      const body =
+        options.demoEnabled === true
+          ? await demoRequestBody(request)
+          : await requestBody(request);
+      if (demoBodyReserved) {
+        demoPendingBodies--;
+        demoBodyReserved = false;
+      }
+      if (!jobId) {
+        if (options.demoEnabled !== true) checkOcrLimits();
         const image = parseOcrImageUpload(body);
         if (!image.ok)
           throw new Failure(
@@ -314,7 +388,9 @@ export function createLocalOcrRelay(options: RelayOptions) {
               }),
             },
             MAX_PADDLE_OCR_RESPONSE_BYTES,
-            options.providerTimeoutMs ?? 12000,
+            options.demoEnabled === true
+              ? Math.min(options.providerTimeoutMs ?? 12000, 115000)
+              : (options.providerTimeoutMs ?? 12000),
           );
           let recognition;
           try {
@@ -324,15 +400,17 @@ export function createLocalOcrRelay(options: RelayOptions) {
           }
           const job: Job = {
             jobId: `ocr_${randomUUID()}`,
+            ownerSub: subject,
             version: 1,
             rawText: recognition.rawText,
             rows: recognition.rows.map((row) => ({
               ...row,
-              productName: row.sourceText,
-              brand: "",
-              option: "",
-              quantity: "",
+              productName: row.productName ?? "",
+              brand: row.brand ?? "",
+              option: row.option ?? "",
+              quantity: row.quantity ?? "",
             })),
+            sourceRows: [...(recognition.sourceRows ?? recognition.rows)],
             expiresAt: now() + 7 * 24 * 60 * 60 * 1000,
           };
           checkJobSize(job);
@@ -340,11 +418,14 @@ export function createLocalOcrRelay(options: RelayOptions) {
           send(201, { job: publicJob(job) });
         } finally {
           active = false;
+          providerReserved = false;
         }
         return;
       }
+      // Another same-owner PATCH can complete while this body is still arriving.
       const previous = jobs.get(jobId);
-      if (!previous) throw new Failure(404, "OCR_JOB_NOT_FOUND");
+      if (!previous || previous.ownerSub !== subject || previous.expiresAt <= now())
+        throw new Failure(404, "OCR_JOB_NOT_FOUND");
       if (
         !record(body) ||
         !Number.isSafeInteger(body.version) ||
@@ -353,6 +434,51 @@ export function createLocalOcrRelay(options: RelayOptions) {
         throw new Failure(400, "OCR_JOB_VERSION_REQUIRED");
       if (body.version !== previous.version)
         throw new Failure(409, "OCR_JOB_VERSION_CONFLICT");
+      if (Object.hasOwn(body, "mapping")) {
+        if (
+          !isOcrMapping(body.mapping) ||
+          (body.preview !== undefined && body.preview !== true) ||
+          Object.keys(body).some(
+            (key) => !["version", "mapping", "preview"].includes(key),
+          )
+        )
+          throw new Failure(400, "OCR_JOB_MAPPING_INVALID");
+        const sources =
+          previous.sourceRows ?? (previous.version === 1 ? previous.rows : undefined);
+        if (!sources)
+          throw new Failure(400, "OCR_JOB_SOURCE_ROWS_UNAVAILABLE", {
+            message: "원본 인식 행이 없는 이전 검토본은 다시 매핑할 수 없습니다.",
+          });
+        const parsed = parseOcrTableRows(sources, body.mapping);
+        if (parsed.mode !== "table" || parsed.rows.length === 0)
+          throw new Failure(400, "OCR_JOB_MAPPING_UNUSABLE", {
+            message: "선택한 열로 검토 가능한 상품 행을 만들 수 없습니다.",
+            analysis: publicAnalysis(parsed),
+          });
+        const rows = parsed.rows.map((row) => ({ ...row }));
+        if (body.preview === true) {
+          send(200, {
+            preview: {
+              jobId: previous.jobId,
+              version: previous.version,
+              rows,
+              analysis: publicAnalysis(parsed),
+            },
+          });
+          return;
+        }
+        const job: Job = {
+          ...previous,
+          rows,
+          sourceRows: sources,
+          mapping: body.mapping,
+          version: previous.version + 1,
+        };
+        checkJobSize(job);
+        jobs.set(jobId, job);
+        send(200, { job: publicJob(job) });
+        return;
+      }
       if (body.rawText !== undefined && !text(body.rawText, 100000))
         throw new Failure(400, "OCR_JOB_RAW_TEXT_INVALID");
       const rows = reviewedRows(body.rows, previous.rows);
@@ -371,7 +497,11 @@ export function createLocalOcrRelay(options: RelayOptions) {
         error instanceof Failure
           ? error
           : new Failure(502, "OCR_PROVIDER_REQUEST_FAILED");
-      send(failure.status, { code: failure.code });
+      send(failure.status, { code: failure.code, ...failure.details });
+    } finally {
+      if (demoBodyReserved) demoPendingBodies--;
+      if (demoRequestReserved) demoActiveRequests--;
+      if (providerReserved) active = false;
     }
   });
   server.requestTimeout = 15000;
@@ -380,11 +510,24 @@ export function createLocalOcrRelay(options: RelayOptions) {
 }
 
 function publicJob(job: Job) {
+  const sources = job.sourceRows ?? (job.version === 1 ? job.rows : undefined);
   return {
     jobId: job.jobId,
     version: job.version,
     rawText: job.rawText,
     rows: job.rows,
+    analysis: sources
+      ? publicAnalysis(parseOcrTableRows(sources, job.mapping))
+      : { mode: "unclassified", reason: "source-rows-unavailable" },
+  };
+}
+function publicAnalysis(parsed: OcrTableParseResult): RecordValue {
+  return {
+    mode: parsed.mode,
+    ...("reason" in parsed ? { reason: parsed.reason } : {}),
+    ...(parsed.table ? { table: parsed.table } : {}),
+    ...(parsed.mode === "table" ? { mapping: parsed.mapping } : {}),
+    ...(parsed.region ? { region: parsed.region } : {}),
   };
 }
 function checkJobSize(job: Job) {
@@ -439,6 +582,62 @@ async function requestBody(request: IncomingMessage): Promise<unknown> {
   } catch {
     throw new Failure(400, "OCR_JOB_BODY_INVALID");
   }
+}
+
+/** Demo uploads have a fixed read deadline and reserve a bounded slot before allocation. */
+function demoRequestBody(request: IncomingMessage): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const bytes = Buffer.allocUnsafe(REQUEST_LIMIT);
+    let size = 0;
+    const timeout = setTimeout(
+      () => finish(new Failure(408, "LOCAL_OCR_BODY_TIMEOUT")),
+      5000,
+    );
+    function cleanup() {
+      clearTimeout(timeout);
+      request.off("data", onData);
+      request.off("end", onEnd);
+      request.off("error", onError);
+      request.off("aborted", onAborted);
+    }
+    function finish(error?: Failure, value?: unknown) {
+      cleanup();
+      if (error) {
+        request.pause();
+        reject(error);
+      } else resolve(value);
+    }
+    function onData(chunk: Buffer) {
+      if (size + chunk.length > REQUEST_LIMIT) {
+        finish(new Failure(413, "OCR_IMAGE_TOO_LARGE"));
+        return;
+      }
+      bytes.set(chunk, size);
+      size += chunk.length;
+    }
+    function onEnd() {
+      try {
+        finish(
+          undefined,
+          JSON.parse(
+            new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(0, size)),
+          ),
+        );
+      } catch {
+        finish(new Failure(400, "OCR_JOB_BODY_INVALID"));
+      }
+    }
+    function onError() {
+      finish(new Failure(400, "OCR_JOB_BODY_INVALID"));
+    }
+    function onAborted() {
+      finish(new Failure(400, "OCR_JOB_BODY_INVALID"));
+    }
+    request.on("data", onData);
+    request.once("end", onEnd);
+    request.once("error", onError);
+    request.once("aborted", onAborted);
+  });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
