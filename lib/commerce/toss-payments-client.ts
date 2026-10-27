@@ -1,5 +1,6 @@
 // 역할: Toss Payments V2 결제창 SDK를 공개 client key로만 로드하고, 서버가 만든 주문 정보로 결제 인증을 시작합니다.
 import type { CheckoutSession } from "@/lib/commerce/checkout-api-client";
+import { isSyntheticIdentifier } from "./synthetic-identifiers";
 
 /** Toss Payments V2 표준 JavaScript SDK 주소입니다. */
 const TOSS_PAYMENTS_SDK_URL = "https://js.tosspayments.com/v2/standard";
@@ -194,26 +195,32 @@ export async function requestTossPayment({
   customerEmail?: string;
   loadSdk?: () => Promise<TossPaymentsFactory>;
 }>): Promise<void> {
+  // Own the validated values before SDK loading yields to other browser code.
+  const paymentSession = { ...session };
+  if (isSyntheticIdentifier(paymentSession.orderId))
+    throw new TossPaymentsClientUnavailableError(
+      "Synthetic TEST orders cannot open a real payment window.",
+    );
   const successUrl = createTossPaymentReturnUrl({
     origin,
     result: "success",
-    checkoutReturnToken: session.checkoutReturnToken,
+    checkoutReturnToken: paymentSession.checkoutReturnToken,
   });
   const failUrl = createTossPaymentReturnUrl({
     origin,
     result: "fail",
-    checkoutReturnToken: session.checkoutReturnToken,
+    checkoutReturnToken: paymentSession.checkoutReturnToken,
   });
 
   try {
     const tossPayments = (await loadSdk())(config.clientKey);
-    const payment = tossPayments.payment({ customerKey: session.customerKey });
+    const payment = tossPayments.payment({ customerKey: paymentSession.customerKey });
 
     await payment.requestPayment({
       method: "CARD",
-      amount: { currency: session.currency, value: session.amount },
-      orderId: session.orderId,
-      orderName: session.orderName,
+      amount: { currency: paymentSession.currency, value: paymentSession.amount },
+      orderId: paymentSession.orderId,
+      orderName: paymentSession.orderName,
       successUrl,
       failUrl,
       ...(customerEmail ? { customerEmail } : {}),
