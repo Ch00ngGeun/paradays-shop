@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { handler } from "../lambda/payment-confirm-handler.js";
+import { reserveInventory } from "../lambda/order-inventory-store.js";
 import { event, paymentFixture, response, savedOrder } from "./payment-flow-fixture.js";
 const payment = {
   paymentKey: "pk",
@@ -39,6 +40,27 @@ test("approval observes persisted hold, then commits exact-once stock debit", as
     ).status,
     409,
   );
+});
+test("a PAID order whose hold an older webhook left RESERVED is settled by lookup, not re-approved", async (t) => {
+  const db = paymentFixture(t, savedOrder());
+  const reserved = await reserveInventory(savedOrder(), "pk");
+  const orderKey = [...db.records.keys()].find((key) => key.endsWith(":pd_order_001"))!;
+  db.records.set(orderKey, { ...reserved, status: "PAID", paymentStatus: "DONE" });
+  db.setProvider((_url, init) => {
+    assert.equal(init.method, "GET");
+    return payment;
+  });
+  assert.equal(response(await handler(request())).status, 200);
+  assert.equal(db.product().inventoryQuantity, 2);
+  assert.equal(db.product().inventoryReserved, 0);
+  assert.equal(db.order().inventory?.state, "DEBITED");
+  assert.equal(db.calls.filter((call) => call.init.method === "POST").length, 0);
+});
+test("a legacy PAID order without an inventory ledger still replays success", async (t) => {
+  const db = paymentFixture(t, savedOrder({ status: "PAID", paymentStatus: "DONE" }));
+  db.setProvider(() => assert.fail("legacy replay must not call the provider"));
+  assert.equal(response(await handler(request())).status, 200);
+  assert.equal(db.calls.length, 0);
 });
 test("insufficient stock or failed storage never invokes provider", async (t) => {
   const db = paymentFixture(t, savedOrder());

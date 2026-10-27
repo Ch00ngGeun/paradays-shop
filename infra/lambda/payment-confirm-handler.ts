@@ -50,13 +50,20 @@ export async function handler(
       (order.inventory?.paymentKey ?? order.providerPaymentKey) !== paymentKey
     )
       return jsonResponse(409, { code: "PAYMENT_KEY_CONFLICT" });
-    if (order.status === "PAID" && order.inventory?.state === "DEBITED")
+    // Legacy PAID orders have no inventory ledger; their retry stays a success as before.
+    if (
+      order.status === "PAID" &&
+      (!order.inventory || order.inventory.state === "DEBITED")
+    )
       return jsonResponse(200, {
         orderId,
         status: order.status,
         paymentStatus: order.paymentStatus,
       });
-    if (order.status !== "PENDING_PAYMENT")
+    // An older webhook could mark PAID while the hold is still RESERVED; settle it by lookup.
+    const paidWithHold =
+      order.status === "PAID" && order.inventory?.state === "RESERVED";
+    if (order.status !== "PENDING_PAYMENT" && !paidWithHold)
       return jsonResponse(409, { code: "PAYMENT_ALREADY_RESOLVED" });
     const expired = Date.parse(order.checkoutReturnExpiresAt) <= Date.now();
     if (expired && !order.inventory)
@@ -66,7 +73,8 @@ export async function handler(
     );
     // Do not require pre-approval GET support: official lookup describes approved payments.
     // An already-attempted approval is recovered by lookup, never sent a second time.
-    const recoveryOnly = expired || Boolean(order.inventory?.approvalAttemptedAt);
+    const recoveryOnly =
+      expired || paidWithHold || Boolean(order.inventory?.approvalAttemptedAt);
     if (!recoveryOnly) {
       order = await reserveInventory(order, paymentKey);
       order = await markApprovalAttempt(order);
