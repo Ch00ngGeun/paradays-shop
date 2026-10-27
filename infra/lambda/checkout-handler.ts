@@ -98,13 +98,7 @@ export async function handler(
   );
   const timestamp = new Date().toISOString();
   // Replay compares the saved snapshot, never today's price/catalog; changed cart input still conflicts.
-  let previous;
-  try {
-    previous = await getExistingOrder(orderTableName, orderId);
-  } catch {
-    return jsonResponse(503, { code: "ORDER_STORAGE_UNAVAILABLE" });
-  }
-  if (previous) {
+  const replayExisting = (previous: OrderRecord) => {
     try {
       const snapshotCatalog = previous.lines.map((line) => ({
         id: line.productId,
@@ -136,7 +130,14 @@ export async function handler(
     } catch {
       return jsonResponse(409, { code: "IDEMPOTENCY_KEY_REUSED" });
     }
+  };
+  let previous;
+  try {
+    previous = await getExistingOrder(orderTableName, orderId);
+  } catch {
+    return jsonResponse(503, { code: "ORDER_STORAGE_UNAVAILABLE" });
   }
+  if (previous) return replayExisting(previous);
   try {
     const products = await readProducts(requestLines.map((line) => line.productId));
     if ([...products.values()].some((p) => p.status !== "PUBLISHED"))
@@ -206,17 +207,8 @@ export async function handler(
       return jsonResponse(409, { code: "CHECKOUT_REQUEST_CONFLICT" });
     }
 
-    if (existingOrder.requestFingerprint !== requestFingerprint) {
-      return jsonResponse(409, { code: "IDEMPOTENCY_KEY_REUSED" });
-    }
-    return jsonResponse(201, {
-      orderId,
-      orderName: existingOrder.orderName,
-      amount: existingOrder.total,
-      currency: existingOrder.currency,
-      customerKey: createCustomerKey(userSub),
-      checkoutReturnToken,
-    });
+    // A concurrent identical request may have saved first at an older price.
+    return replayExisting(existingOrder);
   }
 
   return jsonResponse(201, {
