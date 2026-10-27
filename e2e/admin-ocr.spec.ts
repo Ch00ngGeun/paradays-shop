@@ -30,6 +30,7 @@ const table = {
 const API = "https://api.ocr.test/prod/";
 const OCR_ROUTE = `${API}admin/ocr/jobs**`;
 const REMOTE_DEMO_E2E = process.env.PARADAYS_OCR_E2E_REMOTE_DEMO === "true";
+const LOCAL_MODE_E2E = process.env.PARADAYS_OCR_E2E_LOCAL_MODE === "true";
 const REMOTE_DEMO_API = "https://ocr-relay.demo.test";
 const REMOTE_DEMO_OCR_ROUTE = `${REMOTE_DEMO_API}/admin/ocr/jobs**`;
 const FIREBASE_ORIGIN = "https://paradays.web.app";
@@ -1204,6 +1205,10 @@ test("local OCR English safety keeps local-only memory and retry boundaries with
 }) => {
   // Executed only by the approved temporary local-mode wrapper config. The
   // original OCR config remains pinned off; neither mode contacts port 8011.
+  test.skip(
+    !LOCAL_MODE_E2E,
+    "Requires the temporary local-mode wrapper config; playwright.ocr.config.ts pins local OCR off.",
+  );
   const relayRequests: string[] = [];
   page.on("request", (request) => {
     const url = new URL(request.url());
