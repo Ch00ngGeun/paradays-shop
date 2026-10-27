@@ -65,7 +65,9 @@ export async function handler(
       order.status === "PAID" && order.inventory?.state === "RESERVED";
     if (order.status !== "PENDING_PAYMENT" && !paidWithHold)
       return jsonResponse(409, { code: "PAYMENT_ALREADY_RESOLVED" });
-    const expired = Date.parse(order.checkoutReturnExpiresAt) <= Date.now();
+    // An unreadable expiry fails closed: never start a fresh approval on it.
+    const expiresAt = Date.parse(order.checkoutReturnExpiresAt);
+    const expired = !Number.isFinite(expiresAt) || expiresAt <= Date.now();
     if (expired && !order.inventory)
       return jsonResponse(410, { code: "PAYMENT_RETURN_TOKEN_EXPIRED" });
     const credentials = await getTossPaymentsCredentials(

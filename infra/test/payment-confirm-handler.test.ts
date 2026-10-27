@@ -62,6 +62,13 @@ test("a legacy PAID order without an inventory ledger still replays success", as
   assert.equal(response(await handler(request())).status, 200);
   assert.equal(db.calls.length, 0);
 });
+test("an unreadable return expiry is treated as expired and never reaches the provider", async (t) => {
+  const db = paymentFixture(t, savedOrder({ checkoutReturnExpiresAt: "invalid" }));
+  db.setProvider(() => assert.fail("expired checkout must not call the provider"));
+  assert.equal(response(await handler(request())).status, 410);
+  assert.equal(db.calls.length, 0);
+  assert.equal(db.product().inventoryReserved ?? 0, 0);
+});
 test("insufficient stock or failed storage never invokes provider", async (t) => {
   const db = paymentFixture(t, savedOrder());
   db.records.set("catalog:prd_deck", { ...db.product(), inventoryQuantity: 1 });
