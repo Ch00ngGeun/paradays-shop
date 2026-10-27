@@ -13,6 +13,7 @@ import {
 import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 
 import { getUserSub } from "./request-helpers.js";
+import { salesRequestSignal } from "./sales-request-deadline.js";
 
 const cognitoClient = new CognitoIdentityProviderClient({});
 
@@ -43,8 +44,7 @@ export async function authorizeAdmin(
     return { ok: false, statusCode: 401, code: "UNAUTHORIZED" };
   }
 
-  const groupsClaim =
-    event.requestContext.authorizer.jwt.claims["cognito:groups"];
+  const groupsClaim = event.requestContext.authorizer.jwt.claims["cognito:groups"];
 
   if (isAdminGroupClaim(groupsClaim)) {
     return { ok: true, userSub };
@@ -58,11 +58,13 @@ export async function authorizeAdmin(
   }
 
   try {
+    const abortSignal = salesRequestSignal();
     const response = await cognitoClient.send(
       new AdminListGroupsForUserCommand({
         UserPoolId: userPoolId,
         Username: username,
       }),
+      ...(abortSignal ? [{ abortSignal }] : []),
     );
     const isAdmin = (response.Groups ?? []).some(
       (group) => group.GroupName === "admin",
