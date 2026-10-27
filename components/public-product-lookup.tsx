@@ -7,7 +7,10 @@ import { useEffect, useState } from "react";
 
 import { ProductDetail } from "@/components/product-detail";
 import { getProductBySlug } from "@/data/products";
-import { getPublishedCatalogProduct } from "@/lib/commerce/public-catalog-api-client";
+import {
+  getPublishedCatalogProduct,
+  readPublicCatalogApiBaseUrl,
+} from "@/lib/commerce/public-catalog-api-client";
 import type { Product } from "@/types/store";
 
 import styles from "./public-product-lookup.module.css";
@@ -59,10 +62,12 @@ function ProductLookupContent({ slug }: Readonly<{ slug: string }>) {
     };
   }, [slug]);
 
-  const product = remoteProduct ?? staticProduct;
+  // Once commerce is configured, static/legacy IDs must never enter a new cart.
+  const product =
+    remoteProduct ?? (readPublicCatalogApiBaseUrl() ? null : staticProduct);
 
   if (product) {
-    return <ProductDetail product={product} />;
+    return <ProductDetail key={product.id} product={product} />;
   }
 
   if (!loadComplete && !hasLoadError) {

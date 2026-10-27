@@ -1,7 +1,7 @@
 // 역할: 카드에서 전달된 고정 카탈로그 슬러그를 검증하고 동일한 상품상세 화면을 렌더링합니다.
 import { notFound } from "next/navigation";
 
-import { ProductDetail } from "@/components/product-detail";
+import { PublicProductLookup } from "@/components/public-product-lookup";
 import { getProductBySlug, products } from "@/data/products";
 
 /** 정적 export용: 카탈로그에 있는 slug만 미리 빌드합니다. */
@@ -26,5 +26,5 @@ export default async function ProductPage({
     notFound();
   }
 
-  return <ProductDetail product={product} />;
+  return <PublicProductLookup slug={product.slug} />;
 }
