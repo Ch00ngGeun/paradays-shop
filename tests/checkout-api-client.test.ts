@@ -55,6 +55,30 @@ describe("createCheckoutSessionPayload", () => {
 });
 
 describe("createCheckoutApiClient", () => {
+  it("synthetic TEST product/order IDs are blocked without requesting auth or network", async () => {
+    const fetcher = vi.fn();
+    const getAccessToken = vi.fn(() => "fake-auth");
+    const client = createCheckoutApiClient({
+      config: { apiBaseUrl: "https://api.example.com/prod" },
+      authorizationTokenProvider: { getAccessToken },
+      fetchImplementation: fetcher,
+    });
+    await expect(
+      client.createSession({
+        lines: [{ productId: "TEST_PRODUCT_DECK", quantity: 2, selectedSize: "TEST" }],
+      }),
+    ).rejects.toThrow();
+    await expect(
+      client.confirmPayment({
+        orderId: "TEST_demo_order",
+        paymentKey: "synthetic",
+        checkoutReturnToken: "synthetic",
+        amount: 20000,
+      }),
+    ).rejects.toThrow();
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(getAccessToken).not.toHaveBeenCalled();
+  });
   it("Cognito access token과 호출 단위 멱등성 키를 헤더로 주입하고 가격 없이 세션을 요청함", async () => {
     const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
