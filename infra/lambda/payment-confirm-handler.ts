@@ -50,10 +50,10 @@ export async function handler(
       (order.inventory?.paymentKey ?? order.providerPaymentKey) !== paymentKey
     )
       return jsonResponse(409, { code: "PAYMENT_KEY_CONFLICT" });
-    // Legacy PAID orders have no inventory ledger; their retry stays a success as before.
+    // Legacy PAID orders (no ledger, or a LEGACY ledger added for refunds) replay success as before.
     if (
       order.status === "PAID" &&
-      (!order.inventory || order.inventory.state === "DEBITED")
+      (!order.inventory || ["DEBITED", "LEGACY"].includes(order.inventory.state))
     )
       return jsonResponse(200, {
         orderId,
