@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { handler } from "../lambda/payment-confirm-handler.js";
 import { reserveInventory } from "../lambda/order-inventory-store.js";
+import { ensureLegacyFinancialLedger } from "../lambda/order-refunds.js";
 import { event, paymentFixture, response, savedOrder } from "./payment-flow-fixture.js";
 const payment = {
   paymentKey: "pk",
@@ -58,6 +59,26 @@ test("a PAID order whose hold an older webhook left RESERVED is settled by looku
 });
 test("a legacy PAID order without an inventory ledger still replays success", async (t) => {
   const db = paymentFixture(t, savedOrder({ status: "PAID", paymentStatus: "DONE" }));
+  db.setProvider(() => assert.fail("legacy replay must not call the provider"));
+  assert.equal(response(await handler(request())).status, 200);
+  assert.equal(db.calls.length, 0);
+});
+test("an unreadable return expiry is treated as expired and never reaches the provider", async (t) => {
+  const db = paymentFixture(t, savedOrder({ checkoutReturnExpiresAt: "invalid" }));
+  db.setProvider(() => assert.fail("expired checkout must not call the provider"));
+  assert.equal(response(await handler(request())).status, 410);
+  assert.equal(db.calls.length, 0);
+  assert.equal(db.product().inventoryReserved ?? 0, 0);
+});
+test("a PAID order with a LEGACY refund ledger still replays success", async (t) => {
+  const legacy = savedOrder({
+    status: "PAID",
+    paymentStatus: "DONE",
+    providerPaymentKey: "pk",
+  });
+  const db = paymentFixture(t, legacy);
+  const withLedger = await ensureLegacyFinancialLedger(legacy);
+  assert.equal(withLedger.inventory?.state, "LEGACY");
   db.setProvider(() => assert.fail("legacy replay must not call the provider"));
   assert.equal(response(await handler(request())).status, 200);
   assert.equal(db.calls.length, 0);
