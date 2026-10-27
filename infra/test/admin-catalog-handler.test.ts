@@ -362,6 +362,62 @@ test("server-owned reservations survive PATCH and OCR intake; below-hold, option
   assert.equal(db.records.get("prd_deck")!.inventoryQuantity, 13);
 });
 
+test("reserved products accept full-form edits that resend unchanged identity fields", async (t) => {
+  const db = fixture(t, [product({ inventoryReserved: 4 })]);
+  const unchangedIdentity = {
+    name: "Deck",
+    brandName: "Example",
+    sku: "DECK-825",
+    price: 80_000,
+    sizes: ["8.25"],
+  };
+  const edited = unpack(
+    await handler(
+      event(
+        "PATCH",
+        { version: 3, ...unchangedIdentity, description: ["Updated copy"] },
+        "prd_deck",
+      ),
+    ),
+  );
+  assert.equal(edited.status, 200);
+  assert.deepEqual(db.records.get("prd_deck")!.description, ["Updated copy"]);
+  assert.equal(db.records.get("prd_deck")!.inventoryReserved, 4);
+  const repriced = unpack(
+    await handler(
+      event("PATCH", { version: 4, ...unchangedIdentity, price: 90_000 }, "prd_deck"),
+    ),
+  );
+  assert.equal(repriced.status, 409);
+  assert.equal(repriced.body.code, "CATALOG_PRODUCT_RESERVED");
+  assert.equal(db.records.get("prd_deck")!.price, 80_000);
+});
+
+test("invalid comparison prices are rejected without writing", async (t) => {
+  const db = fixture(t, [product({ price: 80_000, compareAtPrice: 100_000 })]);
+  for (const compareAtPrice of [-1, 80_000, "not-a-price"]) {
+    const response = unpack(
+      await handler(event("PATCH", { version: 3, compareAtPrice }, "prd_deck")),
+    );
+    assert.equal(response.status, 400, String(compareAtPrice));
+  }
+  assert.equal(db.transactions.length, 0);
+  assert.equal(db.records.get("prd_deck")!.compareAtPrice, 100_000);
+});
+
+test("a write race cannot clear the current comparison price", async (t) => {
+  const db = fixture(t, [product({ price: 80_000, compareAtPrice: 100_000 })]);
+  db.beforeTransaction(() => {
+    db.records.set("prd_deck", { ...db.records.get("prd_deck")!, version: 4 });
+  });
+  const raced = unpack(
+    await handler(event("PATCH", { version: 3, compareAtPrice: null }, "prd_deck")),
+  );
+  assert.equal(raced.status, 409);
+  assert.equal(db.transactions.length, 0);
+  assert.equal(db.records.get("prd_deck")!.compareAtPrice, 100_000);
+});
+
 test("outstanding sold units block hard deletion; archival remains possible", async (t) => {
   const db = fixture(t, [product({ inventoryCommitted: 2 })]);
   assert.equal(

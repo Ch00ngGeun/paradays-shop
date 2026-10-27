@@ -763,13 +763,13 @@ async function updateProduct(
   }
 
   const reserved = existingProduct.inventoryReserved ?? 0;
-  if (
-    input.inventoryQuantity < reserved ||
-    (reserved > 0 &&
-      ["sizes", "price", "name", "brandName", "sku"].some((field) =>
-        hasOwn(body, field),
-      ))
-  )
+  // The admin form always resends these fields, so only an actual value change is blocked.
+  const reservedIdentityChanged = (
+    ["sizes", "price", "name", "brandName", "sku"] as const
+  ).some(
+    (field) => JSON.stringify(input[field]) !== JSON.stringify(existingProduct[field]),
+  );
+  if (input.inventoryQuantity < reserved || (reserved > 0 && reservedIdentityChanged))
     return jsonResponse(409, { code: "CATALOG_PRODUCT_RESERVED" });
 
   const existingWithoutCompareAtPrice = { ...existingProduct };
