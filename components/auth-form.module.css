@@ -139,16 +139,6 @@
   font-weight: 400;
 }
 
-.setupNotice {
-  border-left: 3px solid var(--color-red);
-  color: var(--color-ink);
-  font-family: var(--font-display);
-  font-size: 0.9rem;
-  line-height: 1.4;
-  margin: 0;
-  padding-left: 0.65rem;
-}
-
 .consentRow {
   align-items: flex-start;
   display: flex;
@@ -193,30 +183,9 @@
 }
 
 .submit:disabled,
-.socialActions button:disabled,
-.secondaryButton:disabled {
+.socialActions button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
-}
-
-.secondaryButton {
-  background: transparent;
-  border: 1px solid var(--color-rule);
-  color: var(--color-muted);
-  cursor: pointer;
-  font-family: var(--font-display);
-  font-size: 0.95rem;
-  font-weight: 700;
-  padding: 0.7rem 1rem;
-}
-
-.textButton {
-  background: transparent;
-  border: 0;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-  text-decoration: underline;
 }
 
 .error {

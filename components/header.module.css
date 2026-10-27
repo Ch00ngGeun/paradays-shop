@@ -466,11 +466,6 @@
   font-weight: 800;
 }
 
-/* .singleSection — 하위 호환용 (미사용) */
-.singleSection {
-  justify-content: end;
-}
-
 /* .mobileMenuPanel — 데스크톱에서는 비움 (모바일 미디어쿼리에서만 사용) */
 .mobileMenuPanel {
   display: none;
