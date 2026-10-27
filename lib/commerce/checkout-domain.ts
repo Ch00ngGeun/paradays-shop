@@ -26,9 +26,6 @@ export type OrderStatus =
   | "CANCELED"
   | "REFUNDED";
 
-/** PG 선택은 AWS 인프라 배포 전에 확정하되, 애플리케이션 계약은 공급자에 의존하지 않게 둡니다. */
-export type PaymentProvider = "toss" | "portone" | "stripe";
-
 /** Lambda가 DynamoDB에 기록할 주문 생성 전 서버 계산 결과입니다. */
 export type ServerCalculatedOrder = {
   lines: OrderLineSnapshot[];
@@ -36,34 +33,6 @@ export type ServerCalculatedOrder = {
   total: number;
   currency: "KRW";
   status: "PENDING_PAYMENT";
-};
-
-/** PG adapter가 제공해야 하는 최소 서버 측 결제 계약입니다. */
-export type PaymentGateway = {
-  createCheckoutSession: (input: {
-    orderId: string;
-    amount: number;
-    orderName: string;
-  }) => Promise<{
-    checkoutUrl: string;
-    providerOrderId: string;
-  }>;
-  confirmPayment: (input: {
-    amount: number;
-    orderId: string;
-    paymentKey: string;
-  }) => Promise<{
-    providerPaymentId: string;
-    status: "PAID" | "FAILED";
-  }>;
-  verifyWebhook: (input: {
-    headers: Readonly<Record<string, string | undefined>>;
-    rawBody: string;
-  }) => Promise<{
-    eventId: string;
-    orderId: string;
-    paymentStatus: "PAID" | "FAILED" | "CANCELED";
-  }>;
 };
 
 const MAX_QUANTITY_PER_LINE = 10;

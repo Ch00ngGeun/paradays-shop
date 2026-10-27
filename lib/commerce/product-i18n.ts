@@ -1,7 +1,7 @@
 // 역할: 상품명·설명을 현재 로케일에 맞게 고름 (i18n 필드 우선, 없으면 원문).
 
 import { translateProductDescription } from "@/contexts/locale-context";
-import type { Locale, Product } from "@/types/store";
+import type { Locale } from "@/types/store";
 
 export type ProductNameI18n = Readonly<{ en?: string; ko?: string }>;
 export type ProductDescriptionI18n = Readonly<{
@@ -36,13 +36,4 @@ export function getLocalizedProductDescription(
   // i18n.ko가 영문 복사본인 시드/레거시 데이터도 KO 사전으로 한 번 더 변환.
   // 이미 한글인 줄은 사전에 없어 원문 그대로 유지됨.
   return lines.map((line) => translateProductDescription(locale, line));
-}
-
-/** Product 타입에 i18n이 있어도 안전하게 로케일 표시용으로 펼침 */
-export function localizeProduct(product: Product, locale: Locale): Product {
-  return {
-    ...product,
-    name: getLocalizedProductName(product, locale),
-    description: getLocalizedProductDescription(product, locale),
-  };
 }
