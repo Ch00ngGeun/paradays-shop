@@ -15,6 +15,12 @@ import { authorizeAdmin } from "./admin-auth.js";
 import { documentClient, getRequiredEnvironment } from "./dynamodb-client.js";
 import { jsonResponse } from "./http-response.js";
 import {
+  isOcrMapping,
+  parseOcrTableRows,
+  type OcrMapping,
+  type OcrTableParseResult,
+} from "./ocr-table-parser.js";
+import {
   getPaddleOcrCredentials,
   MAX_INLINE_OCR_IMAGE_BYTES,
   PaddleOcrProviderError,
@@ -22,6 +28,7 @@ import {
   recognizePaddleOcr,
   type OcrBoundingBox,
   type OcrRecognitionRow,
+  type PaddleOcrRecognition,
 } from "./paddle-ocr.js";
 import { isRecord, parseJsonBody } from "./request-helpers.js";
 
@@ -62,6 +69,9 @@ type OcrJobRecord = Readonly<{
   version: number;
   rawText: string;
   rows: readonly OcrJobRow[];
+  /** 표로 묶기 전의 provider 원본 행은 수정 payload에 노출하지 않고 보존함. */
+  sourceRows?: readonly OcrJobRow[];
+  mapping?: OcrMapping;
   createdAt: string;
   updatedAt: string;
   expiresAt: number;
@@ -167,7 +177,7 @@ async function createOcrJob(
     return jsonResponse(503, { code: "OCR_PROVIDER_CONFIGURATION_UNAVAILABLE" });
   }
 
-  let recognition: Readonly<{ rawText: string; rows: readonly OcrRecognitionRow[] }>;
+  let recognition: PaddleOcrRecognition;
 
   try {
     const credentials = await getPaddleOcrCredentials(secretArn);
@@ -177,8 +187,11 @@ async function createOcrJob(
   }
 
   const rows = toStoredRecognitionRows(recognition.rows);
+  const sourceRows = toStoredRecognitionRows(
+    recognition.sourceRows ?? recognition.rows,
+  );
 
-  if (!rows || !isBoundedRawText(recognition.rawText)) {
+  if (!rows || sourceRows === null || !isBoundedRawText(recognition.rawText)) {
     return jsonResponse(502, { code: "OCR_PROVIDER_RESPONSE_INVALID" });
   }
 
@@ -191,6 +204,7 @@ async function createOcrJob(
     version: 1,
     rawText: recognition.rawText,
     rows,
+    sourceRows,
     createdAt: timestamp,
     updatedAt: timestamp,
     expiresAt: Math.floor(Date.now() / 1_000) + OCR_JOB_TTL_SECONDS,
@@ -251,14 +265,24 @@ async function updateOcrJob(
   }
 
   const expectedVersion = readVersion(body.version);
-  const reviewedRows = parseReviewedRows(body.rows);
+  const mappingUpdate = Object.hasOwn(body, "mapping");
+  const reviewedRows = mappingUpdate ? undefined : parseReviewedRows(body.rows);
   const reviewedRawText = body.rawText;
 
   if (!expectedVersion) {
     return jsonResponse(400, { code: "OCR_JOB_VERSION_REQUIRED" });
   }
 
-  if (!reviewedRows) {
+  if (
+    mappingUpdate &&
+    (!isOcrMapping(body.mapping) ||
+      (body.preview !== undefined && body.preview !== true) ||
+      Object.keys(body).some((key) => !["version", "mapping", "preview"].includes(key)))
+  ) {
+    return jsonResponse(400, { code: "OCR_JOB_MAPPING_INVALID" });
+  }
+
+  if (!mappingUpdate && !reviewedRows) {
     return jsonResponse(400, { code: "OCR_JOB_ROWS_INVALID" });
   }
 
@@ -285,27 +309,69 @@ async function updateOcrJob(
     });
   }
 
+  let projectedRows: readonly OcrJobRow[] | undefined;
+  let sources: readonly OcrJobRow[] | undefined;
+  let mapping: OcrMapping | undefined;
+
+  if (mappingUpdate && isOcrMapping(body.mapping)) {
+    sources =
+      existingJob.sourceRows ??
+      (existingJob.version === 1 ? existingJob.rows : undefined);
+    if (!sources) {
+      return jsonResponse(400, {
+        code: "OCR_JOB_SOURCE_ROWS_UNAVAILABLE",
+        message: "원본 인식 행이 없는 이전 검토본은 다시 매핑할 수 없습니다.",
+      });
+    }
+    const parsed = parseOcrTableRows(sources, body.mapping);
+    if (parsed.mode !== "table" || parsed.rows.length === 0) {
+      return jsonResponse(400, {
+        code: "OCR_JOB_MAPPING_UNUSABLE",
+        message: "선택한 열로 검토 가능한 상품 행을 만들 수 없습니다.",
+        analysis: publicAnalysis(parsed),
+      });
+    }
+    projectedRows = toStoredRecognitionRows(parsed.rows) ?? undefined;
+    if (!projectedRows) {
+      return jsonResponse(400, { code: "OCR_JOB_MAPPING_UNUSABLE" });
+    }
+    mapping = body.mapping;
+    if (body.preview === true) {
+      return jsonResponse(200, {
+        preview: {
+          jobId: existingJob.jobId,
+          version: existingJob.version,
+          rows: projectedRows,
+          analysis: publicAnalysis(parsed),
+        },
+      });
+    }
+  }
+
   const previousRowsById = new Map(existingJob.rows.map((row) => [row.id, row]));
   const timestamp = new Date().toISOString();
   const updatedJob: OcrJobRecord = {
     ...existingJob,
     rawText: reviewedRawText === undefined ? existingJob.rawText : reviewedRawText,
-    rows: reviewedRows.map((row) => {
-      const previous = previousRowsById.get(row.id);
+    ...(mapping ? { mapping, sourceRows: sources } : {}),
+    rows:
+      projectedRows ??
+      reviewedRows!.map((row) => {
+        const previous = previousRowsById.get(row.id);
 
-      return {
-        id: row.id,
-        sourceText: row.sourceText,
-        ...(previous?.confidence !== undefined
-          ? { confidence: previous.confidence }
-          : {}),
-        ...(previous?.box ? { box: previous.box } : {}),
-        productName: row.productName,
-        brand: row.brand,
-        option: row.option,
-        quantity: row.quantity,
-      };
-    }),
+        return {
+          id: row.id,
+          sourceText: row.sourceText,
+          ...(previous?.confidence !== undefined
+            ? { confidence: previous.confidence }
+            : {}),
+          ...(previous?.box ? { box: previous.box } : {}),
+          productName: row.productName,
+          brand: row.brand,
+          option: row.option,
+          quantity: row.quantity,
+        };
+      }),
     version: existingJob.version + 1,
     updatedAt: timestamp,
     updatedBy: userSub,
@@ -358,10 +424,14 @@ async function readOcrJob(
 
 /** OCR API response에는 audit subject·TTL 같은 운영 내부 속성을 절대 넣지 않습니다. */
 function toPublicOcrJob(job: OcrJobRecord): Record<string, unknown> {
+  const sources = job.sourceRows ?? (job.version === 1 ? job.rows : undefined);
   return {
     jobId: job.jobId,
     version: job.version,
     rawText: job.rawText,
+    analysis: sources
+      ? publicAnalysis(parseOcrTableRows(sources, job.mapping))
+      : { mode: "unclassified", reason: "source-rows-unavailable" },
     rows: job.rows.map((row) => ({
       id: row.id,
       sourceText: row.sourceText,
@@ -372,6 +442,16 @@ function toPublicOcrJob(job: OcrJobRecord): Record<string, unknown> {
       ...(row.option !== undefined ? { option: row.option } : {}),
       ...(row.quantity !== undefined ? { quantity: row.quantity } : {}),
     })),
+  };
+}
+
+function publicAnalysis(parsed: OcrTableParseResult): Record<string, unknown> {
+  return {
+    mode: parsed.mode,
+    ...("reason" in parsed ? { reason: parsed.reason } : {}),
+    ...(parsed.table ? { table: parsed.table } : {}),
+    ...(parsed.mode === "table" ? { mapping: parsed.mapping } : {}),
+    ...(parsed.region ? { region: parsed.region } : {}),
   };
 }
 
@@ -417,7 +497,13 @@ function toStoredRecognitionRows(
       !isTextWithin(row.sourceText, MAX_SOURCE_TEXT_LENGTH, false) ||
       ids.has(row.id) ||
       (row.confidence !== undefined && !isConfidence(row.confidence)) ||
-      (row.box !== undefined && !isBoundingBox(row.box))
+      (row.box !== undefined && !isBoundingBox(row.box)) ||
+      (row.productName !== undefined &&
+        !isTextWithin(row.productName, MAX_PRODUCT_NAME_LENGTH, true)) ||
+      (row.brand !== undefined && !isTextWithin(row.brand, MAX_BRAND_LENGTH, true)) ||
+      (row.option !== undefined &&
+        !isTextWithin(row.option, MAX_OPTION_LENGTH, true)) ||
+      (row.quantity !== undefined && !isValidQuantity(row.quantity))
     ) {
       return null;
     }
@@ -428,6 +514,10 @@ function toStoredRecognitionRows(
       sourceText: row.sourceText,
       ...(row.confidence !== undefined ? { confidence: row.confidence } : {}),
       ...(row.box ? { box: row.box } : {}),
+      ...(row.productName !== undefined ? { productName: row.productName } : {}),
+      ...(row.brand !== undefined ? { brand: row.brand } : {}),
+      ...(row.option !== undefined ? { option: row.option } : {}),
+      ...(row.quantity !== undefined ? { quantity: row.quantity } : {}),
     });
   }
 
@@ -486,6 +576,11 @@ function isOcrJobRecord(value: unknown): value is OcrJobRecord {
     Array.isArray(value.rows) &&
     value.rows.length <= MAX_JOB_ROWS &&
     value.rows.every(isOcrJobRow) &&
+    (value.sourceRows === undefined ||
+      (Array.isArray(value.sourceRows) &&
+        value.sourceRows.length <= MAX_JOB_ROWS &&
+        value.sourceRows.every(isOcrJobRow))) &&
+    (value.mapping === undefined || isOcrMapping(value.mapping)) &&
     isTimestamp(value.createdAt) &&
     isTimestamp(value.updatedAt) &&
     typeof value.expiresAt === "number" &&
