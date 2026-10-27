@@ -413,6 +413,9 @@ async function commitCatalogIntake(
   try {
     const previous = await replay();
     if (previous) return previous;
+    // The same operation may commit after the receipt read above; recheck before any early failure.
+    const failUnlessReplayed = async (response: APIGatewayProxyResultV2) =>
+      (await replay()) ?? response;
     // Read the revision before identity scans. Every handler mutation changes it in its transaction.
     const revision = await readCatalogRevision(catalogTableName);
     const timestamp = new Date().toISOString();
@@ -422,20 +425,21 @@ async function commitCatalogIntake(
     if (input.kind === "existing") {
       const existing = await readProduct(catalogTableName, input.existing.productId);
       if (existing === undefined) throw new Error("CATALOG_READ_UNAVAILABLE");
-      if (!existing) return jsonResponse(404, { code: "CATALOG_PRODUCT_NOT_FOUND" });
+      if (!existing)
+        return failUnlessReplayed(
+          jsonResponse(404, { code: "CATALOG_PRODUCT_NOT_FOUND" }),
+        );
       if (existing.version !== input.existing.version)
-        // The same operation may have committed after the first receipt read.
-        return (
-          (await replay()) ??
+        return failUnlessReplayed(
           jsonResponse(409, {
             code: "CATALOG_PRODUCT_VERSION_CONFLICT",
             product: toAdminCatalogProduct(existing),
-          })
+          }),
         );
       beforeStock = existing.inventoryQuantity;
       const afterStock = beforeStock + input.quantity;
       if (!isInventoryQuantity(afterStock))
-        return jsonResponse(400, { code: "OCR_INTAKE_INVALID" });
+        return failUnlessReplayed(jsonResponse(400, { code: "OCR_INTAKE_INVALID" }));
       product = {
         ...existing,
         inventoryQuantity: afterStock,
@@ -466,7 +470,8 @@ async function commitCatalogIntake(
         status: "DRAFT",
         featured: false,
       });
-      if (!normalized) return jsonResponse(400, { code: "OCR_INTAKE_INVALID" });
+      if (!normalized)
+        return failUnlessReplayed(jsonResponse(400, { code: "OCR_INTAKE_INVALID" }));
       product = {
         ...normalized,
         productId,
@@ -479,12 +484,11 @@ async function commitCatalogIntake(
       beforeStock = 0;
       const duplicates = await readCatalogDuplicates(catalogTableName, product);
       if (duplicates.length)
-        return (
-          (await replay()) ??
+        return failUnlessReplayed(
           jsonResponse(409, {
             code: "CATALOG_PRODUCT_DUPLICATE",
             productIds: duplicates,
-          })
+          }),
         );
       productWrite = {
         Put: {

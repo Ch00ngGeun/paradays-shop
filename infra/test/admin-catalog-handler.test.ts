@@ -506,6 +506,28 @@ for (const [kind, body] of [
   });
 }
 
+test("an intake whose committed product was deleted before the loser read replays instead of 404", async (t) => {
+  const db = fixture(t);
+  assert.equal(unpack(await handler(event("POST", existing()))).status, 200);
+  const writes = db.transactions.length;
+  // The loser misses the receipt on its first read; then it lands and the product is gone.
+  const receipts = [...db.records].filter(
+    ([, value]) => value.recordType === "CATALOG_INTAKE_RECEIPT",
+  );
+  assert.ok(receipts.length > 0);
+  for (const [key] of receipts) db.records.delete(key);
+  db.records.delete("prd_deck");
+  const firstRead = db.reads.length + 1;
+  db.beforeRead((count) => {
+    if (count === firstRead + 1)
+      for (const [key, value] of receipts) db.records.set(key, structuredClone(value));
+  });
+  const loser = unpack(await handler(event("POST", existing())));
+  assert.equal(loser.status, 200);
+  assert.equal(loser.body.receipt.replayed, true);
+  assert.equal(db.transactions.length, writes);
+});
+
 test("the global receipt rejects another admin's same operation without replay or a second add", async (t) => {
   const db = fixture(t);
   await handler(event("POST", existing()));
