@@ -563,6 +563,7 @@ function AdminWorkspace({
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount fetch; generation refs discard stale responses.
     void refreshCatalogProducts();
     // actions 객체는 getAccessToken 참조로 바뀌므로 listCatalogProducts 존재 여부만 의존합니다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2342,6 +2343,7 @@ function OverviewSection({
 
   useEffect(() => {
     if (!loadOverviewMetrics) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resets when the loader is removed; isCurrent guards async results.
       setMetrics(null);
       setMetricsState("unavailable");
       return;
@@ -2987,6 +2989,7 @@ function ProductSection({
 
   useEffect(() => {
     const validIds = new Set(products.map((product) => product.id));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- prunes deleted ids once; returns the same Set when nothing changed.
     setSelectedIds((current) => {
       const next = new Set([...current].filter((productId) => validIds.has(productId)));
       return next.size === current.size ? current : next;

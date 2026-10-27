@@ -203,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const generation = ++initGenerationRef.current;
 
     if (!storage) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- session restore must settle before paint; initGenerationRef guards async work.
       setStatus("anonymous");
       setError(
         new CognitoAuthError(
