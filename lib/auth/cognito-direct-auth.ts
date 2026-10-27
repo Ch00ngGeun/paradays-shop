@@ -81,10 +81,7 @@ async function callCognitoIdp<T>({
       body: JSON.stringify(body),
     });
   } catch {
-    throw new CognitoAuthError(
-      "AUTH_DIRECT_NETWORK",
-      "Cognito에 연결하지 못했습니다.",
-    );
+    throw new CognitoAuthError("AUTH_DIRECT_NETWORK", "Cognito에 연결하지 못했습니다.");
   }
 
   let payload: unknown;
@@ -357,9 +354,7 @@ export async function signUpWithPassword({
       Username: email,
       Password: password,
       UserAttributes: userAttributes,
-      ...(firebaseIdToken
-        ? { ClientMetadata: { firebaseIdToken } }
-        : {}),
+      ...(firebaseIdToken ? { ClientMetadata: { firebaseIdToken } } : {}),
     },
     fetcher,
   });
@@ -457,11 +452,7 @@ export async function signInWithPassword({
 
   const result = response.AuthenticationResult;
 
-  if (
-    !result?.AccessToken ||
-    !result.IdToken ||
-    typeof result.ExpiresIn !== "number"
-  ) {
+  if (!result?.AccessToken || !result.IdToken || typeof result.ExpiresIn !== "number") {
     throw new CognitoAuthError(
       "AUTH_DIRECT_CHALLENGE",
       response.ChallengeName
