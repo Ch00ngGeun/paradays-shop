@@ -138,16 +138,10 @@ export function ProductGrid() {
   }
 
   const filterRevealKey =
-    selectedIds.size === 0
-      ? "all"
-      : [...selectedIds].sort().join("|");
+    selectedIds.size === 0 ? "all" : [...selectedIds].sort().join("|");
 
   return (
-    <ul
-      aria-label="PARADAYS products"
-      className={styles.grid}
-      key={filterRevealKey}
-    >
+    <ul aria-label="PARADAYS products" className={styles.grid} key={filterRevealKey}>
       {visibleProducts.map((product, index) => {
         const displayName = getLocalizedProductName(product, locale);
         const soldOut = isProductSoldOut(product);
@@ -180,9 +174,7 @@ export function ProductGrid() {
                   soldOut ? `${styles.media} ${styles.mediaSoldOut}` : styles.media
                 }
               >
-                {product.featured ? (
-                  <span className={styles.newBadge}>New</span>
-                ) : null}
+                {product.featured ? <span className={styles.newBadge}>New</span> : null}
                 {isExternalImage(product.image) ? (
                   // 외부 CDN 이미지는 Next image allowlist에 없는 발행 상품도 표시할 수 있도록 브라우저가 직접 읽습니다.
                   // eslint-disable-next-line @next/next/no-img-element

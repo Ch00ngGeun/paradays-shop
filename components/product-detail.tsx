@@ -48,8 +48,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
   const displayName = getLocalizedProductName(product, locale);
   const displayDescription = getLocalizedProductDescription(product, locale);
   const isSoldOut =
-    typeof product.inventoryQuantity === "number" &&
-    product.inventoryQuantity <= 0;
+    typeof product.inventoryQuantity === "number" && product.inventoryQuantity <= 0;
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState(product.sizes[0]);
   const [isAddedModalOpen, setIsAddedModalOpen] = useState(false);
@@ -203,9 +202,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
           onPointerDown={handleGalleryPointerDown}
           onPointerUp={handleGalleryPointerUp}
         >
-          {product.featured ? (
-            <span className={styles.newBadge}>New</span>
-          ) : null}
+          {product.featured ? <span className={styles.newBadge}>New</span> : null}
           {isExternalImage(currentImage) ? (
             // 발행된 상품이 승인된 외부 CDN 이미지를 쓸 수 있도록 상세에서도 browser image를 지원합니다.
             // eslint-disable-next-line @next/next/no-img-element

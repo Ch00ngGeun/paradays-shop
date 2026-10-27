@@ -40,8 +40,16 @@ const currencyFormatter = new Intl.NumberFormat("ko-KR", {
 /** `/account` 본문: Hosted UI 액션과 API Gateway profile·order 조회를 조합합니다. */
 export function AccountContent() {
   const { copy } = useLocale();
-  const { error, getAccessToken, isAuthenticated, isAvailable, setUserDisplayName, signOut, status, user } =
-    useAuth();
+  const {
+    error,
+    getAccessToken,
+    isAuthenticated,
+    isAvailable,
+    setUserDisplayName,
+    signOut,
+    status,
+    user,
+  } = useAuth();
   const [profile, setProfile] = useState<MemberProfile | null>(null);
   const [orders, setOrders] = useState<MemberOrderSummary[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -86,13 +94,14 @@ export function AccountContent() {
       }
 
       setIsLoadingData(true);
-      setProfile((current) =>
-        current ?? {
-          userSub,
-          marketingConsent: false,
-          ...(userEmail ? { email: userEmail } : {}),
-          ...(userDisplayName ? { displayName: userDisplayName } : {}),
-        },
+      setProfile(
+        (current) =>
+          current ?? {
+            userSub,
+            marketingConsent: false,
+            ...(userEmail ? { email: userEmail } : {}),
+            ...(userDisplayName ? { displayName: userDisplayName } : {}),
+          },
       );
     });
 
@@ -321,11 +330,7 @@ export function AccountContent() {
               </button>
             </>
           ) : (
-            <button
-              disabled={!memberApi}
-              onClick={handleStartEdit}
-              type="button"
-            >
+            <button disabled={!memberApi} onClick={handleStartEdit} type="button">
               {copy.editProfile}
             </button>
           )}
