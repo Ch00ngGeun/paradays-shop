@@ -528,6 +528,19 @@ test("an intake whose committed product was deleted before the loser read replay
   assert.equal(db.transactions.length, writes);
 });
 
+test("a failed receipt recheck before an early intake failure is a 503, not an unhandled error", async (t) => {
+  const db = fixture(t, [product({ version: 9 })]);
+  const firstRead = db.reads.length + 1;
+  db.beforeRead((count) => {
+    // receipt, revision, product, then the recheck read fails
+    if (count === firstRead + 3) throw new Error("private read details");
+  });
+  const response = unpack(await handler(event("POST", existing())));
+  assert.equal(response.status, 503);
+  assert.equal(response.body.code, "CATALOG_STORAGE_UNAVAILABLE");
+  assert.equal(db.transactions.length, 0);
+});
+
 test("the global receipt rejects another admin's same operation without replay or a second add", async (t) => {
   const db = fixture(t);
   await handler(event("POST", existing()));
