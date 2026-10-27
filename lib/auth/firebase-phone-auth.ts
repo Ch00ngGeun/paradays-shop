@@ -8,10 +8,7 @@ import {
 } from "firebase/auth";
 
 import { CognitoAuthError } from "@/lib/auth/cognito-client";
-import {
-  getFirebaseAuth,
-  getFirebaseConfiguration,
-} from "@/lib/auth/firebase-app";
+import { getFirebaseAuth, getFirebaseConfiguration } from "@/lib/auth/firebase-app";
 import { normalizeKoreanPhoneNumber } from "@/lib/auth/cognito-direct-auth";
 
 let recaptchaVerifier: RecaptchaVerifier | null = null;
@@ -22,7 +19,8 @@ let confirmationResult: ConfirmationResult | null = null;
  * 운영에서 문자 OTP를 켠 뒤에만 `NEXT_PUBLIC_FIREBASE_PHONE_AUTH_ENABLED=true`를 설정합니다.
  */
 export function isFirebasePhoneAuthEnabled() {
-  const flag = process.env.NEXT_PUBLIC_FIREBASE_PHONE_AUTH_ENABLED?.trim().toLowerCase();
+  const flag =
+    process.env.NEXT_PUBLIC_FIREBASE_PHONE_AUTH_ENABLED?.trim().toLowerCase();
 
   return flag === "1" || flag === "true" || flag === "yes";
 }
@@ -64,10 +62,7 @@ function mapFirebaseSmsError(error: unknown): CognitoAuthError {
     );
   }
 
-  if (
-    code === "auth/invalid-phone-number" ||
-    code === "auth/missing-phone-number"
-  ) {
+  if (code === "auth/invalid-phone-number" || code === "auth/missing-phone-number") {
     return new CognitoAuthError(
       "AUTH_DIRECT_INVALID_PARAMETER",
       "휴대폰 번호 형식이 올바르지 않습니다.",
@@ -147,11 +142,7 @@ export async function sendFirebaseSmsCode({
 
   try {
     const verifier = ensureRecaptcha(recaptchaContainerId);
-    confirmationResult = await signInWithPhoneNumber(
-      getFirebaseAuth(),
-      e164,
-      verifier,
-    );
+    confirmationResult = await signInWithPhoneNumber(getFirebaseAuth(), e164, verifier);
     return { phoneNumber: e164 };
   } catch (error) {
     recaptchaVerifier?.clear();
