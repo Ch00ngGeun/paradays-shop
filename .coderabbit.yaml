@@ -27,7 +27,6 @@ reviews:
     - "!**/.next/**"
     - "!out/**"
     - "!infra/cdk.out/**"
-    - "!_backup/**"
     - "!test-results/**"
     - "!playwright-report/**"
     - "!**/package-lock.json"
