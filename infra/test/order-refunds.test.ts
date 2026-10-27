@@ -66,6 +66,46 @@ test("unshipped partial cancellation restores only verified row quantity, and re
   assert.equal(await startRefund(order, intent, { secretKey: "fake" }), order);
   assert.equal(db.calls.length, 1);
 });
+test("a refund above the remaining paid balance is rejected before any PG call", async (t) => {
+  const { db, order: initial } = await sale(t);
+  let order = await confirmFulfillment(
+    initial,
+    "UNSHIPPED",
+    "fulfillment_operation_cap",
+  );
+  const first = refundIntent(order, {
+    operationId: "refund_operation_first",
+    disposition: "UNSHIPPED",
+    cancelReason: "cancel",
+    cancelAmount: 100,
+    rows: [{ line: 0, quantity: 1 }],
+  });
+  db.setProvider(() => ({
+    ...paid,
+    status: "PARTIAL_CANCELED",
+    balanceAmount: 100,
+    cancels: [
+      {
+        transactionKey: "tx_first",
+        cancelAmount: 100,
+        cancelReason: first.providerReason,
+        cancelStatus: "DONE",
+      },
+    ],
+  }));
+  order = await startRefund(order, first, { secretKey: "fake" });
+  // Within the order total, but above the 100 still paid after the first refund.
+  const second = refundIntent(order, {
+    operationId: "refund_operation_over_balance",
+    disposition: "COMPENSATION",
+    cancelReason: "compensation",
+    cancelAmount: 101,
+  });
+  await assert.rejects(startRefund(order, second, { secretKey: "fake" }), {
+    code: "REFUND_AMOUNT_EXCEEDS_BALANCE",
+  });
+  assert.equal(db.calls.length, 1);
+});
 test("definite refund rejection clears its lock with durable failure proof; retry does not send another cancel", async (t) => {
   const { db, order } = await sale(t);
   const intent = refundIntent(order, {

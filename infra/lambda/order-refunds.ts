@@ -252,6 +252,7 @@ export async function startRefund(
   } catch (error) {
     if (definitiveRefundRejection(error)) {
       const current = working.inventory!;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- drops the cleared pendingRefund
       const { pendingRefund: _pending, ...finished } = recorded(
         current,
         intent.operationId,
@@ -318,6 +319,7 @@ export async function syncRefundPayment(
     ledger.state === "LEGACY"
       ? [...ledger.restored]
       : restoreVector(ledger, order.lines, quantities);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- drops the cleared pendingRefund
   const { pendingRefund: _pending, ...withoutPending } = recorded(
     ledger,
     pending.operationId,
