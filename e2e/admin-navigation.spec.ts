@@ -2947,13 +2947,12 @@ test("inventory redesign: a stock conflict reloads canonical stock and cannot si
     name: "재고 변경 내용 확인",
     exact: true,
   });
+  const catalogReads = () =>
+    audit.reads.filter((path) => path === "/prod/admin/catalog/products").length;
+  // Initial loading may read the catalog more than once; the conflict must add exactly one reload.
+  const readsBeforeSave = catalogReads();
   await confirm.click();
-  await expect
-    .poll(
-      () =>
-        audit.reads.filter((path) => path === "/prod/admin/catalog/products").length,
-    )
-    .toBe(2);
+  await expect.poll(catalogReads).toBe(readsBeforeSave + 1);
   await expect(inventoryWorkspace(page).getByRole("alert").first()).toBeVisible();
   await expect(
     page.getByRole("button", { name: "최신 재고로 다시 시작", exact: true }),
