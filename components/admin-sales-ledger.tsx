@@ -25,7 +25,7 @@ type Draft = {
   entryId: string;
   expectedVersion: number;
   soldAt: string;
-  method: "CARD" | "CASH";
+  method: SaleEntry["method"];
   reference: string;
   amount: string;
   memo: string;

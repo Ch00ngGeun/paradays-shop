@@ -22,7 +22,7 @@ type Editor = {
   id?: string;
   version?: number;
   time: string;
-  method: "CARD" | "CASH";
+  method: TestSaleInput["method"];
   reference: string;
   amount: string;
   lines: {
