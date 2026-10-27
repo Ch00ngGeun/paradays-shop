@@ -16,8 +16,10 @@ import {
   type TestSalesState,
   type TestStockPreview,
 } from "@/lib/admin-ui/sales-ledger-simulation";
+import { AdminStepper, type AdminStep } from "./admin-stepper";
 import styles from "./admin-sales-ledger.module.css";
 
+const methodLabels = { CARD: "카드", CASH: "현금", TRANSFER: "이체" };
 type Editor = {
   id?: string;
   version?: number;
@@ -146,11 +148,11 @@ export function AdminSalesSimulationPanel({
     setDirty(false);
     clearChecks();
   }
-  function sample(method: "CARD" | "CASH") {
+  function sample(method: TestSaleInput["method"]) {
     const card = method === "CARD";
     const next = state.entries.filter((e) => e.method === method).length + 1;
     setEditor({
-      time: card ? "09:00" : "10:00",
+      time: card ? "09:00" : method === "CASH" ? "10:00" : "11:00",
       method,
       reference: `TEST_${method}_${String(next).padStart(3, "0")}`,
       amount: card ? "20000" : "5000",
@@ -181,8 +183,24 @@ export function AdminSalesSimulationPanel({
       "모의 전표·마감본을 모두 폐기하고 가상 재고를 데크 10개·그립 5개로 초기화했습니다.",
     );
   }
+  const postedCount = state.entries.length - draftCount;
+  const simulationSteps: AdminStep[] = [
+    {
+      label: "모의 판매 입력",
+      state: state.entries.length ? "complete" : open ? "current" : "upcoming",
+    },
+    {
+      label: "모의 판매 확정",
+      state: !state.entries.length ? "upcoming" : draftCount ? "current" : "complete",
+    },
+    {
+      label: "모의 일마감",
+      state: !open ? "complete" : postedCount && !draftCount ? "current" : "upcoming",
+    },
+  ];
   return (
     <section className={styles.panel} aria-labelledby="sales-simulation-title">
+      <AdminStepper label="모의 매출 작업 흐름" steps={simulationSteps} />
       <header className={styles.header}>
         <p className={styles.eyebrow}>TEST · BROWSER MEMORY ONLY</p>
         <h2 id="sales-simulation-title">모의 매출·일마감 체험</h2>
@@ -217,7 +235,7 @@ export function AdminSalesSimulationPanel({
       <div className={styles.dayStatus}>
         <h3>가상 영업일 · {open ? "영업 중" : "모의 마감 완료"}</h3>
         <span>
-          초안 {draftCount}건 · 확정 {state.entries.length - draftCount}건
+          모의 작성 중 {draftCount}건 · 모의 완료 {state.entries.length - draftCount}건
         </span>
       </div>
       <section className={styles.block} aria-label="가상 재고와 매출 합계">
@@ -242,6 +260,10 @@ export function AdminSalesSimulationPanel({
           </p>
           <p>
             모의 현금: <output aria-label="모의 현금 매출">{money(totals.cash)}</output>
+          </p>
+          <p>
+            모의 이체:{" "}
+            <output aria-label="모의 이체 매출">{money(totals.transfer)}</output>
           </p>
           <p>
             모의 온라인 (합성 0):{" "}
@@ -284,6 +306,9 @@ export function AdminSalesSimulationPanel({
           <button type="button" disabled={!open} onClick={() => sample("CASH")}>
             현금 예시 불러오기
           </button>
+          <button type="button" disabled={!open} onClick={() => sample("TRANSFER")}>
+            이체 예시 불러오기
+          </button>
         </div>
         <div className={styles.tableWrap}>
           <table>
@@ -302,10 +327,18 @@ export function AdminSalesSimulationPanel({
               {state.entries.map((entry) => (
                 <tr key={entry.id}>
                   <td>{entry.time}</td>
-                  <td>{entry.method === "CARD" ? "카드" : "현금"}</td>
+                  <td>
+                    <span className={styles.methodChip} data-method={entry.method}>
+                      {methodLabels[entry.method]}
+                    </span>
+                  </td>
                   <td>{entry.reference}</td>
                   <td>{money(entry.amount)}</td>
-                  <td>{entry.status === "DRAFT" ? "모의 초안" : "모의 확정"}</td>
+                  <td>
+                    <span className={styles.entryStatus} data-state={entry.status}>
+                      {entry.status === "DRAFT" ? "모의 작성 중" : "모의 완료"}
+                    </span>
+                  </td>
                   <td>
                     <button
                       type="button"
@@ -327,10 +360,10 @@ export function AdminSalesSimulationPanel({
         <p>
           {editor.id ?? "아직 저장하지 않은 모의 전표"} ·{" "}
           {selected?.status === "POSTED"
-            ? "모의 확정 전표는 수정할 수 없습니다."
+            ? "모의 완료 전표는 수정할 수 없습니다."
             : dirty
               ? "입력 변경분을 먼저 저장해 주세요."
-              : "저장된 모의 초안입니다."}
+              : "저장된 모의 작성 중 전표입니다."}
         </p>
         <form
           onSubmit={(event) => {
@@ -373,11 +406,12 @@ export function AdminSalesSimulationPanel({
                 <select
                   value={editor.method}
                   onChange={(event) =>
-                    change({ method: event.target.value as "CARD" | "CASH" })
+                    change({ method: event.target.value as Editor["method"] })
                   }
                 >
                   <option value="CARD">카드</option>
                   <option value="CASH">현금</option>
+                  <option value="TRANSFER">이체</option>
                 </select>
               </label>
               <label>
@@ -585,11 +619,12 @@ export function AdminSalesSimulationPanel({
         <h3>3. 합계·현금 대조 → 모의 일마감</h3>
         <p>
           현금 대조는 가상 현금 판매액 {money(totals.cash)} 기준이며 금고 잔액이
-          아닙니다. 모의 온라인 매출은 합성 0원입니다.
+          아닙니다. 카드·이체 금액은 현금 대조에 포함하지 않습니다. 모의 온라인 매출은
+          합성 0원입니다.
         </p>
         {draftCount ? (
           <p className={styles.warning}>
-            미확정 모의 초안 {draftCount}건이 있어 마감할 수 없습니다.
+            모의 작성 중 전표 {draftCount}건이 있어 마감할 수 없습니다.
           </p>
         ) : null}
         {dirty ? (
@@ -605,6 +640,7 @@ export function AdminSalesSimulationPanel({
             min="0"
             step="1"
             disabled={!open}
+            required
             value={cashCompared}
             onChange={(event) => {
               setCashCompared(event.target.value);
@@ -641,6 +677,7 @@ export function AdminSalesSimulationPanel({
             <label>
               모의 재개방 사유
               <input
+                required
                 value={reopenReason}
                 maxLength={85}
                 onChange={(event) => setReopenReason(event.target.value)}
@@ -669,11 +706,11 @@ export function AdminSalesSimulationPanel({
             <h4>{snapshot.id}</h4>
             <p>
               모의 카드 {money(snapshot.totals.card)} · 현금{" "}
-              {money(snapshot.totals.cash)} · 온라인 합성 0원 · 통합{" "}
-              {money(snapshot.totals.combined)}
+              {money(snapshot.totals.cash)} · 이체 {money(snapshot.totals.transfer)} ·
+              온라인 합성 0원 · 통합 {money(snapshot.totals.combined)}
             </p>
             <p>
-              확인 현금 {money(snapshot.cashCompared)} · 확정 전표{" "}
+              확인 현금 {money(snapshot.cashCompared)} · 모의 완료 전표{" "}
               {snapshot.entryIds.length}건 · 가상 데크{" "}
               {snapshot.stock.TEST_PRODUCT_DECK}개 · 가상 그립{" "}
               {snapshot.stock.TEST_PRODUCT_GRIP}개

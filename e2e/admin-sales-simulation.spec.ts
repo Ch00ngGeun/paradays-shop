@@ -279,7 +279,7 @@ async function expectStock(page: Page, deck: number, grip: number) {
   );
 }
 
-async function postSample(page: Page, method: "카드" | "현금") {
+async function postSample(page: Page, method: "카드" | "현금" | "이체") {
   await page
     .getByRole("button", { name: `${method} 예시 불러오기`, exact: true })
     .click();
@@ -656,4 +656,80 @@ test("mobile simulation keeps the warning and core controls within the viewport"
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(390);
   await panel.screenshot({ path: info.outputPath("sales-simulation-mobile.png") });
+});
+
+test("transfer: synthetic transfer posts once, shows gray and stays out of the cash comparison", async ({
+  page,
+}) => {
+  const audit = await setup(page);
+  await openSales(page);
+  const before = await snapshotStorage(page);
+  await trackStorageWrites(page);
+  await startSimulation(page, audit);
+  await postSample(page, "현금");
+  await postSample(page, "이체");
+  await expectStock(page, 10, 3);
+  await expect(page.getByLabel("모의 현금 매출", { exact: true })).toHaveText(
+    "5,000원",
+  );
+  await expect(page.getByLabel("모의 이체 매출", { exact: true })).toHaveText(
+    "5,000원",
+  );
+  await expect(page.getByLabel("모의 통합 매출", { exact: true })).toHaveText(
+    "10,000원",
+  );
+  const chips = page
+    .getByRole("table", { name: "합성 TEST 판매 전표", exact: true })
+    .locator("[data-method]");
+  await expect(chips).toHaveText(["현금", "이체"]);
+  expect(
+    await chips.last().evaluate((el) => getComputedStyle(el).backgroundColor),
+  ).toBe("rgb(241, 243, 245)");
+  const close = page.getByRole("button", { name: "모의 일마감 확정", exact: true });
+  const confirm = page.getByLabel("모의 합계와 현금 대조액을 확인했습니다", {
+    exact: true,
+  });
+  await page.getByLabel("모의 현금 수기 대조액 (원)", { exact: true }).fill("10000");
+  await confirm.check();
+  await expect(close).toBeDisabled();
+  await page.getByLabel("모의 현금 수기 대조액 (원)", { exact: true }).fill("5000");
+  await confirm.check();
+  await close.click();
+  const snapshots = page.getByRole("region", { name: "모의 마감 스냅샷", exact: true });
+  await expect(snapshots).toContainText("이체 5,000원");
+  await expect(snapshots).toContainText("확인 현금 5,000원");
+  await expectStock(page, 10, 3);
+  expect(await snapshotStorage(page)).toEqual(before);
+  await expectNoStorageWrites(page);
+});
+
+test("work flow: synthetic sales steps follow drafts, posting and the synthetic close", async ({
+  page,
+}) => {
+  const audit = await setup(page);
+  await openSales(page);
+  await startSimulation(page, audit);
+  const flow = () =>
+    page
+      .getByRole("list", { name: "모의 매출 작업 흐름", exact: true })
+      .getByRole("listitem")
+      .evaluateAll((items) => items.map((item) => (item as HTMLElement).dataset.state));
+  await expect.poll(flow).toEqual(["current", "upcoming", "upcoming"]);
+  await page.getByRole("button", { name: "현금 예시 불러오기", exact: true }).click();
+  await page.getByRole("button", { name: "모의 초안 저장", exact: true }).click();
+  await expect.poll(flow).toEqual(["complete", "current", "upcoming"]);
+  await page
+    .getByRole("button", { name: "가상 재고 예정표 확인", exact: true })
+    .click();
+  await page
+    .getByLabel("예정표의 가상 재고 차감을 확인했습니다", { exact: true })
+    .check();
+  await page.getByRole("button", { name: "모의 판매 확정", exact: true }).click();
+  await expect.poll(flow).toEqual(["complete", "complete", "current"]);
+  await page.getByLabel("모의 현금 수기 대조액 (원)", { exact: true }).fill("5000");
+  await page
+    .getByLabel("모의 합계와 현금 대조액을 확인했습니다", { exact: true })
+    .check();
+  await page.getByRole("button", { name: "모의 일마감 확정", exact: true }).click();
+  await expect.poll(flow).toEqual(["complete", "complete", "complete"]);
 });
