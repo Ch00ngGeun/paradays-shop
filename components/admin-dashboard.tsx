@@ -1,6 +1,7 @@
 // 역할: Cognito admin 그룹 사용자에게만 노출되는 정적 관리자 워크스페이스 UI를 제공합니다.
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   type ChangeEvent,
@@ -17,6 +18,10 @@ import {
 
 import { useAuth } from "@/contexts/auth-context";
 import { useLocale } from "@/contexts/locale-context";
+import { useHeaderScroll } from "@/hooks/use-header-scroll";
+import { CAMPAIGN_LOGO, campaignChannelSupport } from "@/lib/admin-ui/campaign-message";
+import requiredStyles from "./admin-required.module.css";
+import { AdminStepper, type AdminStep } from "./admin-stepper";
 import { rememberAuthReturnPath } from "@/lib/auth/return-path";
 import {
   type AdminSection,
@@ -77,6 +82,7 @@ import { OcrRegionMappingPanel } from "./ocr-region-mapping";
 import { AdminOrderInventoryPanel } from "./admin-order-inventory";
 import { AdminOrderSimulationPanel } from "./admin-order-simulation";
 import { AdminSalesLedgerPanel } from "./admin-sales-ledger";
+import { AdminNotice, AdminStatusBadge, StockStatusBadge } from "./admin-status";
 import {
   OcrInventoryCommitPanel,
   OcrInventoryAttemptStore,
@@ -90,6 +96,39 @@ type Notice =
 type MarketingChannel = "email" | "sms" | "push";
 
 type OcrState = "idle" | "connection-needed" | "recognizing" | "review";
+
+type OperationActivity = Readonly<{
+  key: string;
+  section: AdminSection;
+  status: "working" | "draft" | "complete" | "attention";
+  detail: string;
+  at: number;
+  editorId?: string;
+}>;
+
+const operationStatusLabels = {
+  working: "작업 중",
+  draft: "임시저장",
+  complete: "완료",
+  attention: "확인 필요",
+} as const;
+
+/** Capture wall-clock time only when an administrator event is handled, never in render. */
+function operationEventTime() {
+  return Date.now();
+}
+
+const operationIconTone: Record<AdminSection, string> = {
+  overview: "blue",
+  products: "purple",
+  inventory: "blue",
+  sales: "green",
+  brands: "purple",
+  members: "purple",
+  coupons: "amber",
+  marketing: "blue",
+  ocr: "green",
+};
 
 const ADMIN_GROUP = "admin";
 const subscribeToLocalOcrMode = () => () => {};
@@ -127,7 +166,10 @@ const sectionItems: ReadonlyArray<Readonly<{ id: AdminSection; label: string }>>
   { id: "ocr", label: "입고 OCR" },
 ];
 
-function AdminMenuIcon({ section }: Readonly<{ section: AdminSection }>) {
+function AdminMenuIcon({
+  section,
+  cart = false,
+}: Readonly<{ section: AdminSection; cart?: boolean }>) {
   const paths: Record<AdminSection, string> = {
     overview: "M3 10 12 3l9 7v11h-6v-7H9v7H3Z",
     products: "M3 4h9l9 9-9 9-9-9V4Zm4 4h.01",
@@ -152,8 +194,56 @@ function AdminMenuIcon({ section }: Readonly<{ section: AdminSection }>) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d={paths[section]} />
+      <path
+        d={
+          cart
+            ? "M2 3h3l3 13h11l3-10H6M10 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm8 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
+            : paths[section]
+        }
+      />
     </svg>
+  );
+}
+
+/** Display-only fallback: never write the example URL into an editor or API draft. */
+function AdminProductImage({
+  alt,
+  className = "",
+  compact = false,
+  src,
+}: Readonly<{ alt: string; className?: string; compact?: boolean; src?: string }>) {
+  const original = src?.trim() ?? "";
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const [failedExampleFor, setFailedExampleFor] = useState<string | null>(null);
+  const isExample =
+    !original ||
+    original === "/images/product-placeholder.svg" ||
+    original === "/images/admin-board-example.png" ||
+    failedSrc === original;
+  const exampleFailed = isExample && failedExampleFor === original;
+  return (
+    <span
+      className={`${styles.adminProductImage} ${className}`}
+      data-example={isExample || undefined}
+      data-compact={compact || undefined}
+    >
+      {!exampleFailed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          alt={isExample ? "상품 이미지 없음 · 보드 예시 이미지" : alt}
+          onError={() => {
+            if (isExample) setFailedExampleFor(original);
+            else setFailedSrc(original);
+          }}
+          src={isExample ? "/images/admin-board-example.png" : original}
+        />
+      ) : null}
+      {isExample ? (
+        <span className={styles.exampleImageLabel} title="이미지 없음 · 예시 이미지">
+          {compact ? "예시" : "이미지 없음 · 예시 이미지"}
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -316,6 +406,7 @@ function AdminWorkspace({
     getServerDesktopAdminSnapshot,
   );
   const isMenuVisible = isDesktopAdmin || isOpsMenuOpen;
+  const isMenuButtonHidden = useHeaderScroll(isDesktopAdmin || isOpsMenuOpen);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const menuDrawerRef = useRef<HTMLDivElement>(null);
   const [productEditors] = useState(() => new ProductEditorSessions());
@@ -392,6 +483,43 @@ function AdminWorkspace({
   const catalogRequestGenerationRef = useRef(0);
   const catalogMutationGenerationRef = useRef(0);
   const productWorkspaceActiveRef = useRef(true);
+  const [operationActivities, setOperationActivities] = useState<
+    readonly OperationActivity[]
+  >([]);
+  const recordActivity = (activity: Omit<OperationActivity, "at">) => {
+    if (!productWorkspaceActiveRef.current) return;
+    const next = { ...activity, at: operationEventTime() };
+    setOperationActivities((current) =>
+      [next, ...current.filter((item) => item.key !== next.key)].slice(0, 12),
+    );
+  };
+  const recordProductActivity = (
+    editorId: string,
+    status: OperationActivity["status"],
+    detail = "입력한 상품 정보가 아직 저장되지 않았습니다.",
+  ) =>
+    recordActivity({
+      key: `product:${editorId}`,
+      section: "products",
+      status,
+      detail,
+      ...(status === "working" || status === "attention" ? { editorId } : {}),
+    });
+  const removePendingProductActivity = (editorId: string) =>
+    setOperationActivities((current) =>
+      current.filter(
+        (item) =>
+          item.editorId !== editorId ||
+          (item.status !== "working" && item.status !== "attention"),
+      ),
+    );
+  const markActivityWorking = (section: "brands" | "coupons" | "marketing") =>
+    recordActivity({
+      key: section,
+      section,
+      status: "working",
+      detail: "입력 내용을 작성 중입니다. 변경 내용은 아직 저장되지 않았습니다.",
+    });
 
   useEffect(() => {
     productWorkspaceActiveRef.current = true;
@@ -551,6 +679,7 @@ function AdminWorkspace({
       sku: createProductSku(),
     });
     setProductNotice(null);
+    recordProductActivity(id, "working");
     navigateToAdminProductEditor(id);
   };
 
@@ -566,7 +695,7 @@ function AdminWorkspace({
     const previewCompareAtPrice = parsePositiveNumber(productDraft.compareAtPrice);
     const stockValue = Number.parseInt(productDraft.stock, 10);
     const nextItem: AdminCatalogListItem = {
-      id: productDraft.productId ?? `local_${Date.now()}`,
+      id: productDraft.productId ?? `local_${operationEventTime()}`,
       name,
       brand: productDraft.brand.trim() || "—",
       category: productDraft.category,
@@ -637,19 +766,23 @@ function AdminWorkspace({
     >,
     value: string,
   ) => {
-    if (productEditor)
+    if (productEditor) {
       productEditors.updateDraft(productEditor.id, (current) => ({
         ...current,
         [field]: value,
       }));
+      recordProductActivity(productEditor.id, "working");
+    }
   };
 
   const updateProductToggle = (field: "isVisible" | "isFeatured", value: boolean) => {
-    if (productEditor)
+    if (productEditor) {
       productEditors.updateDraft(productEditor.id, (current) => ({
         ...current,
         [field]: value,
       }));
+      recordProductActivity(productEditor.id, "working");
+    }
   };
 
   const handleProductImageChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -661,6 +794,7 @@ function AdminWorkspace({
 
     const objectUrl = URL.createObjectURL(file);
     productEditors.setImage(productEditor.id, file, objectUrl);
+    recordProductActivity(productEditor.id, "working");
     setProductNotice({
       kind: "success",
       message: "이미지가 미리보기에 반영되었습니다. 아직 저장되지 않았습니다.",
@@ -672,6 +806,16 @@ function AdminWorkspace({
     const savingEditor = productEditors.getSnapshot();
     if (!savingEditor || isSavingProduct) return;
     const setEditorNotice = (notice: Notice) => {
+      if (
+        notice?.kind === "error" &&
+        productWorkspaceActiveRef.current &&
+        productEditors.has(savingEditor.id)
+      )
+        recordProductActivity(
+          savingEditor.id,
+          "attention",
+          "저장 결과 또는 입력 내용을 확인해야 합니다. 완료로 처리하지 않았습니다.",
+        );
       if (
         productWorkspaceActiveRef.current &&
         getAdminProductEditorId() === savingEditor.id &&
@@ -813,6 +957,11 @@ function AdminWorkspace({
 
     if (!actions?.saveProductDraft) {
       rememberLocalProduct({ ...productDraft, imageUrl: imageUrlForSave }, name);
+      recordProductActivity(
+        savingEditor.id,
+        "draft",
+        "이 화면에만 임시 보관했습니다. 서버 미저장 · 스토어 미공개",
+      );
       setEditorNotice({
         kind: "success",
         message: `“${name}”을 이 브라우저의 임시 목록에만 보관했습니다. 서버에 저장하거나 스토어에 공개하지 않았으며 새로고침하면 사라집니다.`,
@@ -835,6 +984,13 @@ function AdminWorkspace({
 
       if (!productWorkspaceActiveRef.current) return;
 
+      recordProductActivity(
+        savingEditor.id,
+        productDraft.isVisible ? "complete" : "draft",
+        productDraft.isVisible
+          ? "서버가 상품 공개 저장을 확인했습니다."
+          : "상품을 비공개로 서버에 저장했습니다. 스토어 미공개",
+      );
       setEditorNotice({
         kind: "success",
         message: productDraft.isVisible
@@ -971,6 +1127,12 @@ function AdminWorkspace({
         kind: "success",
         message: `${product.name} 수량을 이 화면에서만 ${clamped}개로 변경했습니다. 서버 재고에는 반영되지 않았습니다.`,
       });
+      recordActivity({
+        key: `inventory:${productId}`,
+        section: "inventory",
+        status: "draft",
+        detail: "이 화면의 수량만 변경했습니다. 서버 재고 미반영",
+      });
       return updated;
     }
 
@@ -995,9 +1157,21 @@ function AdminWorkspace({
         kind: "success",
         message: `${updated.name} 재고를 ${updated.stock}개로 저장했습니다.`,
       });
+      recordActivity({
+        key: `inventory:${productId}`,
+        section: "inventory",
+        status: "complete",
+        detail: "서버가 재고 수량 변경을 확인했습니다.",
+      });
       return updated;
     } catch {
       const products = await refreshCatalogProducts();
+      recordActivity({
+        key: `inventory:${productId}`,
+        section: "inventory",
+        status: "attention",
+        detail: "재고 변경 결과를 확인해야 합니다. 중복 반영하지 마세요.",
+      });
       setInventoryNotice({
         kind: "error",
         message: products
@@ -1017,6 +1191,7 @@ function AdminWorkspace({
 
   const resetProductDraft = () => {
     if (productEditor) {
+      removePendingProductActivity(productEditor.id);
       const original = localProducts.find(
         (product) => product.id === productEditor.draft.productId,
       );
@@ -1080,6 +1255,14 @@ function AdminWorkspace({
       setIsSavingBrand(true);
       if (saveToServer) await saveToServer(draft);
       setLocalBrands((current) => [...current, normalizedBrand]);
+      recordActivity({
+        key: "brands",
+        section: "brands",
+        status: saveToServer ? "complete" : "draft",
+        detail: saveToServer
+          ? "서버가 브랜드 등록을 확인했습니다."
+          : "브랜드를 이 화면에만 추가했습니다. 서버 미저장",
+      });
       setBrandNotice({
         kind: "success",
         message: saveToServer
@@ -1089,6 +1272,12 @@ function AdminWorkspace({
       setBrandName("");
       setBrandMemo("");
     } catch {
+      recordActivity({
+        key: "brands",
+        section: "brands",
+        status: "attention",
+        detail: "브랜드 등록 결과를 확인해야 합니다. 입력은 유지됩니다.",
+      });
       setBrandNotice({
         kind: "error",
         message:
@@ -1137,6 +1326,14 @@ function AdminWorkspace({
       setIsSavingCoupon(true);
       setCouponNotice(null);
       if (saveToServer) await saveToServer(draft);
+      recordActivity({
+        key: "coupons",
+        section: "coupons",
+        status: "draft",
+        detail: saveToServer
+          ? "쿠폰 초안을 서버에 저장했습니다. 고객 미발급"
+          : "쿠폰 초안을 이 화면에만 준비했습니다. 서버 미저장 · 고객 미발급",
+      });
       setCouponNotice({
         kind: "success",
         message: saveToServer
@@ -1144,6 +1341,12 @@ function AdminWorkspace({
           : `${draft.code} · ${formattedBenefit} 초안을 이 화면에만 준비했습니다. 서버 저장·고객 발급은 하지 않았습니다.`,
       });
     } catch {
+      recordActivity({
+        key: "coupons",
+        section: "coupons",
+        status: "attention",
+        detail: "쿠폰 초안 저장 결과를 확인해야 합니다. 고객 발급 완료가 아닙니다.",
+      });
       setCouponNotice({
         kind: "error",
         message:
@@ -1187,6 +1390,14 @@ function AdminWorkspace({
       setIsSavingCampaign(true);
       setCampaignNotice(null);
       if (saveToServer) await saveToServer(draft);
+      recordActivity({
+        key: "marketing",
+        section: "marketing",
+        status: "draft",
+        detail: saveToServer
+          ? "캠페인 초안을 서버에 저장했습니다. 고객 미발송"
+          : "캠페인 초안을 이 화면에만 준비했습니다. 서버 미저장 · 고객 미발송",
+      });
       setCampaignNotice({
         kind: "success",
         message: saveToServer
@@ -1194,6 +1405,12 @@ function AdminWorkspace({
           : `${selectedChannelLabels.join(" · ")} 캠페인 초안을 이 화면에만 준비했습니다. 서버 저장·고객 발송은 하지 않았습니다.`,
       });
     } catch {
+      recordActivity({
+        key: "marketing",
+        section: "marketing",
+        status: "attention",
+        detail: "캠페인 초안 저장 결과를 확인해야 합니다. 고객 발송 완료가 아닙니다.",
+      });
       setCampaignNotice({
         kind: "error",
         message:
@@ -1353,6 +1570,13 @@ function AdminWorkspace({
 
   const invalidateOcrRequest = () => {
     setOcrInventoryJob(null);
+    recordActivity({
+      key: "ocr",
+      section: "ocr",
+      status: "working",
+      detail:
+        "입고 검토 내용을 수정했습니다. 초안 저장·재고 반영은 별도 확인이 필요합니다.",
+    });
     // Draft edits and file/job changes supersede every earlier response, including
     // a PATCH conflict's subsequent GET. An old finally must not clear a new save.
     ocrRequestGenerationRef.current += 1;
@@ -1386,6 +1610,13 @@ function AdminWorkspace({
       }
 
       setOcrFile(file);
+      recordActivity({
+        key: "ocr",
+        section: "ocr",
+        status: "working",
+        detail:
+          "입고 이미지를 선택했습니다. 인식·검토·재고 반영은 아직 완료되지 않았습니다.",
+      });
       setOcrNotice({
         kind: "success",
         message: `“${file.name}” 파일의 이름·MIME·매직 바이트·4MiB 직접 전송 한도를 확인했습니다.`,
@@ -1472,6 +1703,12 @@ function AdminWorkspace({
         return;
       }
       setOcrState("idle");
+      recordActivity({
+        key: "ocr",
+        section: "ocr",
+        status: "attention",
+        detail: "OCR 인식 결과를 확인하지 못했습니다. 연결과 이미지를 확인해야 합니다.",
+      });
       setOcrNotice({
         kind: "error",
         message:
@@ -1526,6 +1763,12 @@ function AdminWorkspace({
 
     if (!actions?.saveOcrReview || !ocrJobId || ocrVersion === null) {
       setOcrState("connection-needed");
+      recordActivity({
+        key: "ocr",
+        section: "ocr",
+        status: "attention",
+        detail: "입고 검토 저장 연결이 필요합니다. 서버 미저장 · 재고 미반영",
+      });
       setOcrNotice({
         kind: "error",
         message:
@@ -1558,6 +1801,12 @@ function AdminWorkspace({
       applyOcrJob(result.job);
 
       if (result.kind === "conflict") {
+        recordActivity({
+          key: "ocr",
+          section: "ocr",
+          status: "attention",
+          detail: "검토본이 변경되어 최신 내용을 다시 확인해야 합니다.",
+        });
         setOcrNotice({
           kind: "error",
           message:
@@ -1570,6 +1819,12 @@ function AdminWorkspace({
         kind: "success",
         message: `검토한 입고 행을 관리자 API에 저장했습니다. 서버 버전 ${result.job.version}을 적용했습니다. 실제 재고를 변경하려면 아래 재고 반영에서 상품과 수량을 확인해 주세요.`,
       });
+      recordActivity({
+        key: "ocr",
+        section: "ocr",
+        status: "draft",
+        detail: "입고 검토 초안을 서버에 저장했습니다. 실제 재고 반영은 별도입니다.",
+      });
       setOcrInventoryJob(result.job);
     } catch {
       if (!isCurrentRequest()) {
@@ -1578,6 +1833,13 @@ function AdminWorkspace({
       setOcrNotice({
         kind: "error",
         message: "입고 행을 저장하지 못했습니다. 내용을 확인한 뒤 다시 시도해 주세요.",
+      });
+      recordActivity({
+        key: "ocr",
+        section: "ocr",
+        status: "attention",
+        detail:
+          "입고 검토 초안의 저장 결과를 확인해야 합니다. 재고 반영 완료가 아닙니다.",
       });
     } finally {
       if (requestGeneration === ocrRequestGenerationRef.current) {
@@ -1604,6 +1866,15 @@ function AdminWorkspace({
       if (!current()) return null;
       if (result.kind !== "preview") {
         applyOcrJob(result.job);
+        recordActivity({
+          key: "ocr",
+          section: "ocr",
+          status: result.kind === "conflict" ? "attention" : "working",
+          detail:
+            result.kind === "conflict"
+              ? "검토본이 변경되어 최신 내용을 다시 확인해야 합니다."
+              : "열 지정이 변경되었습니다. 상품 필드를 다시 검토하고 초안을 저장하세요.",
+        });
         setOcrNotice({
           kind: result.kind === "conflict" ? "error" : "success",
           message:
@@ -1614,13 +1885,20 @@ function AdminWorkspace({
       }
       return result;
     } catch (error) {
-      if (current())
+      if (current()) {
+        recordActivity({
+          key: "ocr",
+          section: "ocr",
+          status: "attention",
+          detail: "열 지정 결과를 확인하지 못했습니다. 기존 검토본은 유지됩니다.",
+        });
         setOcrNotice({
           kind: "error",
           message:
             getOcrRequestErrorMessage(error) ??
             "열 지정에 실패했습니다. 현재 검토본은 유지됩니다.",
         });
+      }
       return null;
     } finally {
       if (generation === ocrRequestGenerationRef.current) setIsSavingOcr(false);
@@ -1685,7 +1963,11 @@ function AdminWorkspace({
         <button
           aria-controls="ops-menu-drawer"
           aria-expanded={isOpsMenuOpen}
-          className={styles.opsMenuButton}
+          className={
+            isMenuButtonHidden
+              ? `${styles.opsMenuButton} ${styles.opsMenuButtonHidden}`
+              : styles.opsMenuButton
+          }
           onClick={() => setIsOpsMenuOpen((open) => !open)}
           ref={menuButtonRef}
           type="button"
@@ -1775,7 +2057,7 @@ function AdminWorkspace({
 
       <section
         aria-labelledby={`admin-tab-${activeSection}`}
-        className={styles.workspace}
+        className={`${styles.workspace} ${requiredStyles.requiredScope}`}
         id={`admin-panel-${activeSection}`}
         role="tabpanel"
         tabIndex={-1}
@@ -1783,7 +2065,17 @@ function AdminWorkspace({
         {activeSection === "overview" ? (
           <>
             <OverviewSection
+              activities={operationActivities}
+              canResumeActivity={(activity) =>
+                Boolean(activity.editorId && productEditors.has(activity.editorId))
+              }
               loadOverviewMetrics={actions?.loadOverviewMetrics}
+              onOpenActivity={(activity) => {
+                if (activity.editorId && productEditors.has(activity.editorId)) {
+                  navigateToAdminProductEditor(activity.editorId);
+                  setIsOpsMenuOpen(false);
+                } else selectSection(activity.section);
+              }}
               onGoTo={selectSection}
               onOpenCreate={() => selectSection("products", { productView: "create" })}
             />
@@ -1803,7 +2095,10 @@ function AdminWorkspace({
             lockInputs={isSavingProduct && savingProductEditorId === productEditor?.id}
             notice={productNotice}
             onCloseEditor={() => {
-              if (productEditor) finishProductEditor(productEditor.id);
+              if (productEditor) {
+                removePendingProductActivity(productEditor.id);
+                finishProductEditor(productEditor.id);
+              }
               setProductNotice(null);
             }}
             onDeleteProducts={(items) => void handleDeleteProducts(items)}
@@ -1847,8 +2142,14 @@ function AdminWorkspace({
             loadFailed={catalogLoadFailed}
             loading={isLoadingProducts}
             notice={brandNotice}
-            onMemoChange={setBrandMemo}
-            onNameChange={setBrandName}
+            onMemoChange={(value) => {
+              setBrandMemo(value);
+              markActivityWorking("brands");
+            }}
+            onNameChange={(value) => {
+              setBrandName(value);
+              markActivityWorking("brands");
+            }}
             onSubmit={(event) => void handleBrandSubmit(event)}
             products={localProducts}
             saving={isSavingBrand}
@@ -1885,23 +2186,28 @@ function AdminWorkspace({
             onCodeChange={(value) => {
               setCouponCode(value);
               setCouponNotice(null);
+              markActivityWorking("coupons");
             }}
             onExpiresAtChange={(value) => {
               setCouponExpiresAt(value);
               setCouponNotice(null);
+              markActivityWorking("coupons");
             }}
             onNameChange={(value) => {
               setCouponName(value);
               setCouponNotice(null);
+              markActivityWorking("coupons");
             }}
             onSubmit={(event) => void handleCouponSubmit(event)}
             onTypeChange={(value) => {
               setCouponType(value);
               setCouponNotice(null);
+              markActivityWorking("coupons");
             }}
             onValueChange={(value) => {
               setCouponValue(value);
               setCouponNotice(null);
+              markActivityWorking("coupons");
             }}
             saving={isSavingCoupon}
           />
@@ -1915,15 +2221,18 @@ function AdminWorkspace({
             onBodyChange={(value) => {
               setCampaignBody(value);
               setCampaignNotice(null);
+              markActivityWorking("marketing");
             }}
             onChannelChange={(channel, selected) => {
               setCampaignChannels((current) => ({ ...current, [channel]: selected }));
               setCampaignNotice(null);
+              markActivityWorking("marketing");
             }}
             onSubmit={(event) => void handleCampaignSubmit(event)}
             onTitleChange={(value) => {
               setCampaignTitle(value);
               setCampaignNotice(null);
+              markActivityWorking("marketing");
             }}
             saving={isSavingCampaign}
             title={campaignTitle}
@@ -2009,15 +2318,22 @@ function AdminWorkspace({
 }
 
 function OverviewSection({
+  activities,
+  canResumeActivity,
   loadOverviewMetrics,
+  onOpenActivity,
   onGoTo,
   onOpenCreate,
 }: Readonly<{
+  activities: readonly OperationActivity[];
+  canResumeActivity: (activity: OperationActivity) => boolean;
   loadOverviewMetrics?: () => Promise<AdminOverviewMetrics>;
+  onOpenActivity: (activity: OperationActivity) => void;
   onGoTo: (section: AdminSection) => void;
   onOpenCreate: () => void;
 }>) {
   const { copy, locale } = useLocale();
+  const [showAllActivities, setShowAllActivities] = useState(false);
   const isKorean = locale === "ko";
   const [metrics, setMetrics] = useState<AdminOverviewMetrics | null>(null);
   const [metricsState, setMetricsState] = useState<
@@ -2110,8 +2426,39 @@ function OverviewSection({
         }).format(metricAsOf)
       : null;
 
+  const lowStockReady =
+    metricsState === "ready" && metrics?.lowStockCount !== undefined;
+  const homeSteps: AdminStep[] = [
+    {
+      label: "운영 지표 조회",
+      state:
+        metricsState === "ready"
+          ? "complete"
+          : metricsState === "unavailable"
+            ? "unavailable"
+            : "current",
+    },
+    {
+      label: "재고 확인",
+      state: !lowStockReady
+        ? "upcoming"
+        : (metrics?.lowStockCount ?? 0) > 0
+          ? "current"
+          : "complete",
+    },
+    {
+      // 일마감 결과는 홈에서 조회하지 않으므로 완료로 표시하지 않습니다.
+      label: "매출·일마감",
+      state: lowStockReady && metrics?.lowStockCount === 0 ? "current" : "upcoming",
+    },
+  ];
   return (
     <div className={`${styles.sectionStack} ${styles.overviewStack}`}>
+      <AdminStepper
+        className={styles.screenStepper}
+        label="홈 작업 흐름"
+        steps={homeSteps}
+      />
       <header className={styles.overviewHeader}>
         <div>
           <h2>{copy.adminOverviewTitle}</h2>
@@ -2185,6 +2532,9 @@ function OverviewSection({
               ),
             )}
             actionLabel={isKorean ? "재고 확인" : "Check stock"}
+            needsAttention={
+              metricsState === "ready" && (metrics?.lowStockCount ?? 0) > 0
+            }
             onClick={() => onGoTo("inventory")}
           />
           <QuickAction
@@ -2199,6 +2549,124 @@ function OverviewSection({
             onClick={() => onGoTo("sales")}
           />
         </div>
+      </section>
+      <section
+        className={styles.recentOperations}
+        aria-labelledby="recent-operations-title"
+      >
+        <header>
+          <h2 id="recent-operations-title">최근 운영 기록</h2>
+          {activities.length > 5 ? (
+            <button
+              aria-expanded={showAllActivities}
+              className={styles.secondaryButton}
+              onClick={() => setShowAllActivities((current) => !current)}
+              type="button"
+            >
+              {showAllActivities ? "최근 5건" : "전체보기"}
+            </button>
+          ) : null}
+        </header>
+        <p className={styles.operationScope}>
+          이번 관리자 화면에서 수행한 작업별 최근 상태만 표시합니다(최대 12개).
+          새로고침하면 초기화되며, 서버 전체 운영 이력이 아닙니다.
+        </p>
+        {activities.length === 0 ? (
+          <p className={styles.operationEmpty}>
+            아직 이 화면에서 수행한 작업이 없습니다.
+          </p>
+        ) : (
+          <ul className={styles.operationList}>
+            {activities.slice(0, showAllActivities ? 12 : 5).map((activity) => {
+              const resume = canResumeActivity(activity);
+              if (activity.status === "attention") {
+                return (
+                  <li data-status={activity.status} key={activity.key}>
+                    <AdminNotice
+                      status="attention"
+                      title={`${sectionShortLabels[activity.section]} 작업`}
+                    >
+                      <time dateTime={new Date(activity.at).toISOString()}>
+                        {new Intl.DateTimeFormat("ko-KR", {
+                          timeZone: "Asia/Seoul",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: false,
+                        }).format(activity.at)}{" "}
+                        KST
+                      </time>
+                      <p>{activity.detail}</p>
+                      {activity.editorId && !resume ? (
+                        <small>
+                          편집 초안은 더 이상 열려 있지 않습니다. 상품 목록에서
+                          확인하세요.
+                        </small>
+                      ) : null}
+                      <button
+                        className={styles.secondaryButton}
+                        onClick={() => onOpenActivity(activity)}
+                        type="button"
+                      >
+                        {resume ? "이어서 수정" : "메뉴 보기"}
+                        <span className={styles.srOnly}>
+                          {" "}
+                          · {sectionShortLabels[activity.section]}
+                        </span>
+                      </button>
+                    </AdminNotice>
+                  </li>
+                );
+              }
+              return (
+                <li
+                  className={styles.operationRow}
+                  data-status={activity.status}
+                  key={activity.key}
+                >
+                  <time dateTime={new Date(activity.at).toISOString()}>
+                    {new Intl.DateTimeFormat("ko-KR", {
+                      timeZone: "Asia/Seoul",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    }).format(activity.at)}
+                    <small>KST</small>
+                  </time>
+                  <div
+                    className={styles.operationIcon}
+                    data-tone={operationIconTone[activity.section]}
+                  >
+                    <AdminMenuIcon section={activity.section} />
+                  </div>
+                  <div className={styles.operationDescription}>
+                    <strong>{sectionShortLabels[activity.section]} 작업</strong>
+                    <span className={styles.operationStatus}>
+                      {operationStatusLabels[activity.status]}
+                    </span>
+                    <p>{activity.detail}</p>
+                    {activity.editorId && !resume ? (
+                      <small>
+                        편집 초안은 더 이상 열려 있지 않습니다. 상품 목록에서
+                        확인하세요.
+                      </small>
+                    ) : null}
+                  </div>
+                  <button
+                    className={styles.secondaryButton}
+                    onClick={() => onOpenActivity(activity)}
+                    type="button"
+                  >
+                    {resume ? "이어서 수정" : "메뉴 보기"}
+                    <span className={styles.srOnly}>
+                      {" "}
+                      · {sectionShortLabels[activity.section]}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
       <div className={styles.overviewSecondaryGrid}>
         <MetricCard
@@ -2621,9 +3089,37 @@ function ProductSection({
 
   const selectedProducts = products.filter((product) => selectedIds.has(product.id));
 
+  const productSaved = view !== "list" && notice?.kind === "success" && !saving;
+  const productSteps: AdminStep[] = [
+    { label: "상품 선택", state: view === "list" ? "current" : "complete" },
+    {
+      label: "정보 입력",
+      state:
+        view === "list" ? "upcoming" : saving || productSaved ? "complete" : "current",
+    },
+    {
+      label: canSaveToServer ? "서버 저장·공개" : "서버 저장",
+      state: !canSaveToServer
+        ? "unavailable"
+        : productSaved
+          ? "complete"
+          : saving
+            ? "current"
+            : "upcoming",
+    },
+  ];
+  const productStepper = (
+    <AdminStepper
+      className={styles.screenStepper}
+      label="상품 작업 흐름"
+      steps={productSteps}
+    />
+  );
+
   if (view === "list") {
     return (
       <div className={`${styles.sectionStack} ${styles.productScreen}`}>
+        {productStepper}
         <div className={styles.productListHeader}>
           <div className={styles.productPageHeading}>
             <h2>상품 관리</h2>
@@ -2721,7 +3217,7 @@ function ProductSection({
               : "필터 조건에 맞는 상품이 없습니다."}
           </p>
         ) : (
-          <ul className={styles.productList}>
+          <ul aria-label="상품 목록" className={styles.productList}>
             {filteredProducts.map((product) => {
               const isSelected = selectedIds.has(product.id);
 
@@ -2756,11 +3252,7 @@ function ProductSection({
                     />
                   </button>
                   <div className={styles.productListIdentity}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      alt=""
-                      src={product.imageUrl || "/images/product-placeholder.svg"}
-                    />
+                    <AdminProductImage alt="" compact src={product.imageUrl} />
                     <div className={styles.productListMain}>
                       <strong>{product.name}</strong>
                       <span>
@@ -2769,26 +3261,27 @@ function ProductSection({
                       {product.sku ? <small>{product.sku}</small> : null}
                     </div>
                   </div>
-                  <span className={styles.productStock}>
-                    재고 {product.stock}
-                    {product.stock <= 0 ? (
-                      <em className={styles.productSoldOutBadge}>품절</em>
-                    ) : null}
-                  </span>
-                  <span>{moneyFormatter.format(product.price)}</span>
-                  <span
-                    className={
-                      product.isVisible && product.version > 0
-                        ? styles.publicStatus
-                        : styles.draftStatus
-                    }
-                  >
-                    {product.version <= 0
-                      ? "로컬 초안"
-                      : product.isVisible
-                        ? "공개"
-                        : "비공개"}
-                  </span>
+                  <div className={styles.productRowMeta}>
+                    <span className={styles.productStock}>
+                      재고 {product.stock} <StockStatusBadge stock={product.stock} />
+                    </span>
+                    <span className={styles.productPrice}>
+                      {moneyFormatter.format(product.price)}
+                    </span>
+                    <span
+                      className={
+                        product.isVisible && product.version > 0
+                          ? styles.publicStatus
+                          : styles.draftStatus
+                      }
+                    >
+                      {product.version <= 0
+                        ? "로컬 초안"
+                        : product.isVisible
+                          ? "공개"
+                          : "비공개"}
+                    </span>
+                  </div>
                   <div className={styles.productRowActions}>
                     <button
                       className={styles.productRowEditButton}
@@ -2821,6 +3314,7 @@ function ProductSection({
 
   return (
     <div className={`${styles.sectionStack} ${styles.productScreen}`}>
+      {productStepper}
       <div className={styles.productEditorToolbar}>
         <button
           className={styles.backToListButton}
@@ -3016,10 +3510,10 @@ function ProductSection({
             <legend>대표 이미지</legend>
             <div className={styles.productImageUpload}>
               {/* 선택한 파일의 blob URL은 기존 편집 세션이 해제합니다. 추가 URL을 만들지 않습니다. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <AdminProductImage
                 alt="선택한 대표 이미지"
                 className={styles.productImageThumb}
+                compact
                 src={draft.imageUrl}
               />
               <label className={styles.uploadField}>
@@ -3187,8 +3681,10 @@ function ProductSection({
               <div className={styles.storeCardMedia}>
                 {draft.isFeatured ? <span className={styles.newBadge}>NEW</span> : null}
                 {/* 파일 선택으로 생긴 blob URL은 정적 export의 이미지 최적화 경로를 거치지 않습니다. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img alt={`${previewName} 상품 이미지 미리보기`} src={draft.imageUrl} />
+                <AdminProductImage
+                  alt={`${previewName} 상품 이미지 미리보기`}
+                  src={draft.imageUrl}
+                />
               </div>
             </div>
             <footer>
@@ -3343,8 +3839,37 @@ function InventorySection({
       .sort((left, right) => left.name.localeCompare(right.name, "ko"));
   }, [brandFilter, categoryFilter, filterQuery, products, stockFilter]);
 
+  const stockSaving = Boolean(selectedProduct && savingIds.has(selectedProduct.id));
+  const stockSaved =
+    Boolean(selectedProduct) && notice?.kind === "success" && !stockSaving;
+  const inventorySteps: AdminStep[] = [
+    { label: "상품 선택", state: selectedProduct ? "complete" : "current" },
+    {
+      label: "변경 수량 확인",
+      state: !selectedProduct
+        ? "upcoming"
+        : stockSaving || stockSaved
+          ? "complete"
+          : "current",
+    },
+    {
+      label: "재고 저장",
+      state: !canUpdateStock
+        ? "unavailable"
+        : stockSaved
+          ? "complete"
+          : stockSaving
+            ? "current"
+            : "upcoming",
+    },
+  ];
   return (
     <div className={`${styles.sectionStack} ${styles.inventoryScreen}`}>
+      <AdminStepper
+        className={styles.screenStepper}
+        label="재고 작업 흐름"
+        steps={inventorySteps}
+      />
       <div className={styles.productPageHeading}>
         <h2>재고 관리</h2>
         <p>상품을 선택하고 변경 전후 수량을 확인하세요.</p>
@@ -3442,13 +3967,6 @@ function InventorySection({
           {filteredProducts.length > 0 ? (
             <ul className={styles.inventoryList}>
               {filteredProducts.map((product) => {
-                const stockTone =
-                  product.stock <= 0
-                    ? styles.inventorySoldOut
-                    : product.stock <= 5
-                      ? styles.inventoryLow
-                      : undefined;
-
                 return (
                   <li className={styles.inventoryRow} key={product.id}>
                     <button
@@ -3458,11 +3976,7 @@ function InventorySection({
                       onClick={() => selectInventoryProduct(product.id)}
                       type="button"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        alt=""
-                        src={product.imageUrl || "/images/product-placeholder.svg"}
-                      />
+                      <AdminProductImage alt="" compact src={product.imageUrl} />
                       <div className={styles.inventoryMeta}>
                         <strong>{product.name}</strong>
                         <span>
@@ -3480,13 +3994,7 @@ function InventorySection({
                       </div>
                       <div className={styles.inventoryQuantity}>
                         <strong>{product.stock}개</strong>
-                        <span className={stockTone}>
-                          {product.stock <= 0
-                            ? "품절"
-                            : product.stock <= 5
-                              ? "주의"
-                              : "정상"}
-                        </span>
+                        <StockStatusBadge stock={product.stock} />
                       </div>
                     </button>
                   </li>
@@ -3629,8 +4137,7 @@ function StockStepper({
         </span>
       </div>
       <div className={styles.inventorySelectedProduct}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img alt="" src={product.imageUrl || "/images/product-placeholder.svg"} />
+        <AdminProductImage alt="" compact src={product.imageUrl} />
         <div>
           <strong>{product.name}</strong>
           <span>
@@ -3670,6 +4177,7 @@ function StockStepper({
           onKeyDown={(event) => {
             if (event.key === "Enter") event.preventDefault();
           }}
+          required
           value={draft}
         />
         <button
@@ -3824,8 +4332,36 @@ function BrandSection({
         ? "검색어나 상품 연결 필터를 바꿔 보세요."
         : "브랜드를 추가하면 이 화면의 상품 등록에서 선택할 수 있습니다.";
 
+  const brandListReady = !loading && !loadFailed;
+  const brandSaved = notice?.kind === "success" && !saving;
+  const brandSteps: AdminStep[] = [
+    { label: "브랜드 목록 확인", state: brandListReady ? "complete" : "current" },
+    {
+      label: "브랜드 입력",
+      state: !brandListReady
+        ? "upcoming"
+        : brandSaved || saving || brandName.trim()
+          ? "complete"
+          : "current",
+    },
+    {
+      label: "브랜드 저장",
+      state: !canSaveToServer
+        ? "unavailable"
+        : brandSaved
+          ? "complete"
+          : saving || (brandListReady && brandName.trim())
+            ? "current"
+            : "upcoming",
+    },
+  ];
   return (
     <div className={`${styles.sectionStack} ${styles.brandScreen}`}>
+      <AdminStepper
+        className={styles.screenStepper}
+        label="브랜드 작업 흐름"
+        steps={brandSteps}
+      />
       <header className={styles.brandHeader}>
         <div>
           <p>상품·재고 / 브랜드</p>
@@ -3950,6 +4486,9 @@ function BrandSection({
             <label>
               <span>
                 브랜드명 <span className={styles.brandRequired}>(필수)</span>
+                <span aria-hidden="true" className={requiredStyles.requiredMark}>
+                  *
+                </span>
               </span>
               <input
                 maxLength={100}
@@ -4040,6 +4579,13 @@ function MembersSection({
 }>) {
   const [search, setSearch] = useState("");
   const [selectedUsername, setSelectedUsername] = useState<string | null>(null);
+  // 권한 변경 저장이 성공으로 끝난 경우만 마지막 단계를 완료로 봅니다(조회 성공 알림 제외).
+  const [groupChanged, setGroupChanged] = useState(false);
+  const [wasSaving, setWasSaving] = useState(saving);
+  if (saving !== wasSaving) {
+    setWasSaving(saving);
+    if (!saving && notice?.kind === "success") setGroupChanged(true);
+  }
   const focusFrameRef = useRef<number | null>(null);
   const locked = loading || saving;
   useEffect(
@@ -4056,6 +4602,7 @@ function MembersSection({
   const selected = members.find((member) => member.username === selectedUsername);
   function selectMember(username: string) {
     setSelectedUsername(username);
+    setGroupChanged(false);
     if (focusFrameRef.current !== null) cancelAnimationFrame(focusFrameRef.current);
     if (window.matchMedia("(max-width: 1200px)").matches) {
       focusFrameRef.current = requestAnimationFrame(() => {
@@ -4076,8 +4623,33 @@ function MembersSection({
         : members.length === 0
           ? "이번 조회에서 회원이 반환되지 않았습니다"
           : "검색 조건에 맞는 회원이 없습니다";
+  const memberSteps: AdminStep[] = [
+    {
+      label: "회원 조회",
+      state: !canLoad ? "unavailable" : loaded && !loadFailed ? "complete" : "current",
+    },
+    {
+      label: "회원 선택",
+      state: !loaded || loadFailed ? "upcoming" : selected ? "complete" : "current",
+    },
+    {
+      label: "권한 변경",
+      state: !canUpdate
+        ? "unavailable"
+        : !selected
+          ? "upcoming"
+          : groupChanged && !saving
+            ? "complete"
+            : "current",
+    },
+  ];
   return (
     <div className={`${styles.sectionStack} ${styles.memberScreen}`}>
+      <AdminStepper
+        className={styles.screenStepper}
+        label="회원 작업 흐름"
+        steps={memberSteps}
+      />
       <header className={styles.memberHeader}>
         <div>
           <p>고객 / 회원</p>
@@ -4463,17 +5035,22 @@ function CouponSection({
           </p>
         </details>
       </header>
-      <ol className={styles.couponWorkflow} aria-label="쿠폰 초안 작성 순서">
-        <li>
-          <span>1</span> 혜택 설정
-        </li>
-        <li>
-          <span>2</span> 미리보기 확인
-        </li>
-        <li>
-          <span>3</span> 초안 저장
-        </li>
-      </ol>
+      <AdminStepper
+        label="쿠폰 작업 흐름"
+        steps={[
+          { label: "혜택 설정", state: validationMessage ? "current" : "complete" },
+          {
+            label: "미리보기 확인",
+            state: validationMessage ? "upcoming" : "complete",
+          },
+          {
+            label: "초안 저장",
+            state: saved ? "complete" : validationMessage ? "upcoming" : "current",
+          },
+          // 고객 발급은 연결되지 않아 완료로 표시하지 않습니다.
+          { label: "고객 발급", state: "unavailable" },
+        ]}
+      />
       <div className={styles.couponWorkspace}>
         <form
           aria-label="쿠폰 초안 설정"
@@ -4484,7 +5061,12 @@ function CouponSection({
           <h3>혜택 설정</h3>
           <fieldset disabled={saving} className={styles.couponFields}>
             <label>
-              <span>쿠폰명 (필수)</span>
+              <span>
+                쿠폰명 (필수)
+                <span aria-hidden="true" className={requiredStyles.requiredMark}>
+                  *
+                </span>
+              </span>
               <input
                 maxLength={120}
                 required
@@ -4494,7 +5076,12 @@ function CouponSection({
               />
             </label>
             <label>
-              <span>쿠폰 코드 (필수)</span>
+              <span>
+                쿠폰 코드 (필수)
+                <span aria-hidden="true" className={requiredStyles.requiredMark}>
+                  *
+                </span>
+              </span>
               <input
                 aria-describedby="coupon-code-help"
                 maxLength={32}
@@ -4523,6 +5110,9 @@ function CouponSection({
               <label>
                 <span>
                   {couponType === "percent" ? "할인율 (%)" : "할인 금액 (원)"} (필수)
+                  <span aria-hidden="true" className={requiredStyles.requiredMark}>
+                    *
+                  </span>
                 </span>
                 <input
                   inputMode="numeric"
@@ -4673,17 +5263,25 @@ function MarketingSection({
           </p>
         </details>
       </header>
-      <ol className={styles.campaignWorkflow} aria-label="캠페인 초안 작성 순서">
-        <li>
-          <span>1</span> 채널 선택
-        </li>
-        <li>
-          <span>2</span> 문구 미리보기
-        </li>
-        <li>
-          <span>3</span> 초안 저장
-        </li>
-      </ol>
+      <AdminStepper
+        label="캠페인 작업 흐름"
+        steps={[
+          { label: "채널 선택", state: selected.length ? "complete" : "current" },
+          {
+            label: "문구 작성",
+            state: !selected.length
+              ? "upcoming"
+              : validationMessage
+                ? "current"
+                : "complete",
+          },
+          {
+            label: "초안 저장",
+            state: saved ? "complete" : validationMessage ? "upcoming" : "current",
+          },
+          { label: "고객 발송", state: "unavailable" },
+        ]}
+      />
       <div className={styles.campaignWorkspace}>
         <form
           aria-label="캠페인 초안 작성"
@@ -4712,6 +5310,12 @@ function MarketingSection({
                     <span className={styles.campaignChannelState}>
                       {channels[channel] ? "초안 포함" : "초안 제외"}
                     </span>
+                    <small
+                      className={styles.campaignChannelSupport}
+                      data-inline-logo={campaignChannelSupport(channel).inlineLogo}
+                    >
+                      {campaignChannelSupport(channel).label}
+                    </small>
                   </label>
                 ))}
               </div>
@@ -4720,7 +5324,12 @@ function MarketingSection({
               초안 작성용 선택 · 채널 연결·수신자 수·발송 가능 여부는 미조회입니다.
             </p>
             <label>
-              <span>캠페인 제목 (필수)</span>
+              <span>
+                캠페인 제목 (필수)
+                <span aria-hidden="true" className={requiredStyles.requiredMark}>
+                  *
+                </span>
+              </span>
               <input
                 maxLength={160}
                 required
@@ -4731,7 +5340,12 @@ function MarketingSection({
               <small>{title.length}/160자</small>
             </label>
             <label>
-              <span>메시지 (필수)</span>
+              <span>
+                메시지 (필수)
+                <span aria-hidden="true" className={requiredStyles.requiredMark}>
+                  *
+                </span>
+              </span>
               <textarea
                 maxLength={8_000}
                 onChange={(event) => onBodyChange(event.target.value)}
@@ -4798,9 +5412,22 @@ function MarketingSection({
           </div>
           {activePreview ? (
             <div className={styles.campaignMessage} data-channel={activePreview}>
-              <div className={styles.campaignMessageBrand}>
-                PARADAYS <span>초안 문구 예시</span>
-              </div>
+              {campaignChannelSupport(activePreview).inlineLogo ? (
+                <div className={styles.campaignMessageBrand} data-inline-logo="true">
+                  <Image
+                    alt={CAMPAIGN_LOGO.alt}
+                    className={styles.campaignLogo}
+                    height={CAMPAIGN_LOGO.height}
+                    src={CAMPAIGN_LOGO.path}
+                    width={CAMPAIGN_LOGO.width}
+                  />
+                  <span>본문 삽입(인라인 이미지) · 항상 맨 위 · 초안 문구 예시</span>
+                </div>
+              ) : (
+                <div className={styles.campaignMessageBrand} data-inline-logo="false">
+                  PARADAYS <span>초안 문구 예시 · 로고 이미지 미포함</span>
+                </div>
+              )}
               <div className={styles.campaignMessageBody}>
                 <strong>{title.trim() || "캠페인 제목"}</strong>
                 <p>
@@ -4809,6 +5436,7 @@ function MarketingSection({
                 </p>
               </div>
               <small>
+                {campaignChannelSupport(activePreview).detail}{" "}
                 {activePreview === "sms"
                   ? "문자 분할·발송 비용·인코딩은 계산하지 않습니다."
                   : activePreview === "push"
@@ -4939,7 +5567,31 @@ function OcrSection({
       !row.option.trim() ||
       !row.quantity.trim(),
   ).length;
-  const activeStep = recognizing ? 2 : reviewSaved ? 4 : state === "review" ? 3 : 1;
+  const reviewing = state === "review";
+  // 입고 반영 결과는 아래 반영 패널이 직접 표시하므로 이 흐름에서 완료로 표시하지 않습니다.
+  const ocrSteps: AdminStep[] = [
+    { label: "이미지 선택", state: recognizing || reviewing ? "complete" : "current" },
+    {
+      label: "OCR 인식",
+      state:
+        state === "connection-needed"
+          ? "unavailable"
+          : recognizing
+            ? "current"
+            : reviewing
+              ? "complete"
+              : "upcoming",
+    },
+    {
+      label: "내용 검토",
+      state: !reviewing ? "upcoming" : reviewSaved ? "complete" : "current",
+    },
+    { label: "검토본 저장", state: reviewing && reviewSaved ? "complete" : "upcoming" },
+    {
+      label: "입고 반영",
+      state: reviewing && reviewSaved && inventoryPanel ? "current" : "upcoming",
+    },
+  ];
   return (
     <div
       className={`${styles.sectionStack} ${styles.ocrSectionStack} ${styles.ocrScreen}`}
@@ -4958,16 +5610,7 @@ function OcrSection({
           {statusLabel}
         </span>
       </header>
-      <ol className={styles.ocrWorkflow} aria-label="OCR 등록 흐름">
-        {["이미지 선택", "OCR 인식", "내용 검토", "검토본 저장", "입고 반영"].map(
-          (step, index) => (
-            <li aria-current={activeStep === index + 1 ? "step" : undefined} key={step}>
-              <span>{index + 1}</span>
-              {step}
-            </li>
-          ),
-        )}
-      </ol>
+      <AdminStepper label="OCR 등록 흐름" steps={ocrSteps} />
       <div className={styles.ocrSummary} aria-label="현재 검토 행 요약">
         <article>
           <span>검토 행</span>
@@ -5373,8 +6016,11 @@ function MetricCard({
   return (
     <article className={styles.metricCard}>
       {icon ? (
-        <div className={styles.metricIcon}>
-          <AdminMenuIcon section={icon} />
+        <div
+          className={styles.metricIcon}
+          data-tone={icon === "inventory" ? "purple" : operationIconTone[icon]}
+        >
+          <AdminMenuIcon section={icon} cart={icon === "overview"} />
         </div>
       ) : null}
       <p>{label}</p>
@@ -5389,6 +6035,7 @@ function QuickAction({
   icon,
   label,
   note,
+  needsAttention = false,
   onClick,
   primary = false,
   value,
@@ -5397,13 +6044,14 @@ function QuickAction({
   icon: AdminSection;
   label: string;
   note: string;
+  needsAttention?: boolean;
   onClick: () => void;
   primary?: boolean;
   value?: string;
 }>) {
   return (
     <article className={styles.overviewTask}>
-      <div className={styles.taskIcon}>
+      <div className={styles.taskIcon} data-tone={operationIconTone[icon]}>
         <AdminMenuIcon section={icon} />
       </div>
       <div className={styles.taskDescription}>
@@ -5412,6 +6060,7 @@ function QuickAction({
           {value !== undefined ? (
             <span className={styles.taskCount}>{value}</span>
           ) : null}
+          {needsAttention ? <AdminStatusBadge status="attention" /> : null}
         </h3>
         <p>{note}</p>
       </div>
@@ -5441,12 +6090,11 @@ function EmptyState({
 
 function NoticeMessage({ notice }: Readonly<{ notice: Exclude<Notice, null> }>) {
   return (
-    <p
-      className={notice.kind === "error" ? styles.noticeError : styles.noticeSuccess}
-      role={notice.kind === "error" ? "alert" : "status"}
-    >
-      {notice.message}
-    </p>
+    <div role={notice.kind === "error" ? "alert" : "status"}>
+      <AdminNotice status={notice.kind === "error" ? "warning" : "neutral"}>
+        {notice.message}
+      </AdminNotice>
+    </div>
   );
 }
 

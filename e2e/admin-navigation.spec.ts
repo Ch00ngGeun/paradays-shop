@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
 
 const ORIGIN = "http://127.0.0.1:3139";
 const API = "https://api.sales.test/prod/";
@@ -891,7 +891,12 @@ test("home redesign: desktop presents three primary metrics and persistent acces
     page.getByRole("heading", { name: "운영 바로가기", exact: true }),
   ).toBeVisible();
   await expect(page.getByText("1,240,000원", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("최근 운영 기록", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "최근 운영 기록", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("아직 이 화면에서 수행한 작업이 없습니다.", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("일마감 미완료", { exact: true })).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "주문 취소·반품 재고 관리" }),
@@ -1192,9 +1197,12 @@ for (const viewport of [
         `home-redesign-${viewport.width}x${viewport.height}-layout.png`,
       ),
     });
-    if (viewport.width < 1024)
-      await page.getByRole("button", { name: "운영 메뉴 열기", exact: true }).click();
     const drawer = page.locator("#ops-menu-drawer");
+    if (viewport.width < 1024) {
+      await page.getByRole("button", { name: "운영 메뉴 열기", exact: true }).click();
+      // The drawer moves focus to the selected tab on the next frame; wait for it first.
+      await expect(drawer.getByRole("tab", { selected: true })).toBeFocused();
+    }
     const lastTab = drawer.getByRole("tab", { name: "입고 OCR", exact: true });
     await lastTab.focus();
     await expect(lastTab).toBeFocused();
@@ -1430,6 +1438,10 @@ test("product redesign: an already-published edit preserves publication and subm
   ]);
 });
 
+// Product rows only; the menu-top work flow is a separate list.
+const productRows = (panel: Locator) =>
+  panel.getByRole("list", { name: "상품 목록", exact: true }).getByRole("listitem");
+
 test("product redesign: SKU and status filters keyboard and pointer selection and confirmed synthetic deletion retain their contracts", async ({
   page,
 }) => {
@@ -1458,20 +1470,20 @@ test("product redesign: SKU and status filters keyboard and pointer selection an
   });
   const panel = page.locator("#admin-panel-products");
   await panel.getByRole("searchbox", { name: "상품 검색", exact: true }).fill("SKU-A");
-  await expect(panel.getByRole("listitem")).toHaveCount(1);
-  await expect(panel.getByRole("listitem")).toContainText(products[0]!.name);
+  await expect(productRows(panel)).toHaveCount(1);
+  await expect(productRows(panel)).toContainText(products[0]!.name);
   await panel.getByRole("searchbox", { name: "상품 검색", exact: true }).fill("");
   await panel
     .getByRole("combobox", { name: "상태", exact: true })
     .selectOption("published");
-  await expect(panel.getByRole("listitem")).toHaveCount(1);
-  await expect(panel.getByRole("listitem")).toContainText(products[1]!.name);
+  await expect(productRows(panel)).toHaveCount(1);
+  await expect(productRows(panel)).toContainText(products[1]!.name);
   await panel.getByRole("combobox", { name: "상태", exact: true }).selectOption("all");
   await panel
     .getByRole("combobox", { name: "재고", exact: true })
     .selectOption("soldOut");
-  await expect(panel.getByRole("listitem")).toHaveCount(1);
-  await expect(panel.getByRole("listitem")).toContainText(products[1]!.name);
+  await expect(productRows(panel)).toHaveCount(1);
+  await expect(productRows(panel)).toContainText(products[1]!.name);
   await panel.getByRole("combobox", { name: "재고", exact: true }).selectOption("all");
   const first = panel.getByRole("button", {
     name: `${products[0]!.name} 선택`,
@@ -1491,7 +1503,7 @@ test("product redesign: SKU and status filters keyboard and pointer selection an
   page.once("dialog", (dialog) => void dialog.dismiss());
   await remove.click();
   expect(deleted).toEqual([]);
-  await expect(panel.getByRole("listitem")).toHaveCount(2);
+  await expect(productRows(panel)).toHaveCount(2);
   page.once("dialog", (dialog) => void dialog.accept());
   await remove.click();
   await expect.poll(() => deleted.length).toBe(2);
@@ -1499,7 +1511,7 @@ test("product redesign: SKU and status filters keyboard and pointer selection an
     { path: "/prod/admin/catalog/products/prd_synthetic_A", version: 4 },
     { path: "/prod/admin/catalog/products/prd_synthetic_B", version: 7 },
   ]);
-  await expect(panel.getByRole("listitem")).toHaveCount(0);
+  await expect(productRows(panel)).toHaveCount(0);
   expect(audit.syntheticWrites).toEqual([
     "DELETE https://api.sales.test/prod/admin/catalog/products/prd_synthetic_A",
     "DELETE https://api.sales.test/prod/admin/catalog/products/prd_synthetic_B",
@@ -1521,9 +1533,7 @@ test("product redesign: empty and failed catalog states do not invent sample pro
   await expect(page.locator("#admin-panel-products").getByRole("alert")).toContainText(
     "상품 목록을 불러오지 못했습니다",
   );
-  await expect(page.locator("#admin-panel-products").getByRole("listitem")).toHaveCount(
-    0,
-  );
+  await expect(productRows(page.locator("#admin-panel-products"))).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "새 상품 등록", exact: true }),
   ).toBeVisible();
@@ -2347,6 +2357,167 @@ async function selectInventory(page: Page, name = products[0]!.name) {
   return page.getByRole("textbox", { name: "변경 후 재고 수량", exact: true });
 }
 
+for (const viewport of [
+  { name: "desktop", width: 1440, height: 1000 },
+  { name: "mobile", width: 375, height: 844 },
+]) {
+  for (const theme of ["light", "dark"] as const) {
+    test(`inventory badges: ${viewport.name} ${theme} uses readable green amber and gray badges in inventory and product lists`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.addInitScript((value) => {
+        localStorage.setItem("paradays-theme", value);
+      }, theme);
+      const audit = await setup(page, {
+        path: "/admin?section=inventory",
+        catalogProducts: inventoryProducts,
+      });
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      const expectedBackgrounds =
+        theme === "light"
+          ? ["rgb(233, 247, 239)", "rgb(255, 245, 214)", "rgb(241, 243, 245)"]
+          : ["rgb(20, 45, 33)", "rgb(52, 39, 16)", "rgb(38, 43, 51)"];
+      const states = [
+        ["normal", "정상", "success"],
+        ["low", "주의", "warning"],
+        ["outOfStock", "품절", "neutral"],
+      ];
+      for (const section of ["inventory", "products"] as const) {
+        if (section === "products") await select(page, "products");
+        const panel = page.locator(`#admin-panel-${section}`);
+        for (const [index, [status, label, severity]] of states.entries()) {
+          const badge = panel.locator(`[data-stock-status="${status}"]`);
+          await expect(badge).toHaveCount(1);
+          await expect(badge).toHaveText(label);
+          await expect(badge).toHaveAttribute("data-severity", severity);
+          await expect(badge).not.toHaveAttribute("role", /alert|status/);
+          const colors = await badge.evaluate((element) => {
+            const rgb = (value: string) =>
+              value
+                .match(/[\d.]+/g)!
+                .slice(0, 3)
+                .map(Number);
+            const luminance = (value: string) => {
+              const [red, green, blue] = rgb(value).map((channel) => {
+                const linear = channel / 255;
+                return linear <= 0.04045
+                  ? linear / 12.92
+                  : ((linear + 0.055) / 1.055) ** 2.4;
+              });
+              return red * 0.2126 + green * 0.7152 + blue * 0.0722;
+            };
+            const ratio = (first: string, second: string) => {
+              const values = [luminance(first), luminance(second)].sort(
+                (a, b) => b - a,
+              );
+              return (values[0] + 0.05) / (values[1] + 0.05);
+            };
+            const background = getComputedStyle(element).backgroundColor;
+            const text = getComputedStyle(
+              element.querySelector("span:last-child > span")!,
+            ).color;
+            const dot = getComputedStyle(
+              element.querySelector('[aria-hidden="true"]')!,
+            ).backgroundColor;
+            return {
+              background,
+              text,
+              dot,
+              textRatio: ratio(background, text),
+              dotRatio: ratio(background, dot),
+            };
+          });
+          expect(colors.background).toBe(expectedBackgrounds[index]);
+          expect(colors.textRatio).toBeGreaterThanOrEqual(4.5);
+          expect(colors.dotRatio).toBeGreaterThanOrEqual(3);
+          console.log(
+            `Inventory badge ${viewport.name}/${theme}/${section}/${status}: ${JSON.stringify(colors)}`,
+          );
+        }
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+        ).toBe(true);
+        if (section === "inventory") {
+          const screenshot = testInfo.outputPath(
+            `stock-badges-${viewport.name}-${theme}.png`,
+          );
+          await page.screenshot({ path: screenshot, fullPage: true });
+          console.log(`Inventory badge screenshot: ${screenshot}`);
+        }
+      }
+      expect(audit.syntheticWrites).toEqual([]);
+    });
+  }
+}
+
+test("inventory badges: draft previews keep the canonical state until a confirmed synthetic save", async ({
+  page,
+}) => {
+  let current = { ...inventoryProducts[0] };
+  const commands: Record<string, unknown>[] = [];
+  const audit = await setup(page, {
+    path: "/admin?section=inventory",
+    handleCatalog: (route) => respond(route, { products: [current] }),
+    handleProductMutation: (route) => {
+      const command = route.request().postDataJSON() as Record<string, unknown>;
+      commands.push(command);
+      current = {
+        ...current,
+        inventoryQuantity: Number(command.stock),
+        version: current.version + 1,
+      };
+      return respond(route, { product: current });
+    },
+  });
+  const input = await selectInventory(page);
+  const badge = inventoryWorkspace(page).locator("[data-stock-status]");
+  let previousStatus = "normal";
+  for (const [index, [quantity, status, label]] of [
+    ["5", "low", "주의"],
+    ["0", "outOfStock", "품절"],
+    ["6", "normal", "정상"],
+  ].entries()) {
+    await input.fill(quantity);
+    await input.press("Tab");
+    await expect(badge).toHaveAttribute("data-stock-status", previousStatus);
+    expect(commands).toHaveLength(index);
+    page.once("dialog", (dialog) => void dialog.accept());
+    await page
+      .getByRole("button", { name: "재고 변경 내용 확인", exact: true })
+      .click();
+    await expect(badge).toHaveAttribute("data-stock-status", status);
+    await expect(badge).toHaveText(label);
+    await expect(input).toHaveValue(quantity);
+    expect(commands).toHaveLength(index + 1);
+    previousStatus = status;
+  }
+  expect(commands).toEqual([
+    { version: 4, stock: 5 },
+    { version: 5, stock: 0 },
+    { version: 6, stock: 6 },
+  ]);
+  expect(audit.syntheticWrites).toHaveLength(3);
+});
+
+for (const invalidStock of [undefined, null, -1, 1.5]) {
+  test(`inventory badges: invalid API stock ${String(invalidStock)} cannot appear as healthy inventory`, async ({
+    page,
+  }) => {
+    const audit = await setup(page, {
+      path: "/admin?section=inventory",
+      catalogProducts: [{ ...inventoryProducts[0], inventoryQuantity: invalidStock }],
+    });
+    const panel = inventoryWorkspace(page);
+    await expect(panel.getByRole("alert")).toContainText(
+      "재고 목록을 불러오지 못했습니다",
+    );
+    await expect(panel.locator("[data-stock-status]")).toHaveCount(0);
+    await expect(panel.getByRole("button", { name: / 재고 조정$/ })).toHaveCount(0);
+    expect(audit.syntheticWrites).toEqual([]);
+  });
+}
+
 const inventoryFilterProducts = [
   ["Deck", "NOVA", 10],
   ["Deck", "NOVA", 3],
@@ -2857,6 +3028,9 @@ test("inventory redesign: a noncanonical response is rejected and refreshed inst
       }),
   });
   const input = await selectInventory(page);
+  const initialCatalogReads = audit.reads.filter(
+    (path) => path === "/prod/admin/catalog/products",
+  ).length;
   await input.fill("13");
   page.once("dialog", (dialog) => void dialog.accept());
   await page.getByRole("button", { name: "재고 변경 내용 확인", exact: true }).click();
@@ -2865,7 +3039,7 @@ test("inventory redesign: a noncanonical response is rejected and refreshed inst
       () =>
         audit.reads.filter((path) => path === "/prod/admin/catalog/products").length,
     )
-    .toBe(2);
+    .toBe(initialCatalogReads + 1);
   await expect(inventoryWorkspace(page).getByRole("alert").first()).toBeVisible();
   await expect(
     inventoryWorkspace(page)
@@ -4372,6 +4546,58 @@ const campaignPreview = (page: Page) =>
     exact: true,
   });
 
+test("marketing logo: email preview always starts with the inline PARADAYS logo while SMS and push state that images are unsupported", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const audit = await setup(page, { path: "/admin?section=marketing" });
+  const panel = marketingWorkspace(page);
+  await fillCampaign(page);
+  for (const label of ["이메일", "SMS", "푸시"])
+    await campaignChannel(page, label).check();
+  await expect(
+    panel.getByText("로고 본문 삽입 · 발송 미연결", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    panel.getByText("이미지 불가 · 발송 미연결", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    panel.getByText("이미지 미연결 · 발송 미연결", { exact: true }),
+  ).toBeVisible();
+  const preview = campaignPreview(page);
+  await preview.getByRole("button", { name: "이메일 미리보기", exact: true }).click();
+  const logo = preview.getByRole("img", { name: "PARADAYS", exact: true });
+  await expect(logo).toBeVisible();
+  expect(decodeURIComponent((await logo.getAttribute("src")) ?? "")).toContain(
+    "/brand/paradays-logo.jpg",
+  );
+  expect(
+    await logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth),
+  ).toBe(996);
+  const logoBox = (await logo.boundingBox())!;
+  const titleBox = (await preview
+    .getByText("[TEST] New arrivals", { exact: true })
+    .boundingBox())!;
+  expect(logoBox.y + logoBox.height).toBeLessThanOrEqual(titleBox.y);
+  await expect(preview).toContainText("본문 삽입(인라인 이미지) · 항상 맨 위");
+  await preview.screenshot({ path: testInfo.outputPath("marketing-logo-email.png") });
+  console.log(`Marketing logo screenshots: ${testInfo.outputPath()}`);
+  for (const label of ["SMS", "푸시"]) {
+    await preview
+      .getByRole("button", { name: `${label} 미리보기`, exact: true })
+      .click();
+    await expect(preview.getByRole("img")).toHaveCount(0);
+    await expect(preview).toContainText("로고 이미지 미포함");
+  }
+  await expect(preview).toContainText(
+    "푸시 알림 이미지는 기기·발송 서비스 연결이 필요합니다",
+  );
+  await preview.getByRole("button", { name: "SMS 미리보기", exact: true }).click();
+  await expect(preview).toContainText("일반 SMS는 본문에 이미지를 넣을 수 없습니다");
+  await expect(panel.getByText(/^(?:발송 가능|발송 완료|연결 완료)$/)).toHaveCount(0);
+  expect(audit.syntheticWrites).toEqual([]);
+});
+
 test("marketing redesign: channel choices and live previews do not send messages or invent recipient or connection status", async ({
   page,
 }, testInfo) => {
@@ -4736,4 +4962,836 @@ test("marketing redesign: draft save remains readable on hover and keyboard focu
     }
   }
   expect(audit.syntheticWrites).toEqual([]);
+});
+
+const recentOperations = (page: Page) =>
+  page.getByRole("region", { name: "최근 운영 기록", exact: true });
+const operationRows = (page: Page) => recentOperations(page).locator("li[data-status]");
+
+async function noticeColors(notice: Locator) {
+  return notice.evaluate((element) => {
+    const luminance = (value: string) => {
+      const [red, green, blue] = value
+        .match(/[\d.]+/g)!
+        .slice(0, 3)
+        .map(Number)
+        .map((channel) => {
+          const c = channel / 255;
+          return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+        });
+      return red * 0.2126 + green * 0.7152 + blue * 0.0722;
+    };
+    const background = getComputedStyle(element).backgroundColor;
+    const text = getComputedStyle(element.querySelector("strong")!).color;
+    const values = [luminance(background), luminance(text)].sort((a, b) => b - a);
+    return { background, text, ratio: (values[0] + 0.05) / (values[1] + 0.05) };
+  });
+}
+
+for (const viewport of [
+  { name: "desktop", width: 1440, height: 1000 },
+  { name: "mobile", width: 375, height: 844 },
+]) {
+  for (const theme of ["light", "dark"] as const) {
+    test(`notice severity: ${viewport.name} ${theme} distinguishes a red unresolved write lock from amber report review`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.addInitScript(
+        (value) => localStorage.setItem("paradays-theme", value),
+        theme,
+      );
+      const audit = await setup(page, {
+        path: "/admin?section=sales",
+        pending: true,
+        handleSales: (route) =>
+          respond(route, {
+            report: { ...emptyReport, warnings: ["ONLINE_PAYMENT_RESULT_PENDING"] },
+          }),
+      });
+      await page
+        .getByRole("button", {
+          name: "실제 운영 열기 · 실제 매출·일마감 열기",
+          exact: true,
+        })
+        .click();
+      const protection = page.getByRole("region", {
+        name: "미확정 요청 보호",
+        exact: true,
+      });
+      const blocking = protection.locator('[data-status="blocking"]');
+      await expect(blocking).toHaveAttribute("data-severity", "danger");
+      await expect(
+        protection.getByRole("heading", { name: "처리 결과 확인 필요", exact: true }),
+      ).toBeVisible();
+      await expect(protection).toContainText(
+        "입력 변경·다른 전표 처리·마감을 잠갔습니다",
+      );
+      await expect(protection.getByRole("alert")).toHaveCount(0);
+      await page.getByRole("button", { name: "결과 재조회", exact: true }).click();
+      const warning = page
+        .getByLabel("마감 경고", { exact: true })
+        .locator('[data-status="attention"]');
+      await expect(warning).toHaveAttribute("data-severity", "warning");
+      await expect(warning).toContainText("온라인 결제 결과가 확인 대기 중입니다");
+      const expectedBackgrounds =
+        theme === "light"
+          ? ["rgb(254, 242, 242)", "rgb(255, 245, 214)"]
+          : ["rgb(59, 24, 27)", "rgb(52, 39, 16)"];
+      for (const [index, notice] of [blocking, warning].entries()) {
+        const colors = await noticeColors(notice);
+        expect(colors.background).toBe(expectedBackgrounds[index]);
+        expect(colors.ratio).toBeGreaterThanOrEqual(4.5);
+        console.log(
+          `Notice severity ${viewport.name}/${theme}/${index}: ${JSON.stringify(colors)}`,
+        );
+      }
+      await expect(
+        page.locator('#admin-panel-sales [role="status"] > [data-status="neutral"]'),
+      ).toBeVisible();
+      await expect(
+        page.locator('#admin-panel-sales [data-status="blocking"]'),
+      ).toHaveCount(1);
+      await expect(
+        page.getByRole("button", { name: "판매 등록 · 새 전표", exact: true }),
+      ).toBeDisabled();
+      await expect(
+        page.getByRole("button", { name: "선택일 장부 마감", exact: true }),
+      ).toBeDisabled();
+      expect(
+        await page.evaluate((key) => sessionStorage.getItem(key), PENDING_KEY),
+      ).toBe(pending);
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      ).toBe(true);
+      const screenshot = testInfo.outputPath(
+        `notice-severity-${viewport.name}-${theme}.png`,
+      );
+      await page.screenshot({ path: screenshot, fullPage: true });
+      console.log(`Notice severity screenshot: ${screenshot}`);
+      expect(audit.syntheticWrites).toEqual([]);
+    });
+  }
+}
+
+test("notice severity: an explicit ledger query failure is amber and a successful query returns to neutral", async ({
+  page,
+}) => {
+  let failed = true;
+  const audit = await setup(page, {
+    path: "/admin?section=sales",
+    handleSales: (route) =>
+      failed
+        ? respond(route, { code: "SYNTHETIC_QUERY_FAILED" }, 503)
+        : respond(route, { report: emptyReport }),
+  });
+  await page
+    .getByRole("button", {
+      name: "실제 운영 열기 · 실제 매출·일마감 열기",
+      exact: true,
+    })
+    .click();
+  await page.getByRole("button", { name: "장부 조회", exact: true }).click();
+  const status = page.locator("#admin-panel-sales").getByRole("status");
+  const attention = status.locator('[data-status="attention"]');
+  await expect(attention).toContainText("장부를 조회하지 못했습니다");
+  expect((await noticeColors(attention)).background).toBe("rgb(255, 245, 214)");
+  await expect(page.locator('#admin-panel-sales [data-status="blocking"]')).toHaveCount(
+    0,
+  );
+  failed = false;
+  await page.getByRole("button", { name: "장부 조회", exact: true }).click();
+  const neutral = status.locator('[data-status="neutral"]');
+  await expect(neutral).toContainText("한국 시간 기준 장부를 조회했습니다");
+  expect((await noticeColors(neutral)).background).toBe("rgb(241, 243, 245)");
+  await expect(status).not.toContainText("완료");
+  expect(audit.syntheticWrites).toEqual([]);
+});
+
+test("notice severity: validation keeps alert semantics, draft acknowledgements stay neutral and home attention remains honest", async ({
+  page,
+}) => {
+  let uncertain = false;
+  const audit = await setup(page, {
+    path: "/admin?section=coupons",
+    handleOverview: (route) => respond(route, completeOverview),
+    handleCouponMutation: (route) =>
+      uncertain
+        ? respond(route, { code: "SYNTHETIC_UNCERTAIN" }, 503)
+        : savedCoupon(route),
+  });
+  const panel = couponWorkspace(page);
+  await panel
+    .getByRole("form", { name: "쿠폰 초안 설정", exact: true })
+    .evaluate((form: HTMLFormElement) => form.requestSubmit());
+  await expect(
+    panel.getByRole("alert").locator('[data-status="warning"]'),
+  ).toBeVisible();
+  expect(audit.syntheticWrites).toEqual([]);
+  await fillCoupon(page);
+  await panel.getByRole("button", { name: "쿠폰 초안 저장", exact: true }).click();
+  const acknowledgement = panel.getByRole("status").locator('[data-status="neutral"]');
+  await expect(acknowledgement).toContainText("아직 고객에게 발급되지 않았습니다");
+  await expect(acknowledgement).not.toContainText("완료");
+  uncertain = true;
+  await couponField(page, "쿠폰명 (필수)").fill("[TEST] Recheck draft");
+  await panel.getByRole("button", { name: "쿠폰 초안 저장", exact: true }).click();
+  await expect(
+    panel.getByRole("alert").locator('[data-status="warning"]'),
+  ).toBeVisible();
+  await select(page, "overview");
+  const activity = operationRows(page);
+  await expect(activity).toHaveCount(1);
+  await expect(activity).toHaveAttribute("data-status", "attention");
+  const attention = activity.locator('[data-status="attention"]');
+  await expect(attention).toHaveAttribute("data-severity", "warning");
+  await expect(attention).toContainText("고객 발급 완료가 아닙니다");
+  await expect(activity.locator("time")).toContainText("23:00");
+  await expect(activity.getByRole("button", { name: /메뉴 보기/ })).toBeEnabled();
+  await expect(activity.getByRole("alert")).toHaveCount(0);
+  const colors = await noticeColors(attention);
+  expect(colors.background).toBe("rgb(255, 245, 214)");
+  expect(colors.ratio).toBeGreaterThanOrEqual(4.5);
+  const stockTask = page
+    .locator("#admin-panel-overview article")
+    .filter({ has: page.getByRole("button", { name: "재고 확인", exact: true }) });
+  await expect(stockTask.locator('[data-status="attention"]')).toHaveText("확인 필요");
+  await expect(stockTask.locator("h3")).toContainText("4");
+  await expect(
+    page.locator(
+      '#admin-panel-overview [data-status="urgent"], #admin-panel-overview [data-status="blocking"]',
+    ),
+  ).toHaveCount(0);
+  expect(audit.syntheticWrites).toHaveLength(2);
+  await activity.getByRole("button", { name: /메뉴 보기/ }).click();
+  await active(page, "coupons");
+});
+
+test("accessible operations: colored metric icons and an honest empty session history render without private reads", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const audit = await setup(page, {
+    handleOverview: (route) => respond(route, completeOverview),
+  });
+  for (const [label, tone] of [
+    ["오늘 매출", "green"],
+    ["오늘 주문(건)", "blue"],
+    ["판매 상품 수량(개)", "purple"],
+  ]) {
+    await expect(
+      overviewMetric(page, label!).locator("div[data-tone]"),
+    ).toHaveAttribute("data-tone", tone!);
+  }
+  const cartPath = await overviewMetric(page, "오늘 주문(건)")
+    .locator("svg path")
+    .getAttribute("d");
+  expect(cartPath).toContain("M2 3h3");
+  expect(
+    await page
+      .getByRole("tab", { name: "홈(운영현황)", exact: true })
+      .locator("svg path")
+      .getAttribute("d"),
+  ).toContain("M3 10 12 3");
+  await expect(operationRows(page)).toHaveCount(0);
+  await expect(recentOperations(page)).toContainText("작업별 최근 상태");
+  await expect(recentOperations(page)).toContainText("서버 전체 운영 이력이 아닙니다");
+  await page.screenshot({
+    path: testInfo.outputPath("accessible-home-desktop-1440.png"),
+    fullPage: true,
+  });
+  expect(audit.syntheticWrites).toEqual([]);
+  expectNoHomePrivateReads(audit);
+});
+
+test("accessible operations: product edits survive menu return with one amber task and private contents never enter storage or history", async ({
+  page,
+}) => {
+  const audit = await setup(page, { path: "/admin?section=products" });
+  await newProduct(page);
+  const editor = page.url();
+  const privateName = "PRIVATE_DRAFT_NOT_AN_ACTIVITY_LABEL";
+  await page.getByRole("textbox", { name: "상품명", exact: false }).fill(privateName);
+  await select(page, "overview");
+  const row = operationRows(page);
+  await expect(row).toHaveCount(1);
+  await expect(row).toHaveAttribute("data-status", "working");
+  await expect(row).toContainText("작업 중");
+  await expect(row.locator("time")).toContainText("23:00");
+  await expect(row).not.toContainText(privateName);
+  expect(
+    await page.evaluate(() =>
+      JSON.stringify({
+        session: { ...sessionStorage },
+        local: { ...localStorage },
+        history: history.state,
+      }),
+    ),
+  ).not.toContain(privateName);
+  await row.getByRole("button", { name: "이어서 수정", exact: false }).click();
+  await expect(page).toHaveURL(editor);
+  await expect(page.getByRole("textbox", { name: "상품명", exact: false })).toHaveValue(
+    privateName,
+  );
+  await page.getByRole("button", { name: "새 초안", exact: true }).click();
+  await select(page, "overview");
+  await expect(operationRows(page)).toHaveCount(0);
+  await page.goBack();
+  await page
+    .getByRole("textbox", { name: "상품명", exact: false })
+    .fill("SECOND_PRIVATE_DRAFT");
+  await page.getByRole("button", { name: /목록으로/ }).click();
+  await select(page, "overview");
+  await expect(operationRows(page)).toHaveCount(0);
+  await select(page, "products");
+  await newProduct(page);
+  await select(page, "overview");
+  await expect(operationRows(page)).toHaveCount(1);
+  await page.reload();
+  await expect(operationRows(page)).toHaveCount(0);
+  expect(audit.syntheticWrites).toEqual([]);
+});
+
+test("accessible operations: saved coupon and campaign remain unfinished amber drafts and an uncertain save is never green", async ({
+  page,
+}) => {
+  let failCoupon = false;
+  const audit = await setup(page, {
+    path: "/admin?section=coupons",
+    handleCouponMutation: (route) =>
+      failCoupon
+        ? respond(route, { code: "SYNTHETIC_UNCERTAIN" }, 503)
+        : savedCoupon(route),
+    handleCampaignMutation: savedCampaign,
+  });
+  await fillCoupon(page);
+  await couponWorkspace(page)
+    .getByRole("button", { name: "쿠폰 초안 저장", exact: true })
+    .click();
+  await expect(couponWorkspace(page).getByRole("status")).toContainText(
+    "아직 고객에게 발급되지 않았습니다",
+  );
+  await select(page, "overview");
+  await expect(operationRows(page)).toHaveCount(1);
+  await expect(operationRows(page)).toHaveAttribute("data-status", "draft");
+  await expect(operationRows(page)).toContainText("임시저장");
+  await expect(operationRows(page)).toContainText("고객 미발급");
+  await select(page, "coupons");
+  await couponField(page, "쿠폰명 (필수)").fill("PRIVATE_UPDATED_COUPON");
+  await select(page, "overview");
+  await expect(operationRows(page)).toHaveAttribute("data-status", "working");
+  failCoupon = true;
+  await select(page, "coupons");
+  await couponWorkspace(page)
+    .getByRole("button", { name: "쿠폰 초안 저장", exact: true })
+    .click();
+  await expect(couponWorkspace(page).getByRole("alert")).toBeVisible();
+  await select(page, "overview");
+  await expect(operationRows(page)).toHaveAttribute("data-status", "attention");
+  await expect(operationRows(page)).toContainText("확인 필요");
+  await select(page, "marketing");
+  await fillCampaign(page, "PRIVATE_CAMPAIGN_TITLE", "PRIVATE_CAMPAIGN_BODY");
+  await campaignSave(page).click();
+  await expect(marketingWorkspace(page).getByRole("status")).toContainText(
+    "고객에게 발송하지 않았습니다",
+  );
+  await select(page, "overview");
+  await expect(operationRows(page).first()).toHaveAttribute("data-status", "draft");
+  await expect(operationRows(page).first()).toContainText("고객 미발송");
+  await expect(recentOperations(page)).not.toContainText("PRIVATE_");
+  await expect(
+    recentOperations(page).locator('li[data-status="complete"]'),
+  ).toHaveCount(0);
+  expect(audit.syntheticWrites).toHaveLength(3);
+});
+
+test("accessible operations: server-confirmed stock saves alone become complete and unchanged stock never creates a record", async ({
+  page,
+}) => {
+  let product = { ...inventoryProducts[0] };
+  const audit = await setup(page, {
+    path: "/admin?section=inventory",
+    handleCatalog: (route) => respond(route, { products: [product] }),
+    handleProductMutation: (route) => {
+      product = {
+        ...product,
+        version: product.version + 1,
+        inventoryQuantity: Number(route.request().postDataJSON().stock),
+      };
+      return respond(route, { product });
+    },
+  });
+  const input = await selectInventory(page);
+  await expect(
+    page.getByRole("button", { name: "재고 변경 내용 확인", exact: true }),
+  ).toBeDisabled();
+  await select(page, "overview");
+  await expect(operationRows(page)).toHaveCount(0);
+  await select(page, "inventory");
+  await selectInventory(page);
+  await input.fill("12");
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.getByRole("button", { name: "재고 변경 내용 확인", exact: true }).click();
+  await expect(
+    inventoryWorkspace(page)
+      .getByRole("status")
+      .filter({ hasText: /^저장 완료$/ }),
+  ).toBeVisible();
+  await select(page, "overview");
+  await expect(operationRows(page)).toHaveCount(1);
+  await expect(operationRows(page)).toHaveAttribute("data-status", "complete");
+  await expect(operationRows(page)).toContainText(
+    "서버가 재고 수량 변경을 확인했습니다",
+  );
+  expect(audit.syntheticWrites).toHaveLength(1);
+});
+
+test("accessible operations: history is bounded and one unsaved task update stays at the top without manufacturing extra events", async ({
+  page,
+}) => {
+  const audit = await setup(page, { path: "/admin?section=products" });
+  for (let index = 0; index < 14; index++) {
+    await newProduct(page);
+    await page
+      .getByRole("textbox", { name: "상품명", exact: false })
+      .fill(`PRIVATE_${index}`);
+    await select(page, "overview");
+    if (index < 13) await select(page, "products");
+  }
+  await expect(operationRows(page)).toHaveCount(5);
+  await recentOperations(page)
+    .getByRole("button", { name: "전체보기", exact: true })
+    .click();
+  await expect(operationRows(page)).toHaveCount(12);
+  await expect(recentOperations(page)).not.toContainText("PRIVATE_");
+  expect(audit.syntheticWrites).toEqual([]);
+});
+
+test("accessible operations: an evicted editor has no dead resume link and opens only the product menu", async ({
+  page,
+}) => {
+  const audit = await setup(page, { path: "/admin?section=products" });
+  let oldestEditor = "";
+  for (let index = 0; index < 20; index++) {
+    await newProduct(page);
+    if (index === 0) oldestEditor = page.url();
+    await select(page, "products");
+  }
+  await page.evaluate((url) => {
+    history.pushState(null, "", url);
+    dispatchEvent(new PopStateEvent("popstate"));
+  }, oldestEditor);
+  await page
+    .getByRole("textbox", { name: "상품명", exact: false })
+    .fill("PRIVATE_OLD_EDITOR_MOVED_TO_RECENT");
+  await select(page, "products");
+  await newProduct(page);
+  await select(page, "overview");
+  const stale = operationRows(page).filter({
+    hasText: "편집 초안은 더 이상 열려 있지 않습니다",
+  });
+  await expect(stale).toHaveCount(1);
+  await expect(
+    stale.getByRole("button", { name: "이어서 수정", exact: false }),
+  ).toHaveCount(0);
+  await stale.getByRole("button", { name: "메뉴 보기", exact: false }).click();
+  await expect(page).toHaveURL(`${ORIGIN}/admin?section=products`);
+  await expect(
+    page.getByRole("button", { name: "새 상품 등록", exact: true }),
+  ).toBeVisible();
+  expect(audit.syntheticWrites).toEqual([]);
+});
+
+test("accessible images: placeholder empty and broken images use marked examples while real images do not", async ({
+  page,
+}) => {
+  const fixture = [
+    { ...products[0], image: "/images/product-placeholder.svg" },
+    { ...products[1], image: "" },
+    {
+      ...products[0],
+      productId: "prd_image_broken",
+      name: "[TEST] Broken image",
+      image: "/images/synthetic-image-missing.png",
+    },
+    {
+      ...products[0],
+      productId: "prd_image_real",
+      name: "[TEST] Real image",
+      image: "/images/dekeyzer-deck.webp",
+    },
+  ];
+  const audit = await setup(page, {
+    path: "/admin?section=products",
+    catalogProducts: fixture,
+  });
+  const panel = page.locator("#admin-panel-products");
+  await expect(panel.locator('[data-example="true"]')).toHaveCount(3);
+  for (const image of await panel.locator('[data-example="true"] img').all())
+    await expect(image).toHaveAttribute("src", "/images/admin-board-example.png");
+  const real = panel.locator("li").filter({ hasText: "[TEST] Real image" });
+  await expect(real.locator('[data-example="true"]')).toHaveCount(0);
+  await select(page, "inventory");
+  await expect(inventoryWorkspace(page).locator('[data-example="true"]')).toHaveCount(
+    3,
+  );
+  await inventoryWorkspace(page)
+    .getByRole("button", { name: "[TEST] Broken image 재고 조정", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("complementary", { name: "재고 조정", exact: true })
+      .locator('[data-example="true"]'),
+  ).toHaveCount(1);
+  expect(audit.syntheticWrites).toEqual([]);
+});
+
+test("accessible images: failing example stops at text and a new uploaded image restores the real preview without changing saved fallback payloads", async ({
+  page,
+}) => {
+  const commands: Record<string, unknown>[] = [];
+  const audit = await setup(page, {
+    path: "/admin?section=products",
+    handleProductMutation: async (route) => {
+      commands.push(route.request().postDataJSON());
+      await respond(route, {});
+    },
+  });
+  let exampleRequests = 0;
+  await page.route("**/images/admin-board-example.png", (route) => {
+    exampleRequests++;
+    return route.fulfill({ status: 404, body: "" });
+  });
+  await newProduct(page);
+  const preview = productPreview(page);
+  await expect(preview.getByRole("img")).toHaveCount(0);
+  await expect(
+    preview.getByText("이미지 없음 · 예시 이미지", { exact: true }),
+  ).toBeVisible();
+  expect(exampleRequests).toBeLessThanOrEqual(2);
+  await page.getByLabel("대표 이미지", { exact: false }).setInputFiles({
+    name: "synthetic-real.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aRfsAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+  await expect(preview.getByRole("img")).toHaveAttribute("src", /^blob:/);
+  await expect(preview.locator('[data-example="true"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "새 초안", exact: true }).click();
+  await fillProduct(page);
+  await page.getByRole("button", { name: "비공개로 저장", exact: true }).click();
+  await expect.poll(() => commands.length).toBe(1);
+  expect(commands[0]!.imageUrl).toBe("/images/product-placeholder.svg");
+  expect(JSON.stringify(commands[0])).not.toContain("admin-board-example");
+  await select(page, "overview");
+  await expect(operationRows(page)).toHaveAttribute("data-status", "draft");
+  await expect(operationRows(page)).toContainText("스토어 미공개");
+  expect(audit.syntheticWrites).toHaveLength(1);
+});
+
+test("accessible operations: mobile cards badges and example previews fit both themes with readable status text", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const audit = await setup(page, {
+    path: "/admin?section=coupons",
+    handleCouponMutation: savedCoupon,
+  });
+  await fillCoupon(page);
+  await couponWorkspace(page)
+    .getByRole("button", { name: "쿠폰 초안 저장", exact: true })
+    .click();
+  await expect(couponWorkspace(page).getByRole("status")).toBeVisible();
+  await select(page, "overview");
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((value) => {
+      document.documentElement.dataset.theme = value;
+    }, theme);
+    for (const width of [1440, 375, 320]) {
+      await page.setViewportSize({ width, height: 1000 });
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      ).toBe(true);
+      const status = operationRows(page)
+        .locator("span")
+        .filter({ hasText: /^임시저장$/ });
+      const ratio = await status.evaluate((element) => {
+        const style = getComputedStyle(element);
+        const rgb = (value: string) =>
+          value
+            .match(/[\d.]+/g)!
+            .slice(0, 3)
+            .map(Number);
+        const luminance = (value: string) => {
+          const values = rgb(value).map((n) => {
+            const c = n / 255;
+            return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+          });
+          return values[0]! * 0.2126 + values[1]! * 0.7152 + values[2]! * 0.0722;
+        };
+        const front = luminance(style.color),
+          back = luminance(style.backgroundColor);
+        return (Math.max(front, back) + 0.05) / (Math.min(front, back) + 0.05);
+      });
+      expect(ratio).toBeGreaterThanOrEqual(4.5);
+      for (const action of await recentOperations(page).getByRole("button").all())
+        expect((await action.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await page.screenshot({
+        path: testInfo.outputPath(`accessible-home-${theme}-${width}.png`),
+        fullPage: true,
+      });
+    }
+  }
+  await page.emulateMedia({ forcedColors: "active" });
+  await expect(
+    operationRows(page).getByText("임시저장", { exact: true }),
+  ).toBeVisible();
+  await page.emulateMedia({ forcedColors: "none" });
+  await select(page, "products");
+  await newProduct(page);
+  for (const width of [375, 320]) {
+    await page.setViewportSize({ width, height: 1000 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    ).toBe(true);
+    await expect(
+      productPreview(page).getByText("이미지 없음 · 예시 이미지", { exact: true }),
+    ).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath(`accessible-example-preview-${width}.png`),
+      fullPage: true,
+    });
+  }
+  expect(audit.syntheticWrites).toHaveLength(1);
+});
+
+async function flowStates(page: Page, name: string) {
+  const flow = page.getByRole("list", { name, exact: true });
+  await expect(flow).toBeVisible();
+  return flow
+    .getByRole("listitem")
+    .evaluateAll((items) => items.map((item) => (item as HTMLElement).dataset.state));
+}
+
+test("work flow: home steps follow the loaded overview and never claim the day close", async ({
+  page,
+}) => {
+  await setup(page, { handleOverview: (route) => respond(route, completeOverview) });
+  await expect
+    .poll(() => flowStates(page, "홈 작업 흐름"))
+    .toEqual(["complete", "current", "upcoming"]);
+  const flow = page.getByRole("list", { name: "홈 작업 흐름", exact: true });
+  await expect(flow.locator('[aria-current="step"]')).toContainText("재고 확인");
+  await flow.screenshot({ path: test.info().outputPath("home-work-flow.png") });
+  console.log(`Work flow screenshot: ${test.info().outputPath()}`);
+});
+
+test("work flow: home with no low stock moves to sales; a failed overview stays on the first step", async ({
+  page,
+}) => {
+  await setup(page);
+  await expect
+    .poll(() => flowStates(page, "홈 작업 흐름"))
+    .toEqual(["complete", "complete", "current"]);
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+  await setup(page, {
+    handleOverview: (route) =>
+      route.fulfill({
+        status: 503,
+        json: { code: "SYNTHETIC_UNAVAILABLE" },
+        headers: { "access-control-allow-origin": "*" },
+      }),
+  });
+  await page.reload();
+  await expect
+    .poll(() => flowStates(page, "홈 작업 흐름"))
+    .toEqual(["current", "upcoming", "upcoming"]);
+});
+
+test("work flow: product and inventory steps follow the open editor and the selected product", async ({
+  page,
+}) => {
+  const audit = await setup(page, {
+    path: "/admin?section=products",
+    catalogProducts: inventoryProducts,
+  });
+  await expect
+    .poll(() => flowStates(page, "상품 작업 흐름"))
+    .toEqual(["current", "upcoming", "upcoming"]);
+  await page.getByRole("button", { name: "새 상품 등록", exact: true }).click();
+  await expect
+    .poll(() => flowStates(page, "상품 작업 흐름"))
+    .toEqual(["complete", "current", "upcoming"]);
+  await expect(
+    page.getByRole("list", { name: "상품 작업 흐름", exact: true }),
+  ).toContainText("서버 저장·공개");
+  await select(page, "inventory");
+  await expect
+    .poll(() => flowStates(page, "재고 작업 흐름"))
+    .toEqual(["current", "upcoming", "upcoming"]);
+  await selectInventory(page);
+  await expect
+    .poll(() => flowStates(page, "재고 작업 흐름"))
+    .toEqual(["complete", "current", "upcoming"]);
+  expect(audit.syntheticWrites).toEqual([]);
+});
+
+test("work flow: coupon and campaign steps follow validity and never complete issuing or sending", async ({
+  page,
+}) => {
+  const audit = await setup(page, { path: "/admin?section=coupons" });
+  await expect
+    .poll(() => flowStates(page, "쿠폰 작업 흐름"))
+    .toEqual(["current", "upcoming", "upcoming", "unavailable"]);
+  await fillCoupon(page);
+  await expect
+    .poll(() => flowStates(page, "쿠폰 작업 흐름"))
+    .toEqual(["complete", "complete", "current", "unavailable"]);
+  await expect(
+    page.getByRole("list", { name: "쿠폰 작업 흐름", exact: true }),
+  ).toContainText("고객 발급 · 연결 필요");
+  await select(page, "marketing");
+  // Email is selected by default.
+  await expect
+    .poll(() => flowStates(page, "캠페인 작업 흐름"))
+    .toEqual(["complete", "current", "upcoming", "unavailable"]);
+  await campaignChannel(page, "이메일").uncheck();
+  await expect
+    .poll(() => flowStates(page, "캠페인 작업 흐름"))
+    .toEqual(["current", "upcoming", "upcoming", "unavailable"]);
+  await campaignChannel(page, "이메일").check();
+  await expect
+    .poll(() => flowStates(page, "캠페인 작업 흐름"))
+    .toEqual(["complete", "current", "upcoming", "unavailable"]);
+  await fillCampaign(page);
+  await expect
+    .poll(() => flowStates(page, "캠페인 작업 흐름"))
+    .toEqual(["complete", "complete", "current", "unavailable"]);
+  expect(audit.syntheticWrites).toEqual([]);
+});
+
+test("work flow: brand and member steps follow the loaded list, input and selection", async ({
+  page,
+}) => {
+  await setup(page, { path: "/admin?section=brands" });
+  await expect
+    .poll(() => flowStates(page, "브랜드 작업 흐름"))
+    .toEqual(["complete", "current", "upcoming"]);
+  await brandNameInput(page).fill("[TEST] Flow brand");
+  await expect
+    .poll(() => flowStates(page, "브랜드 작업 흐름"))
+    .toEqual(["complete", "complete", "current"]);
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+  await setupMembers(page);
+  await expect
+    .poll(() => flowStates(page, "회원 작업 흐름"))
+    .toEqual(["current", "upcoming", "upcoming"]);
+  await loadMembers(page);
+  await expect
+    .poll(() => flowStates(page, "회원 작업 흐름"))
+    .toEqual(["complete", "current", "upcoming"]);
+  await memberChoice(page).click();
+  await expect
+    .poll(() => flowStates(page, "회원 작업 흐름"))
+    .toEqual(["complete", "complete", "current"]);
+  await prepareMemberGroup(page, "support", true);
+  page.once("dialog", (dialog) => void dialog.accept());
+  await memberDetail(page)
+    .getByRole("button", { name: "권한 변경 내용 확인", exact: true })
+    .click();
+  await expect
+    .poll(() => flowStates(page, "회원 작업 흐름"))
+    .toEqual(["complete", "complete", "complete"]);
+});
+
+async function requiredLook(field: Locator) {
+  return field.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return [style.backgroundColor, style.borderTopColor];
+  });
+}
+const REQUIRED = ["rgb(242, 246, 250)", "rgb(40, 100, 180)"];
+
+test("required fields: empty required inputs use the selected-box blue until filled across product, brand, coupon and campaign forms", async ({
+  page,
+}) => {
+  await setup(page, { path: "/admin?section=products" });
+  await page.getByRole("button", { name: "새 상품 등록", exact: true }).click();
+  const name = page.getByRole("textbox", { name: /상품명/ }).first();
+  await expect(name).toHaveAttribute("required", "");
+  expect(await requiredLook(name)).toEqual(REQUIRED);
+  await name.fill("[TEST] Required deck");
+  expect(await requiredLook(name)).not.toEqual(REQUIRED);
+  // Optional fields never turn blue.
+  const optional = page.getByRole("combobox", { name: "카테고리", exact: true });
+  expect(await requiredLook(optional)).not.toEqual(REQUIRED);
+
+  await select(page, "brands");
+  expect(await requiredLook(brandNameInput(page))).toEqual(REQUIRED);
+  await brandNameInput(page).fill("[TEST] Brand");
+  expect(await requiredLook(brandNameInput(page))).not.toEqual(REQUIRED);
+
+  await select(page, "coupons");
+  const couponName = couponField(page, "쿠폰명 (필수)");
+  expect(await requiredLook(couponName)).toEqual(REQUIRED);
+  await fillCoupon(page);
+  for (const label of ["쿠폰명 (필수)", "쿠폰 코드 (필수)"])
+    expect(await requiredLook(couponField(page, label))).not.toEqual(REQUIRED);
+  expect(await requiredLook(couponField(page, "만료 시각"))).not.toEqual(REQUIRED);
+
+  await select(page, "marketing");
+  expect(await requiredLook(campaignTitle(page))).toEqual(REQUIRED);
+  expect(await requiredLook(campaignBody(page))).toEqual(REQUIRED);
+  await fillCampaign(page);
+  expect(await requiredLook(campaignTitle(page))).not.toEqual(REQUIRED);
+  expect(await requiredLook(campaignBody(page))).not.toEqual(REQUIRED);
+});
+
+test("required fields: every (필수) label shows a red asterisk that is not read twice", async ({
+  page,
+}) => {
+  const marks = async (scope: Locator) =>
+    scope
+      .locator('label span[aria-hidden="true"]', { hasText: /^\*$/ })
+      .evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).color));
+  await setup(page, { path: "/admin?section=brands" });
+  expect(await marks(brandWorkspace(page))).toEqual(["rgb(185, 28, 28)"]);
+  await expect(brandNameInput(page)).toHaveAttribute("required", "");
+  await select(page, "coupons");
+  expect(await marks(couponWorkspace(page))).toEqual(Array(3).fill("rgb(185, 28, 28)"));
+  await expect(couponField(page, "쿠폰명 (필수)")).toHaveAccessibleName(
+    /^쿠폰명 \(필수\)$/,
+  );
+  await select(page, "marketing");
+  expect(await marks(marketingWorkspace(page))).toEqual(
+    Array(2).fill("rgb(185, 28, 28)"),
+  );
+});
+
+test("required fields: dark theme uses the dark selected-box blue and the stock quantity turns blue when cleared", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("paradays-theme", "dark"));
+  await setup(page, {
+    path: "/admin?section=inventory",
+    catalogProducts: inventoryProducts,
+  });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await selectInventory(page);
+  const quantity = page.getByRole("textbox", {
+    name: "변경 후 재고 수량",
+    exact: true,
+  });
+  await expect(quantity).toHaveAttribute("required", "");
+  expect(await requiredLook(quantity)).not.toEqual([
+    "rgb(19, 23, 28)",
+    "rgb(40, 100, 180)",
+  ]);
+  await quantity.fill("");
+  expect(await requiredLook(quantity)).toEqual([
+    "rgb(19, 23, 28)",
+    "rgb(40, 100, 180)",
+  ]);
 });
