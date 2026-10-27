@@ -1,0 +1,119 @@
+.stepper {
+  --stepper-ink: var(--color-ink);
+  --stepper-paper: var(--color-paper);
+  --stepper-muted: color-mix(in srgb, var(--color-ink) 62%, var(--color-paper));
+  --stepper-line: color-mix(in srgb, var(--color-ink) 22%, var(--color-paper));
+  --stepper-wash: color-mix(in srgb, var(--color-ink) 9%, var(--color-paper));
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  list-style: none;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.step {
+  align-content: start;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  min-width: 0;
+  position: relative;
+  text-align: center;
+}
+
+/* Connector into this step; dark once this step is reached. */
+.step:not(:first-child)::before {
+  background: var(--stepper-line);
+  content: "";
+  height: 2px;
+  left: calc(-50% + 20px);
+  position: absolute;
+  right: calc(50% + 20px);
+  top: 14px;
+}
+
+.step:is([data-state="complete"], [data-state="current"]):not(:first-child)::before {
+  background: var(--stepper-ink);
+}
+
+.marker {
+  align-items: center;
+  background: var(--stepper-wash);
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: var(--stepper-muted);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  height: 30px;
+  justify-content: center;
+  position: relative;
+  width: 30px;
+}
+
+.step:is([data-state="complete"], [data-state="current"]) .marker {
+  background: var(--stepper-ink);
+  color: var(--stepper-paper);
+}
+
+.step[data-state="unavailable"] .marker {
+  background: var(--stepper-paper);
+  border: 1px dashed var(--stepper-muted);
+}
+
+.label {
+  color: var(--stepper-muted);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.step[data-state="complete"] .label {
+  color: var(--stepper-ink);
+}
+
+.step[data-state="current"] .label {
+  color: var(--stepper-ink);
+  font-weight: 700;
+}
+
+.srOnly {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+@media (max-width: 560px) {
+  .stepper {
+    gap: 10px;
+    grid-auto-flow: row;
+  }
+  .step {
+    align-items: center;
+    grid-template-columns: auto minmax(0, 1fr);
+    justify-items: start;
+    text-align: left;
+  }
+  .step:not(:first-child)::before {
+    display: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .marker {
+    border: 1px solid CanvasText;
+  }
+  .step:not(:first-child)::before {
+    background: CanvasText;
+  }
+}
