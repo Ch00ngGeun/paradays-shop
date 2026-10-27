@@ -2139,9 +2139,19 @@ for (const width of [1440, 375]) {
     await expect(image).toBeVisible();
     await expect(description).toBeVisible();
     await expect(publication).toBeVisible();
-    const imageBox = (await image.boundingBox())!;
-    const descriptionBox = (await description.boundingBox())!;
-    const publicationBox = (await publication.boundingBox())!;
+    // Measure all three in one frame: separate boundingBox calls can straddle a smooth scroll.
+    const [imageBox, descriptionBox, publicationBox] = await page.evaluate(
+      (elements) =>
+        elements.map((element) => {
+          const { y, height } = element!.getBoundingClientRect();
+          return { y, height };
+        }),
+      [
+        await image.elementHandle(),
+        await description.elementHandle(),
+        await publication.elementHandle(),
+      ],
+    );
     expect(descriptionBox.y).toBeGreaterThanOrEqual(imageBox.y + imageBox.height);
     expect(publicationBox.y).toBeGreaterThanOrEqual(
       descriptionBox.y + descriptionBox.height,
