@@ -121,9 +121,11 @@ export function CartContent() {
         setFeedback({
           kind: "error",
           message:
-            error instanceof CheckoutClientUnavailableError
-              ? copy.checkoutSetupRequired
-              : copy.checkoutRequestFailed,
+            error instanceof CheckoutApiRequestError && error.status >= 500
+              ? `결제 결과 확인이 필요합니다. 다시 결제하지 말고 주문번호 ${paymentReturn.orderId}로 관리자에게 확인해 주세요.`
+              : error instanceof CheckoutClientUnavailableError
+                ? copy.checkoutSetupRequired
+                : copy.checkoutRequestFailed,
         });
       } finally {
         if (isCurrent) {
@@ -188,6 +190,12 @@ export function CartContent() {
           message: copy.checkoutSignInRequired,
           signInLink: true,
         });
+      } else if (error instanceof CheckoutApiRequestError && error.status === 409) {
+        setFeedback({
+          kind: "error",
+          message:
+            "상품 정보 또는 판매 가능 재고가 변경되었습니다. 기존 장바구니 상품을 삭제하고 최신 상품 페이지에서 다시 선택해 주세요.",
+        });
       } else {
         setFeedback({ kind: "error", message: copy.checkoutRequestFailed });
       }
@@ -218,46 +226,46 @@ export function CartContent() {
           const displayName = getLocalizedProductName(item, locale);
 
           return (
-          <li className={styles.line} key={item.lineId}>
-            <div className={styles.thumbnail}>
-              <Image alt={displayName} fill sizes="84px" src={item.image} />
-            </div>
-            <div className={styles.lineDetails}>
-              <h2>{displayName}</h2>
-              <small>
-                {copy.productSize}: {item.selectedSize}
-              </small>
-              <span>{currencyFormatter.format(item.price)}</span>
-            </div>
-            <div
-              className={styles.quantity}
-              aria-label={`${copy.quantity} ${displayName}`}
-            >
+            <li className={styles.line} key={item.lineId}>
+              <div className={styles.thumbnail}>
+                <Image alt={displayName} fill sizes="84px" src={item.image} />
+              </div>
+              <div className={styles.lineDetails}>
+                <h2>{displayName}</h2>
+                <small>
+                  {copy.productSize}: {item.selectedSize}
+                </small>
+                <span>{currencyFormatter.format(item.price)}</span>
+              </div>
+              <div
+                className={styles.quantity}
+                aria-label={`${copy.quantity} ${displayName}`}
+              >
+                <button
+                  aria-label={`${displayName} 수량 감소`}
+                  onClick={() => setQuantity(item.lineId, item.quantity - 1)}
+                  type="button"
+                >
+                  −
+                </button>
+                <span aria-live="polite">{item.quantity}</span>
+                <button
+                  aria-label={`${displayName} 수량 증가`}
+                  onClick={() => setQuantity(item.lineId, item.quantity + 1)}
+                  type="button"
+                >
+                  +
+                </button>
+              </div>
               <button
-                aria-label={`${displayName} 수량 감소`}
-                onClick={() => setQuantity(item.lineId, item.quantity - 1)}
+                aria-label={`${displayName} ${copy.remove}`}
+                className={styles.removeButton}
+                onClick={() => removeItem(item.lineId)}
                 type="button"
               >
-                −
+                ×
               </button>
-              <span aria-live="polite">{item.quantity}</span>
-              <button
-                aria-label={`${displayName} 수량 증가`}
-                onClick={() => setQuantity(item.lineId, item.quantity + 1)}
-                type="button"
-              >
-                +
-              </button>
-            </div>
-            <button
-              aria-label={`${displayName} ${copy.remove}`}
-              className={styles.removeButton}
-              onClick={() => removeItem(item.lineId)}
-              type="button"
-            >
-              ×
-            </button>
-          </li>
+            </li>
           );
         })}
       </ul>
