@@ -23,6 +23,13 @@ export type {
   StockPreview,
 } from "../../infra/lambda/sales-ledger-domain";
 
+/** Kept local: browser bundles and isolated test copies import only types from the domain. */
+const SALE_METHODS = [
+  "CARD",
+  "CASH",
+  "TRANSFER",
+] as const satisfies readonly SaleEntry["method"][];
+
 export type AdminSalesResult =
   | { entry: SaleEntry }
   | {
@@ -102,7 +109,7 @@ export function parseSalesEntry(v: unknown, day: string): SaleEntry {
     !["SALE", "REVERSAL"].includes(String(v.kind)) ||
     !time(v.soldAt) ||
     kstDay(v.soldAt) !== day ||
-    !["CARD", "CASH"].includes(String(v.method)) ||
+    !(SALE_METHODS as readonly string[]).includes(String(v.method)) ||
     !text(v.reference, 64) ||
     !/^[A-Za-z0-9][A-Za-z0-9._/-]{2,63}$/.test(v.reference) ||
     !integer(v.amount, 100_000_000) ||
@@ -155,19 +162,25 @@ const totalKeys = [
   "onlineNet",
   "combinedNet",
 ] as const;
+/** Servers and snapshots from before transfers omit `transfer`; only absence reads as 0. */
 function parseTotals(v: unknown): DayTotals {
+  if (!record(v)) return invalid();
+  const transfer = "transfer" in v ? v.transfer : 0;
   if (
-    !record(v) ||
     !totalKeys.every((k) => signed(v[k])) ||
+    !signed(transfer) ||
     !integer(v.offlineRefunds) ||
     !integer(v.onlineGross) ||
     !integer(v.onlineRefunds) ||
-    v.offlineNet !== (v.card as number) + (v.cash as number) ||
+    v.offlineNet !== (v.card as number) + (v.cash as number) + transfer ||
     v.onlineNet !== v.onlineGross - v.onlineRefunds ||
     v.combinedNet !== (v.offlineNet as number) + (v.onlineNet as number)
   )
     return invalid();
-  return Object.fromEntries(totalKeys.map((k) => [k, v[k]])) as DayTotals;
+  return {
+    ...(Object.fromEntries(totalKeys.map((k) => [k, v[k]])) as DayTotals),
+    transfer,
+  };
 }
 export function parseSalesDay(v: unknown, day: string): DayReport {
   if (
@@ -224,6 +237,7 @@ export function parseSalesDay(v: unknown, day: string): DayReport {
   if (
     totals.card !== sum("CARD") ||
     totals.cash !== sum("CASH") ||
+    totals.transfer !== sum("TRANSFER") ||
     totals.offlineRefunds !==
       posted.filter((e) => e.kind === "REVERSAL").reduce((s, e) => s + e.amount, 0) ||
     totals.onlineGross !==
@@ -340,7 +354,7 @@ function commandBody(command: SalesCommand, day: string) {
       !id(v.entryId) ||
       !integer(v.expectedVersion, 98) ||
       !soldAt() ||
-      !["CARD", "CASH"].includes(String(v.method)) ||
+      !(SALE_METHODS as readonly string[]).includes(String(v.method)) ||
       !text(v.reference, 64) ||
       !/^[A-Za-z0-9][A-Za-z0-9._/-]{2,63}$/.test(v.reference) ||
       !integer(v.amount, 100_000_000) ||
