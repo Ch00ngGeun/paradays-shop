@@ -1,0 +1,50 @@
+/*
+ * 공통 필수값 규칙: 범위 안의 required 입력이 비어 있거나 아직 유효하지 않으면
+ * 재고 목록 선택 상자(.inventorySelect[aria-pressed="true"])와 같은
+ * 파란 테두리·옅은 파란 배경으로 표시합니다.
+ * 배경은 그 상자의 color-mix(#2864b4 6%, --color-paper)를 테마별로 계산한 값입니다.
+ * 색만으로 구분하지 않도록 각 label에는 "(필수)" 문구를 함께 둡니다.
+ */
+.requiredScope {
+  --required-background: #f2f6fa;
+  --required-border: #2864b4;
+  --required-mark: #2864b4;
+  --required-asterisk: #b91c1c;
+}
+
+:global(:root[data-theme="dark"]) .requiredScope {
+  --required-background: #13171c;
+  --required-border: #2864b4;
+  --required-mark: #7aa7e6;
+  --required-asterisk: #fca5a5;
+}
+
+.requiredScope
+  :is(input, select, textarea):required:is(:invalid, :placeholder-shown):not(
+    :disabled
+  ) {
+  background-color: var(--required-background);
+  border-color: var(--required-border);
+}
+
+.requiredScope
+  :is(input, select, textarea):required:is(:invalid, :placeholder-shown):not(
+    :disabled
+  ):focus-visible {
+  outline: 2px solid var(--required-mark);
+  outline-offset: 1px;
+}
+
+/* "(필수)" 옆 빨간 별표입니다. 색은 공통 상태 "위험"의 표시색과 같습니다. 문구가 이미 읽히므로 별표는 aria-hidden입니다. */
+.requiredMark {
+  color: var(--required-asterisk);
+  font-weight: 700;
+  margin-left: 0.15em;
+}
+
+@media (forced-colors: active) {
+  .requiredScope :is(input, select, textarea):required:invalid {
+    border-color: CanvasText;
+    border-style: dashed;
+  }
+}
