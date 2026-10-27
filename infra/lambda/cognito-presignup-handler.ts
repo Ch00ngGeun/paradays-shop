@@ -4,10 +4,7 @@
  * phone_number 속성과 일치할 때만 autoConfirm/autoVerifyEmail.
  */
 
-import type {
-  PreSignUpTriggerEvent,
-  PreSignUpTriggerHandler,
-} from "aws-lambda";
+import type { PreSignUpTriggerEvent, PreSignUpTriggerHandler } from "aws-lambda";
 
 type FirebaseLookupResponse = {
   users?: Array<{
@@ -59,10 +56,7 @@ export const handler: PreSignUpTriggerHandler = async (event) => {
   try {
     const firebaseUser = await lookupFirebaseUser(firebaseIdToken, apiKey);
 
-    if (
-      firebaseUser?.phoneNumber &&
-      firebaseUser.phoneNumber === phoneAttribute
-    ) {
+    if (firebaseUser?.phoneNumber && firebaseUser.phoneNumber === phoneAttribute) {
       event.response.autoConfirmUser = true;
       event.response.autoVerifyEmail = true;
     }

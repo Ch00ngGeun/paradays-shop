@@ -63,11 +63,7 @@ function chunkText(value: string): string[] {
   return chunks.filter(Boolean);
 }
 
-async function translateChunk(
-  text: string,
-  from: Locale,
-  to: Locale,
-): Promise<string> {
+async function translateChunk(text: string, from: Locale, to: Locale): Promise<string> {
   const url = new URL(MYMEMORY_ENDPOINT);
   url.searchParams.set("q", text);
   url.searchParams.set("langpair", langPair(from, to));
@@ -80,17 +76,11 @@ async function translateChunk(
       headers: { Accept: "application/json" },
     });
   } catch {
-    throw new TranslateError(
-      "TRANSLATE_NETWORK",
-      "번역 서버에 연결하지 못했습니다.",
-    );
+    throw new TranslateError("TRANSLATE_NETWORK", "번역 서버에 연결하지 못했습니다.");
   }
 
   if (!response.ok) {
-    throw new TranslateError(
-      "TRANSLATE_FAILED",
-      "번역 요청이 거절되었습니다.",
-    );
+    throw new TranslateError("TRANSLATE_FAILED", "번역 요청이 거절되었습니다.");
   }
 
   const body: unknown = await response.json();
@@ -102,10 +92,7 @@ async function translateChunk(
     typeof (body as { responseData?: unknown }).responseData !== "object" ||
     (body as { responseData: unknown }).responseData === null
   ) {
-    throw new TranslateError(
-      "TRANSLATE_FAILED",
-      "번역 응답 형식이 올바르지 않습니다.",
-    );
+    throw new TranslateError("TRANSLATE_FAILED", "번역 응답 형식이 올바르지 않습니다.");
   }
 
   const translated = (
@@ -221,9 +208,7 @@ export async function buildProductI18nFields(input: {
   // 레거시 단일 필드는 영문을 기본으로 두어 기존 영문 카탈로그와 맞춤.
   return {
     name: nameI18n.en || nameI18n.ko,
-    description: descriptionI18n.en.length
-      ? descriptionI18n.en
-      : descriptionI18n.ko,
+    description: descriptionI18n.en.length ? descriptionI18n.en : descriptionI18n.ko,
     nameI18n,
     descriptionI18n,
   };

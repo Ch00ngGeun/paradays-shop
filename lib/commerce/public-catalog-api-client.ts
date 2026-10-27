@@ -175,11 +175,7 @@ function parseProduct(value: unknown): Product {
 function parseNameI18n(
   value: unknown,
 ): Readonly<{ en: string; ko: string }> | undefined {
-  if (
-    !isRecord(value) ||
-    !isSafeText(value.en, 160) ||
-    !isSafeText(value.ko, 160)
-  ) {
+  if (!isRecord(value) || !isSafeText(value.en, 160) || !isSafeText(value.ko, 160)) {
     return undefined;
   }
 
