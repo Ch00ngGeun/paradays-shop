@@ -13,6 +13,5 @@ export default defineConfig([
     "test-results/**",
     "infra/cdk.out/**",
     "infra/dist/**",
-    "_backup/**",
   ]),
 ]);
