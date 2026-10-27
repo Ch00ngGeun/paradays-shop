@@ -122,7 +122,9 @@ export function CartContent() {
           kind: "error",
           message:
             error instanceof CheckoutApiRequestError && error.status >= 500
-              ? `결제 결과 확인이 필요합니다. 다시 결제하지 말고 주문번호 ${paymentReturn.orderId}로 관리자에게 확인해 주세요.`
+              ? locale === "ko"
+                ? `결제 결과 확인이 필요합니다. 다시 결제하지 말고 주문번호 ${paymentReturn.orderId}로 관리자에게 확인해 주세요.`
+                : `We could not confirm the payment result. Do not pay again; contact us with order number ${paymentReturn.orderId}.`
               : error instanceof CheckoutClientUnavailableError
                 ? copy.checkoutSetupRequired
                 : copy.checkoutRequestFailed,
@@ -137,7 +139,7 @@ export function CartContent() {
     return () => {
       isCurrent = false;
     };
-  }, [clearCart, copy, getAccessToken]);
+  }, [clearCart, copy, getAccessToken, locale]);
 
   /** 로그인·동의·공개 설정을 확인한 뒤 서버 주문을 만든 후에만 Toss V2 결제창을 요청합니다. */
   const handleCheckout = async () => {
@@ -194,7 +196,9 @@ export function CartContent() {
         setFeedback({
           kind: "error",
           message:
-            "상품 정보 또는 판매 가능 재고가 변경되었습니다. 기존 장바구니 상품을 삭제하고 최신 상품 페이지에서 다시 선택해 주세요.",
+            locale === "ko"
+              ? "상품 정보 또는 판매 가능 재고가 변경되었습니다. 기존 장바구니 상품을 삭제하고 최신 상품 페이지에서 다시 선택해 주세요."
+              : "Product details or available stock changed. Remove the item from your cart and add it again from the latest product page.",
         });
       } else {
         setFeedback({ kind: "error", message: copy.checkoutRequestFailed });
