@@ -56,6 +56,38 @@ test("a concurrent identical retry that read a newer price replays the saved ord
   assert.equal(retry.body.amount, first.body.amount);
   assert.deepEqual(retry, first);
 });
+for (const [label, change] of [
+  ["unpublished", { status: "DRAFT" }],
+  ["out of stock", { inventoryQuantity: 0 }],
+] as const) {
+  test(`a concurrent identical retry that saw the product ${label} replays the saved order`, async (t) => {
+    const db = paymentFixture(t);
+    const request = event({
+      lines: [{ productId: "prd_deck", selectedSize: "8", quantity: 2 }],
+    });
+    const first = response(await handler(request));
+    assert.equal(first.status, 201);
+    db.records.set("catalog:prd_deck", { ...db.product(), ...change });
+    const send = documentClient.send.bind(documentClient);
+    let hideSavedOrder = true;
+    t.mock.method(
+      documentClient,
+      "send",
+      async (command: unknown, ...rest: unknown[]) => {
+        if (
+          hideSavedOrder &&
+          command instanceof GetCommand &&
+          command.input.Key?.orderId
+        ) {
+          hideSavedOrder = false;
+          return { Item: undefined };
+        }
+        return (send as (...args: unknown[]) => Promise<unknown>)(command, ...rest);
+      },
+    );
+    assert.deepEqual(response(await handler(request)), first);
+  });
+}
 test("canonical ID, combined product stock and publication fail closed", async (t) => {
   const db = paymentFixture(t);
   assert.equal(

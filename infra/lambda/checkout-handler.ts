@@ -138,10 +138,22 @@ export async function handler(
     return jsonResponse(503, { code: "ORDER_STORAGE_UNAVAILABLE" });
   }
   if (previous) return replayExisting(previous);
+  // A concurrent identical request may save while this one validates a since-changed catalog.
+  const failUnlessSaved = async (response: APIGatewayProxyResultV2) => {
+    let saved;
+    try {
+      saved = await getExistingOrder(orderTableName, orderId);
+    } catch {
+      return jsonResponse(503, { code: "ORDER_STORAGE_UNAVAILABLE" });
+    }
+    return saved ? replayExisting(saved) : response;
+  };
   try {
     const products = await readProducts(requestLines.map((line) => line.productId));
     if ([...products.values()].some((p) => p.status !== "PUBLISHED"))
-      return jsonResponse(409, { code: "CHECKOUT_CATALOG_CHANGED" });
+      return await failUnlessSaved(
+        jsonResponse(409, { code: "CHECKOUT_CATALOG_CHANGED" }),
+      );
     calculatedOrder = calculateOrder(
       requestLines,
       [...products.values()].map((p) => ({
@@ -154,13 +166,17 @@ export async function handler(
     for (const [id, q] of aggregateStock(calculatedOrder.lines)) {
       const p = products.get(id)!;
       if (q > p.inventoryQuantity - (p.inventoryReserved ?? 0))
-        return jsonResponse(409, { code: "INVENTORY_INSUFFICIENT" });
+        return await failUnlessSaved(
+          jsonResponse(409, { code: "INVENTORY_INSUFFICIENT" }),
+        );
     }
   } catch (error) {
     if (error instanceof OrderValidationError || error instanceof InventoryError)
-      return jsonResponse(error instanceof InventoryError ? error.status : 400, {
-        code: error.code,
-      });
+      return await failUnlessSaved(
+        jsonResponse(error instanceof InventoryError ? error.status : 400, {
+          code: error.code,
+        }),
+      );
     return jsonResponse(503, { code: "CHECKOUT_CATALOG_UNAVAILABLE" });
   }
   const requestFingerprint = createRequestFingerprint(calculatedOrder.lines);
