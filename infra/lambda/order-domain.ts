@@ -159,36 +159,6 @@ function createOrderName(lines: readonly OrderLineSnapshot[]) {
   return `${firstName.slice(0, maximumFirstNameLength)}${suffix}`;
 }
 
-/** Toss Payments 결제 상태를 내부 주문 상태로 제한합니다. */
-export function mapTossPaymentStatus(status: string): OrderStatus {
-  if (status === "DONE") {
-    return "PAID";
-  }
-
-  if (status === "CANCELED") {
-    return "CANCELED";
-  }
-
-  if (status === "ABORTED" || status === "EXPIRED") {
-    return "FAILED";
-  }
-
-  return "PENDING_PAYMENT";
-}
-
-/** 기존 주문을 거꾸로 되돌리지 않도록 허용 상태 전이만 정의합니다. */
-export function canTransitionOrder(current: OrderStatus, next: OrderStatus) {
-  const transitions: Readonly<Record<OrderStatus, readonly OrderStatus[]>> = {
-    PENDING_PAYMENT: ["PAID", "FAILED", "CANCELED"],
-    PAID: ["REFUNDED"],
-    FAILED: [],
-    CANCELED: [],
-    REFUNDED: [],
-  };
-
-  return current === next || transitions[current].includes(next);
-}
-
 /** unknown JSON 값이 객체인지 검사하는 공통 좁히기입니다. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
