@@ -1110,7 +1110,7 @@ export class CommerceStack extends Stack {
     });
     commerceApi.addRoutes({
       path: "/admin/orders/{orderId}/refunds",
-      methods: [apigwv2.HttpMethod.POST],
+      methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST],
       integration: adminRefundIntegration,
       authorizer: jwtAuthorizer,
     });
