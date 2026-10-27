@@ -6,6 +6,21 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 import type { OrderLineSnapshot, OrderStatus } from "./order-domain.js";
+import {
+  validLedger,
+  validOrderLines,
+  type InventoryLedger,
+} from "./order-inventory-domain.js";
+
+export type FinancialEvent = Readonly<{
+  eventId: string;
+  kind: "APPROVAL" | "REFUND";
+  amount: number;
+  occurredAt: string;
+  recordedAt: string;
+  timeBasis: "PROVIDER" | "OBSERVED";
+  transactionKey?: string;
+}>;
 
 /** DynamoDB order 테이블의 한 주문 레코드입니다. */
 export type OrderRecord = Readonly<{
@@ -29,6 +44,10 @@ export type OrderRecord = Readonly<{
   providerPaymentStatus?: string;
   paidAt?: string;
   refundedAt?: string;
+  inventory?: InventoryLedger;
+  paymentVersion?: number;
+  financialRefundedAmount?: number;
+  financialEvents?: readonly FinancialEvent[];
 }>;
 
 /** 결제 성공 뒤 장바구니 UI와 주문 내역이 쓸 수 있는 민감정보 없는 요약입니다. */
@@ -132,7 +151,21 @@ export function isOrderRecord(value: unknown): value is OrderRecord {
     typeof value.subtotal === "number" &&
     typeof value.total === "number" &&
     typeof value.orderName === "string" &&
-    Array.isArray(value.lines) &&
+    validOrderLines(value.lines, value.subtotal, value.total) &&
+    (value.inventory === undefined ||
+      validLedger(value.inventory, value.lines as readonly OrderLineSnapshot[])) &&
+    (value.paymentVersion === undefined ||
+      (typeof value.paymentVersion === "number" &&
+        Number.isSafeInteger(value.paymentVersion) &&
+        value.paymentVersion > 0 &&
+        value.paymentVersion < Number.MAX_SAFE_INTEGER)) &&
+    (value.financialRefundedAmount === undefined ||
+      (typeof value.financialRefundedAmount === "number" &&
+        Number.isSafeInteger(value.financialRefundedAmount) &&
+        value.financialRefundedAmount >= 0 &&
+        value.financialRefundedAmount <= (value.total as number))) &&
+    (value.financialEvents === undefined ||
+      validFinancialEvents(value.financialEvents, value.total as number)) &&
     typeof value.idempotencyKeyHash === "string" &&
     typeof value.requestFingerprint === "string" &&
     typeof value.checkoutReturnTokenHash === "string" &&
@@ -140,6 +173,44 @@ export function isOrderRecord(value: unknown): value is OrderRecord {
     typeof value.createdAt === "string" &&
     typeof value.updatedAt === "string"
   );
+}
+
+/** Audit additions are bounded and unique; a money mutation still uses the order CAS. */
+export function validFinancialEvents(
+  value: unknown,
+  total: number,
+): value is readonly FinancialEvent[] {
+  if (!Array.isArray(value) || value.length > 500) return false;
+  const ids = new Set<string>();
+  let approvals = 0,
+    refunds = 0;
+  for (const event of value) {
+    if (
+      !isRecord(event) ||
+      typeof event.eventId !== "string" ||
+      ids.has(event.eventId) ||
+      !["APPROVAL", "REFUND"].includes(String(event.kind)) ||
+      typeof event.amount !== "number" ||
+      !Number.isSafeInteger(event.amount) ||
+      event.amount < 1 ||
+      event.amount > total ||
+      typeof event.occurredAt !== "string" ||
+      !Number.isFinite(Date.parse(event.occurredAt)) ||
+      typeof event.recordedAt !== "string" ||
+      !Number.isFinite(Date.parse(event.recordedAt)) ||
+      Date.parse(event.occurredAt) > Date.parse(event.recordedAt) ||
+      !["PROVIDER", "OBSERVED"].includes(String(event.timeBasis)) ||
+      (event.transactionKey !== undefined &&
+        (typeof event.transactionKey !== "string" || !event.transactionKey))
+    )
+      return false;
+    ids.add(event.eventId);
+    if (event.kind === "APPROVAL") {
+      approvals++;
+      if (event.amount !== total) return false;
+    } else refunds += event.amount;
+  }
+  return approvals <= 1 && Number.isSafeInteger(refunds) && refunds <= total;
 }
 
 /** 허용된 내부 주문 상태만 DynamoDB에서 복원합니다. */
