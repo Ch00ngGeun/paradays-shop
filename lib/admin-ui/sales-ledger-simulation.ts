@@ -22,9 +22,10 @@ export type TestSaleLine = Readonly<{
   quantity: number;
   unitAmount: number;
 }>;
+export type TestSaleMethod = "CARD" | "CASH" | "TRANSFER";
 export type TestSaleInput = Readonly<{
   time: string;
-  method: "CARD" | "CASH";
+  method: TestSaleMethod;
   reference: string;
   amount: number;
   lines: readonly TestSaleLine[];
@@ -34,6 +35,7 @@ export type TestSaleEntry = TestSaleInput &
 export type TestSaleTotals = Readonly<{
   card: number;
   cash: number;
+  transfer: number;
   offline: number;
   online: 0;
   combined: number;
@@ -107,8 +109,8 @@ export const testLineTotal = (lines: readonly TestSaleLine[]) =>
 function validateInput(input: TestSaleInput): TestSaleInput {
   if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(input.time))
     reject("가상 판매시각은 00:00~23:59로 입력해 주세요.");
-  if (input.method !== "CARD" && input.method !== "CASH")
-    reject("모의 카드 또는 현금을 선택해 주세요.");
+  if (input.method !== "CARD" && input.method !== "CASH" && input.method !== "TRANSFER")
+    reject("모의 카드·현금·이체 중 하나를 선택해 주세요.");
   const reference = input.reference.trim().toUpperCase();
   if (!/^TEST_[A-Z0-9_-]{1,40}$/.test(reference))
     reject("전표 참조번호는 TEST_로 시작하는 영문·숫자·하이픈만 입력해 주세요.");
@@ -231,13 +233,15 @@ export function postTestSale(
 }
 export function testSalesTotals(state: TestSalesState): TestSaleTotals {
   checkState(state);
-  const total = (method: "CARD" | "CASH") =>
+  const total = (method: TestSaleMethod) =>
     state.entries
       .filter((e) => e.status === "POSTED" && e.method === method)
       .reduce((sum, e) => sum + e.amount, 0);
   const card = total("CARD"),
-    cash = total("CASH");
-  return { card, cash, offline: card + cash, online: 0, combined: card + cash };
+    cash = total("CASH"),
+    transfer = total("TRANSFER"),
+    offline = card + cash + transfer;
+  return { card, cash, transfer, offline, online: 0, combined: offline };
 }
 export function closeTestSales(
   state: TestSalesState,
@@ -251,7 +255,7 @@ export function closeTestSales(
     reject("현금 수기 대조액을 가상 현금 매출과 맞춰 주세요.");
   if (state.status === "CLOSED") return state;
   if (state.entries.some((e) => e.status === "DRAFT"))
-    reject("확정하지 않은 모의 초안이 남아 있어 마감할 수 없습니다.");
+    reject("모의 작성 중 전표가 남아 있어 마감할 수 없습니다.");
   if (state.snapshots.length >= 30)
     reject("모의 마감본 30건 한도입니다. 초기화해 주세요.");
   return {
