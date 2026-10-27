@@ -193,7 +193,8 @@ test("private OCR opt-out은 bootstrap 리소스를 만들지 않고 기존 Cogn
     );
     assert.ok(JSON.stringify(policies).includes("CatalogTable"));
   }
-  for (const method of ["GET", "POST"])
+  // GET is added together with the refund handler that serves it read-only.
+  for (const method of ["POST"])
     template.hasResourceProperties(
       "AWS::ApiGatewayV2::Route",
       Match.objectLike({

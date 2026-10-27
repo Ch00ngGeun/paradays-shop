@@ -737,7 +737,8 @@ export class CommerceStack extends Stack {
       },
     });
     orderTable.grantReadWriteData(checkoutFunction);
-    catalogTable.grantReadData(checkoutFunction);
+    // Checkout only reads product rows; inventory writes happen at payment confirmation.
+    catalogTable.grant(checkoutFunction, "dynamodb:GetItem");
     tossPaymentsSecret.grantRead(checkoutFunction);
 
     /** Toss redirect 성공 후 서버 승인을 맡는 공개 confirmation API입니다. */
@@ -754,7 +755,13 @@ export class CommerceStack extends Stack {
       },
     );
     orderTable.grantReadWriteData(paymentConfirmFunction);
-    catalogTable.grantReadWriteData(paymentConfirmFunction);
+    // Inventory transactions read the revision and Put/Update product rows only.
+    catalogTable.grant(
+      paymentConfirmFunction,
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem",
+    );
     tossPaymentsSecret.grantRead(paymentConfirmFunction);
 
     /** PG 재조회와 주문 상태 전이를 맡는 공개 webhook API입니다. */
@@ -772,7 +779,12 @@ export class CommerceStack extends Stack {
       },
     );
     orderTable.grantReadWriteData(paymentWebhookFunction);
-    catalogTable.grantReadWriteData(paymentWebhookFunction);
+    catalogTable.grant(
+      paymentWebhookFunction,
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem",
+    );
     paymentEventTable.grantReadWriteData(paymentWebhookFunction);
     tossPaymentsSecret.grantRead(paymentWebhookFunction);
 
@@ -787,7 +799,12 @@ export class CommerceStack extends Stack {
       },
     });
     orderTable.grantReadWriteData(adminRefundFunction);
-    catalogTable.grantReadWriteData(adminRefundFunction);
+    catalogTable.grant(
+      adminRefundFunction,
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem",
+    );
     tossPaymentsSecret.grantRead(adminRefundFunction);
 
     /** admin group에서만 상품의 draft·발행 상태를 바꾸도록 서버 handler를 둡니다. */
@@ -1093,7 +1110,7 @@ export class CommerceStack extends Stack {
     });
     commerceApi.addRoutes({
       path: "/admin/orders/{orderId}/refunds",
-      methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST],
+      methods: [apigwv2.HttpMethod.POST],
       integration: adminRefundIntegration,
       authorizer: jwtAuthorizer,
     });
