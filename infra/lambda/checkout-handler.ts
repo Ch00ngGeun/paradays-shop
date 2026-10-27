@@ -9,7 +9,8 @@ import type {
   APIGatewayProxyResultV2,
 } from "aws-lambda";
 
-import { serverCatalog } from "./catalog.js";
+import { readProducts } from "./order-inventory-store.js";
+import { aggregateStock, InventoryError } from "./order-inventory-domain.js";
 import { documentClient, getRequiredEnvironment } from "./dynamodb-client.js";
 import { jsonResponse } from "./http-response.js";
 import {
@@ -55,12 +56,10 @@ export async function handler(
   }
 
   let calculatedOrder;
+  let requestLines;
 
   try {
-    calculatedOrder = calculateOrder(
-      parseCheckoutRequestLines(body.lines),
-      serverCatalog,
-    );
+    requestLines = parseCheckoutRequestLines(body.lines);
   } catch (error) {
     if (error instanceof OrderValidationError) {
       return jsonResponse(400, { code: error.code });
@@ -98,6 +97,71 @@ export async function handler(
     userSub,
   );
   const timestamp = new Date().toISOString();
+  // Replay compares the saved snapshot, never today's price/catalog; changed cart input still conflicts.
+  let previous;
+  try {
+    previous = await getExistingOrder(orderTableName, orderId);
+  } catch {
+    return jsonResponse(503, { code: "ORDER_STORAGE_UNAVAILABLE" });
+  }
+  if (previous) {
+    try {
+      const snapshotCatalog = previous.lines.map((line) => ({
+        id: line.productId,
+        name: line.name,
+        price: line.unitPrice,
+        sizes: previous.lines
+          .filter((l) => l.productId === line.productId)
+          .map((l) => l.selectedSize),
+      }));
+      const replay = calculateOrder(requestLines, snapshotCatalog);
+      if (
+        previous.userSub !== userSub ||
+        createRequestFingerprint(replay.lines) !== previous.requestFingerprint
+      )
+        return jsonResponse(409, { code: "IDEMPOTENCY_KEY_REUSED" });
+      if (
+        previous.status !== "PENDING_PAYMENT" ||
+        Date.parse(previous.checkoutReturnExpiresAt) <= Date.now()
+      )
+        return jsonResponse(409, { code: "CHECKOUT_REQUEST_EXPIRED_OR_RESOLVED" });
+      return jsonResponse(201, {
+        orderId,
+        orderName: previous.orderName,
+        amount: previous.total,
+        currency: previous.currency,
+        customerKey: createCustomerKey(userSub),
+        checkoutReturnToken,
+      });
+    } catch {
+      return jsonResponse(409, { code: "IDEMPOTENCY_KEY_REUSED" });
+    }
+  }
+  try {
+    const products = await readProducts(requestLines.map((line) => line.productId));
+    if ([...products.values()].some((p) => p.status !== "PUBLISHED"))
+      return jsonResponse(409, { code: "CHECKOUT_CATALOG_CHANGED" });
+    calculatedOrder = calculateOrder(
+      requestLines,
+      [...products.values()].map((p) => ({
+        id: p.productId,
+        name: p.name,
+        price: p.price,
+        sizes: p.sizes,
+      })),
+    );
+    for (const [id, q] of aggregateStock(calculatedOrder.lines)) {
+      const p = products.get(id)!;
+      if (q > p.inventoryQuantity - (p.inventoryReserved ?? 0))
+        return jsonResponse(409, { code: "INVENTORY_INSUFFICIENT" });
+    }
+  } catch (error) {
+    if (error instanceof OrderValidationError || error instanceof InventoryError)
+      return jsonResponse(error instanceof InventoryError ? error.status : 400, {
+        code: error.code,
+      });
+    return jsonResponse(503, { code: "CHECKOUT_CATALOG_UNAVAILABLE" });
+  }
   const requestFingerprint = createRequestFingerprint(calculatedOrder.lines);
   const order: OrderRecord = {
     orderId,
@@ -131,7 +195,12 @@ export async function handler(
       return jsonResponse(503, { code: "ORDER_STORAGE_UNAVAILABLE" });
     }
 
-    const existingOrder = await getExistingOrder(orderTableName, orderId);
+    let existingOrder;
+    try {
+      existingOrder = await getExistingOrder(orderTableName, orderId);
+    } catch {
+      return jsonResponse(503, { code: "ORDER_STORAGE_UNAVAILABLE" });
+    }
 
     if (!existingOrder || existingOrder.userSub !== userSub) {
       return jsonResponse(409, { code: "CHECKOUT_REQUEST_CONFLICT" });
@@ -140,6 +209,14 @@ export async function handler(
     if (existingOrder.requestFingerprint !== requestFingerprint) {
       return jsonResponse(409, { code: "IDEMPOTENCY_KEY_REUSED" });
     }
+    return jsonResponse(201, {
+      orderId,
+      orderName: existingOrder.orderName,
+      amount: existingOrder.total,
+      currency: existingOrder.currency,
+      customerKey: createCustomerKey(userSub),
+      checkoutReturnToken,
+    });
   }
 
   return jsonResponse(201, {
@@ -165,7 +242,7 @@ async function getExistingOrder(orderTableName: string, orderId: string) {
 
     return isOrderRecord(response.Item) ? response.Item : null;
   } catch {
-    return null;
+    throw new InventoryError("ORDER_STORAGE_UNAVAILABLE", 503);
   }
 }
 
