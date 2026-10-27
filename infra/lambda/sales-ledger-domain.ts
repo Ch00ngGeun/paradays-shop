@@ -6,11 +6,14 @@ export type SaleLine = Readonly<{
   quantity: number;
   unitAmount: number;
 }>;
+/** Offline payment methods. Each is totalled separately; none falls back to cash. */
+export const SALE_METHODS = ["CARD", "CASH", "TRANSFER"] as const;
+export type SaleMethod = (typeof SALE_METHODS)[number];
 export type SaleInput = Readonly<{
   entryId: string;
   expectedVersion: number;
   soldAt: string;
-  method: "CARD" | "CASH";
+  method: SaleMethod;
   reference: string;
   amount: number;
   memo: string;
@@ -48,6 +51,8 @@ export type OnlineEvent = Readonly<{
 export type DayTotals = Readonly<{
   card: number;
   cash: number;
+  /** Absent only in snapshots closed before transfers existed; read as 0. */
+  transfer?: number;
   offlineRefunds: number;
   offlineNet: number;
   onlineGross: number;
@@ -185,7 +190,7 @@ export function parseSalesCommand(
       !identifier(v.entryId) ||
       !integer(v.expectedVersion, 98) ||
       !validSaleTime(v.soldAt, day, now) ||
-      !["CARD", "CASH"].includes(String(v.method)) ||
+      !(SALE_METHODS as readonly string[]).includes(String(v.method)) ||
       !text(v.reference, 64) ||
       !/^[A-Za-z0-9][A-Za-z0-9._/-]{2,63}$/.test(v.reference) ||
       !integer(v.amount) ||
@@ -304,6 +309,7 @@ export function calculateTotals(
 ): DayTotals {
   let card = 0,
     cash = 0,
+    transfer = 0,
     offlineRefunds = 0,
     onlineGross = 0,
     onlineRefunds = 0;
@@ -311,17 +317,20 @@ export function calculateTotals(
     if (e.status === "POSTED") {
       const signed = e.kind === "REVERSAL" ? -e.amount : e.amount;
       if (e.method === "CARD") card += signed;
-      else cash += signed;
+      else if (e.method === "CASH") cash += signed;
+      else if (e.method === "TRANSFER") transfer += signed;
+      else throw new SalesError("SALE_METHOD_INVALID", 503);
       if (e.kind === "REVERSAL") offlineRefunds += e.amount;
     }
   for (const e of online)
     if (e.kind === "APPROVAL") onlineGross += e.amount;
     else onlineRefunds += e.amount;
-  const offlineNet = card + cash,
+  const offlineNet = card + cash + transfer,
     onlineNet = onlineGross - onlineRefunds;
   const totals = {
     card,
     cash,
+    transfer,
     offlineRefunds,
     offlineNet,
     onlineGross,
