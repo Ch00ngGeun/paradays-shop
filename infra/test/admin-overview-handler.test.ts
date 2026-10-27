@@ -154,3 +154,37 @@ test("returns KST paid revenue and sold units without including pending or refun
     "createdAt, paidAt, #status, #total, #lines",
   );
 });
+
+for (const [label, orders] of [
+  [
+    "a PAID order without paidAt",
+    () => ({
+      Items: [
+        {
+          createdAt: new Date().toISOString(),
+          status: "PAID",
+          total: 1_000,
+          lines: [{ quantity: 1 }],
+        },
+      ],
+    }),
+  ],
+  [
+    "an order scan that is still incomplete after the page cap",
+    () => ({ Items: [], LastEvaluatedKey: { orderId: "next" } }),
+  ],
+] as const) {
+  test(`${label} is reported unavailable instead of zero`, async (t) => {
+    configureTables(t);
+    const send = t.mock.method(documentClient, "send", async (command: unknown) => {
+      assert.ok(command instanceof ScanCommand);
+      if (command.input.TableName === "orders") return orders();
+      return { Items: [] };
+    });
+    t.after(() => send.mock.restore());
+    const result = unpack(await handler(adminEvent()));
+    assert.equal(result.status, 503);
+    assert.equal(result.body.code, "OVERVIEW_STORAGE_UNAVAILABLE");
+    assert.equal(result.body.todayPaidRevenue, undefined);
+  });
+}

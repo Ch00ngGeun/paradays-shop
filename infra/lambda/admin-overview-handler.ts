@@ -152,6 +152,8 @@ async function countTodayOrderMetrics(
       break;
     }
   }
+  // A capped scan with pages left is incomplete; never report it as a full count.
+  if (exclusiveStartKey) throw new Error("OVERVIEW_SCAN_INCOMPLETE");
 
   return { orderCount, paidRevenue, soldItemCount };
 }
@@ -162,8 +164,13 @@ function readTodayPaidOrderMetrics(
   todayStartMilliseconds: number,
   observedAtMilliseconds: number,
 ): PaidOrderMetrics | null {
-  if (item.status !== "PAID" || typeof item.paidAt !== "string") {
+  if (item.status !== "PAID") {
     return null;
+  }
+
+  // A PAID order without a payment time cannot be placed in a day; report unavailable instead of 0.
+  if (typeof item.paidAt !== "string") {
+    throw new Error("ORDER_PAID_AT_INVALID");
   }
 
   const paidAtMilliseconds = Date.parse(item.paidAt);
@@ -267,6 +274,8 @@ async function countLowStockProducts(tableName: string) {
       break;
     }
   }
+  // A capped scan with pages left is incomplete; never report it as a full count.
+  if (exclusiveStartKey) throw new Error("OVERVIEW_SCAN_INCOMPLETE");
 
   return count;
 }
@@ -305,6 +314,8 @@ async function countActiveCoupons(tableName: string) {
       break;
     }
   }
+  // A capped scan with pages left is incomplete; never report it as a full count.
+  if (exclusiveStartKey) throw new Error("OVERVIEW_SCAN_INCOMPLETE");
 
   return count;
 }
@@ -336,6 +347,8 @@ async function countMarketingConsent(tableName: string) {
       break;
     }
   }
+  // A capped scan with pages left is incomplete; never report it as a full count.
+  if (exclusiveStartKey) throw new Error("OVERVIEW_SCAN_INCOMPLETE");
 
   return count;
 }
