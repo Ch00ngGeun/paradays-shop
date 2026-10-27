@@ -147,6 +147,7 @@ function fixture(
   let reportedScanCount: number | undefined;
   let stalledScan = false;
   let beforeScan: (() => void) | undefined;
+  let beforeRead: ((readCount: number) => void) | undefined;
   let scanSignal: AbortSignal | undefined;
   t.mock.method(
     documentClient,
@@ -155,6 +156,7 @@ function fixture(
       if (command instanceof GetCommand) {
         if (failRead) throw new Error("private read details");
         reads.push(command.input);
+        beforeRead?.(reads.length);
         assert.equal(command.input.ConsistentRead, true);
         return {
           Item: structuredClone(records.get(command.input.Key!.productId as string)),
@@ -288,6 +290,9 @@ function fixture(
     },
     beforeScan: (callback: () => void) => {
       beforeScan = callback;
+    },
+    beforeRead: (callback: (readCount: number) => void) => {
+      beforeRead = callback;
     },
     scanSignal: () => scanSignal,
   };
@@ -471,6 +476,36 @@ test("concurrent identical requests commit once and the loser replays the winner
   assert.equal(db.records.get("prd_deck")!.inventoryQuantity, 12);
   assert.equal(db.transactions.length, 1);
 });
+for (const [kind, body] of [
+  ["existing", existing],
+  ["new", fresh],
+] as const) {
+  test(`a ${kind} intake whose same operation commits after the receipt check replays instead of 409`, async (t) => {
+    const db = fixture(t);
+    const snapshot = () =>
+      new Map([...db.records].map(([key, value]) => [key, structuredClone(value)]));
+    const restore = (state: Map<string, Record<string, unknown>>) => {
+      db.records.clear();
+      for (const [key, value] of state) db.records.set(key, structuredClone(value));
+    };
+    const initial = snapshot();
+    const winner = unpack(await handler(event("POST", body())));
+    assert.equal(winner.status, kind === "new" ? 201 : 200);
+    const committed = snapshot();
+    const winnerWrites = db.transactions.length;
+    restore(initial);
+    // The winner commits right after the loser's first receipt read.
+    const firstRead = db.reads.length + 1;
+    db.beforeRead((count) => {
+      if (count === firstRead + 1) restore(committed);
+    });
+    const loser = unpack(await handler(event("POST", body())));
+    assert.equal(loser.status, 200);
+    assert.equal(loser.body.receipt.replayed, true);
+    assert.equal(db.transactions.length, winnerWrites);
+  });
+}
+
 test("the global receipt rejects another admin's same operation without replay or a second add", async (t) => {
   const db = fixture(t);
   await handler(event("POST", existing()));

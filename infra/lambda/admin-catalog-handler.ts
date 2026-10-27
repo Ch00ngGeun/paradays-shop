@@ -424,10 +424,14 @@ async function commitCatalogIntake(
       if (existing === undefined) throw new Error("CATALOG_READ_UNAVAILABLE");
       if (!existing) return jsonResponse(404, { code: "CATALOG_PRODUCT_NOT_FOUND" });
       if (existing.version !== input.existing.version)
-        return jsonResponse(409, {
-          code: "CATALOG_PRODUCT_VERSION_CONFLICT",
-          product: toAdminCatalogProduct(existing),
-        });
+        // The same operation may have committed after the first receipt read.
+        return (
+          (await replay()) ??
+          jsonResponse(409, {
+            code: "CATALOG_PRODUCT_VERSION_CONFLICT",
+            product: toAdminCatalogProduct(existing),
+          })
+        );
       beforeStock = existing.inventoryQuantity;
       const afterStock = beforeStock + input.quantity;
       if (!isInventoryQuantity(afterStock))
@@ -475,10 +479,13 @@ async function commitCatalogIntake(
       beforeStock = 0;
       const duplicates = await readCatalogDuplicates(catalogTableName, product);
       if (duplicates.length)
-        return jsonResponse(409, {
-          code: "CATALOG_PRODUCT_DUPLICATE",
-          productIds: duplicates,
-        });
+        return (
+          (await replay()) ??
+          jsonResponse(409, {
+            code: "CATALOG_PRODUCT_DUPLICATE",
+            productIds: duplicates,
+          })
+        );
       productWrite = {
         Put: {
           TableName: catalogTableName,
