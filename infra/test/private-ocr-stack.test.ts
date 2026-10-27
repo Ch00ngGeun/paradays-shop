@@ -97,7 +97,42 @@ function assertCognitoAndDataStoresArePreserved(template: Template): void {
     "AWS::Cognito::UserPool",
     Match.objectLike({ UsernameAttributes: ["email"] }),
   );
-  template.resourceCountIs("AWS::DynamoDB::Table", 8);
+  template.resourceCountIs("AWS::DynamoDB::Table", 9);
+  template.hasResourceProperties(
+    "AWS::DynamoDB::Table",
+    Match.objectLike({
+      KeySchema: [
+        { AttributeName: "businessDay", KeyType: "HASH" },
+        { AttributeName: "entryId", KeyType: "RANGE" },
+      ],
+      BillingMode: "PAY_PER_REQUEST",
+      DeletionProtectionEnabled: true,
+    }),
+  );
+  template.hasResource("AWS::DynamoDB::Table", {
+    DeletionPolicy: "Retain",
+    UpdateReplacePolicy: "Retain",
+    Properties: Match.objectLike({
+      KeySchema: [
+        { AttributeName: "businessDay", KeyType: "HASH" },
+        { AttributeName: "entryId", KeyType: "RANGE" },
+      ],
+    }),
+  });
+  template.hasResourceProperties(
+    "AWS::ApiGatewayV2::Route",
+    Match.objectLike({
+      RouteKey: "GET /admin/sales/{businessDay}",
+      AuthorizationType: "JWT",
+    }),
+  );
+  template.hasResourceProperties(
+    "AWS::ApiGatewayV2::Route",
+    Match.objectLike({
+      RouteKey: "POST /admin/sales/{businessDay}",
+      AuthorizationType: "JWT",
+    }),
+  );
   template.hasResourceProperties(
     "AWS::DynamoDB::Table",
     Match.objectLike({
@@ -142,6 +177,31 @@ test("private OCR opt-in은 concrete 환경의 digest-pinned private ECR URI만 
 
 test("private OCR opt-out은 bootstrap 리소스를 만들지 않고 기존 Cognito·DynamoDB·secret을 보존합니다", () => {
   const template = synthesize({ privateService: false });
+  for (const prefix of [
+    "CheckoutFunction",
+    "PaymentConfirmFunction",
+    "PaymentWebhookFunction",
+    "AdminRefundFunction",
+  ]) {
+    const functions = Object.entries(
+      template.findResources("AWS::Lambda::Function"),
+    ).filter(([id]) => id.startsWith(prefix));
+    assert.equal(functions.length, 1);
+    assert.ok(functions[0]![1].Properties.Environment.Variables.CATALOG_TABLE_NAME);
+    const policies = Object.entries(template.findResources("AWS::IAM::Policy")).filter(
+      ([id]) => id.startsWith(prefix),
+    );
+    assert.ok(JSON.stringify(policies).includes("CatalogTable"));
+  }
+  // GET is added together with the refund handler that serves it read-only.
+  for (const method of ["POST"])
+    template.hasResourceProperties(
+      "AWS::ApiGatewayV2::Route",
+      Match.objectLike({
+        RouteKey: `${method} /admin/orders/{orderId}/refunds`,
+        AuthorizationType: "JWT",
+      }),
+    );
 
   for (const resourceType of [
     "AWS::EC2::VPC",
