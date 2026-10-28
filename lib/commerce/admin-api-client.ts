@@ -20,6 +20,7 @@ import type {
   AdminOverviewMetrics,
   AdminProductDraft,
 } from "@/lib/admin-ui/types";
+import type { DeckSpec } from "@/types/store";
 import {
   isOcrMapping,
   isOcrColumnMapping,
@@ -114,6 +115,9 @@ export type AdminApiClient = Readonly<{
   saveProductDraft: (draft: AdminProductDraft) => Promise<void>;
   updateProductStock: (
     input: Readonly<{ id: string; version: number; stock: number }>,
+  ) => Promise<AdminCatalogListItem>;
+  updateProductDeckSpec: (
+    input: Readonly<{ id: string; version: number; deckSpec: DeckSpec | null }>,
   ) => Promise<AdminCatalogListItem>;
   deleteCatalogProducts: (
     items: ReadonlyArray<Readonly<{ id: string; version: number }>>,
@@ -431,6 +435,50 @@ export function createAdminApiClient(
         product.id !== productId ||
         product.version !== input.version + 1 ||
         product.stock !== stock
+      ) {
+        throw new AdminApiResponseError();
+      }
+      return product;
+    },
+    async updateProductDeckSpec(input) {
+      const productId = input.id.trim();
+
+      if (
+        !productId ||
+        productId.length > 96 ||
+        !Number.isSafeInteger(input.version) ||
+        input.version < 1 ||
+        input.version > 1_000_000 ||
+        (input.deckSpec !== null && !isDeckSpec(input.deckSpec))
+      ) {
+        throw new AdminApiResponseError();
+      }
+
+      const deckSpec = input.deckSpec && {
+        nose: input.deckSpec.nose,
+        tail: input.deckSpec.tail,
+        width: input.deckSpec.width,
+        length: input.deckSpec.length,
+        wheelbase: input.deckSpec.wheelbase,
+      };
+      const body = await requestJson({
+        apiBaseUrl,
+        authorizationTokenProvider: dependencies.authorizationTokenProvider,
+        fetchImplementation,
+        endpoint: `admin/catalog/products/${encodeURIComponent(productId)}`,
+        method: "PATCH",
+        body: { version: input.version, deckSpec },
+      });
+
+      if (!isRecord(body) || !("product" in body)) {
+        throw new AdminApiResponseError();
+      }
+
+      const product = parseCatalogListItem(body.product);
+      if (
+        product.id !== productId ||
+        product.version !== input.version + 1 ||
+        JSON.stringify(product.deckSpec ?? null) !== JSON.stringify(deckSpec)
       ) {
         throw new AdminApiResponseError();
       }
@@ -1195,7 +1243,34 @@ function parseCatalogListItem(value: unknown): AdminCatalogListItem {
     isFeatured: value.featured,
     ...(nameI18n ? { nameI18n } : {}),
     ...(descriptionI18n ? { descriptionI18n } : {}),
+    ...(isDeckSpec(value.deckSpec)
+      ? {
+          deckSpec: {
+            nose: value.deckSpec.nose,
+            tail: value.deckSpec.tail,
+            width: value.deckSpec.width,
+            length: value.deckSpec.length,
+            wheelbase: value.deckSpec.wheelbase,
+          },
+        }
+      : {}),
   };
+}
+
+/** 서버 검증과 같은 범위(0 초과 100인치 이하)만 상세사이즈로 인정합니다. */
+function isDeckSpec(value: unknown): value is DeckSpec {
+  return (
+    isRecord(value) &&
+    (["nose", "tail", "width", "length", "wheelbase"] as const).every((field) => {
+      const inches = value[field];
+      return (
+        typeof inches === "number" &&
+        Number.isFinite(inches) &&
+        inches > 0 &&
+        inches <= 100
+      );
+    })
+  );
 }
 
 function parseOverviewMetrics(value: unknown): AdminOverviewMetrics {

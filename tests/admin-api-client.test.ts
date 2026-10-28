@@ -1278,6 +1278,101 @@ describe("createAdminApiClient", () => {
     });
   });
 
+  describe("deck size spec", () => {
+    const deckSpec = {
+      nose: 6.875,
+      tail: 6.5,
+      width: 8.5,
+      length: 31.75,
+      wheelbase: 14.25,
+    };
+    const savedProduct = (version: number, spec?: typeof deckSpec) => ({
+      productId: "prd_deck",
+      name: "Deck",
+      brandName: "Quasi",
+      category: "Deck",
+      price: 107000,
+      inventoryQuantity: 3,
+      status: "PUBLISHED",
+      featured: false,
+      version,
+      description: [],
+      sizes: ["8.5"],
+      ...(spec ? { deckSpec: spec } : {}),
+    });
+
+    it("PATCHes only version and deckSpec and returns the updated row", async () => {
+      const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(JSON.stringify({ product: savedProduct(4, deckSpec) }), {
+          status: 200,
+        }),
+      );
+      const { client } = createClient(fetchImplementation);
+
+      const product = await client.updateProductDeckSpec({
+        id: "prd_deck",
+        version: 3,
+        deckSpec,
+      });
+
+      expect(product).toMatchObject({ id: "prd_deck", version: 4, deckSpec });
+      const [url, request] = fetchImplementation.mock.calls[0];
+      expect(url).toBe("https://api.example.com/prod/admin/catalog/products/prd_deck");
+      expect(request).toMatchObject({ method: "PATCH" });
+      expect(JSON.parse(String(request?.body))).toEqual({ version: 3, deckSpec });
+    });
+
+    it("sends null to delete and rejects a response that still has a spec", async () => {
+      const fetchImplementation = vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ product: savedProduct(4) }), { status: 200 }),
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ product: savedProduct(5, deckSpec) }), {
+            status: 200,
+          }),
+        );
+      const { client } = createClient(fetchImplementation);
+
+      const cleared = await client.updateProductDeckSpec({
+        id: "prd_deck",
+        version: 3,
+        deckSpec: null,
+      });
+      expect(cleared).not.toHaveProperty("deckSpec");
+      expect(JSON.parse(String(fetchImplementation.mock.calls[0][1]?.body))).toEqual({
+        version: 3,
+        deckSpec: null,
+      });
+
+      await expect(
+        client.updateProductDeckSpec({ id: "prd_deck", version: 4, deckSpec: null }),
+      ).rejects.toBeInstanceOf(AdminApiResponseError);
+    });
+
+    it("rejects invalid inches before authentication or fetch", async () => {
+      const fetchImplementation = vi.fn<typeof fetch>();
+      const { client, getAccessToken } = createClient(fetchImplementation);
+
+      for (const invalid of [
+        { ...deckSpec, nose: 0 },
+        { ...deckSpec, tail: Number.NaN },
+        { ...deckSpec, length: 101 },
+      ]) {
+        await expect(
+          client.updateProductDeckSpec({
+            id: "prd_deck",
+            version: 3,
+            deckSpec: invalid,
+          }),
+        ).rejects.toBeInstanceOf(AdminApiResponseError);
+      }
+      expect(getAccessToken).not.toHaveBeenCalled();
+      expect(fetchImplementation).not.toHaveBeenCalled();
+    });
+  });
+
   describe("explicit product comparison price serialization", () => {
     const draft: AdminProductDraft = {
       name: "Synthetic product",
