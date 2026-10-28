@@ -5087,6 +5087,8 @@ function BrandSection({
   products: readonly AdminCatalogListItem[];
   saving: boolean;
 }>) {
+  const { locale } = useLocale();
+  const isKorean = locale === "ko";
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "linked" | "unlinked">("all");
   const brandMap = new Map<
@@ -5124,28 +5126,47 @@ function BrandSection({
     linked: linkedCount,
     unlinked: entries.length - linkedCount,
   };
-  const previewName = brandName.trim() || "브랜드명";
+  const previewName = brandName.trim() || (isKorean ? "브랜드명" : "Brand name");
   const emptyTitle = loading
-    ? "상품의 브랜드를 불러오고 있습니다"
+    ? isKorean
+      ? "상품의 브랜드를 불러오고 있습니다"
+      : "Loading brands from products"
     : loadFailed && entries.length === 0
-      ? "브랜드 목록을 확인하지 못했습니다"
+      ? isKorean
+        ? "브랜드 목록을 확인하지 못했습니다"
+        : "Could not check the brand list"
       : entries.length
-        ? "조건에 맞는 브랜드가 없습니다"
-        : "현재 이 화면에 표시할 브랜드가 없습니다";
+        ? isKorean
+          ? "조건에 맞는 브랜드가 없습니다"
+          : "No brands match"
+        : isKorean
+          ? "현재 이 화면에 표시할 브랜드가 없습니다"
+          : "No brands to show on this screen";
   const emptyDescription = loading
-    ? "조회가 끝나면 이 화면의 상품 기준으로 표시합니다."
+    ? isKorean
+      ? "조회가 끝나면 이 화면의 상품 기준으로 표시합니다."
+      : "Once loaded, brands are shown based on the products on this screen."
     : loadFailed && entries.length === 0
-      ? "조회 실패는 브랜드가 없다는 뜻이 아닙니다. 연결과 상품 목록을 확인해 주세요."
+      ? isKorean
+        ? "조회 실패는 브랜드가 없다는 뜻이 아닙니다. 연결과 상품 목록을 확인해 주세요."
+        : "A failed load does not mean there are no brands. Check the connection and product list."
       : entries.length
-        ? "검색어나 상품 연결 필터를 바꿔 보세요."
-        : "브랜드를 추가하면 이 화면의 상품 등록에서 선택할 수 있습니다.";
+        ? isKorean
+          ? "검색어나 상품 연결 필터를 바꿔 보세요."
+          : "Try a different search or link filter."
+        : isKorean
+          ? "브랜드를 추가하면 이 화면의 상품 등록에서 선택할 수 있습니다."
+          : "Once added, a brand can be chosen in product registration on this screen.";
 
   const brandListReady = !loading && !loadFailed;
   const brandSaved = notice?.kind === "success" && !saving;
   const brandSteps: AdminStep[] = [
-    { label: "브랜드 목록 확인", state: brandListReady ? "complete" : "current" },
     {
-      label: "브랜드 입력",
+      label: isKorean ? "브랜드 목록 확인" : "Check brand list",
+      state: brandListReady ? "complete" : "current",
+    },
+    {
+      label: isKorean ? "브랜드 입력" : "Enter brand",
       state: !brandListReady
         ? "upcoming"
         : brandSaved || saving || brandName.trim()
@@ -5153,7 +5174,7 @@ function BrandSection({
           : "current",
     },
     {
-      label: "브랜드 저장",
+      label: isKorean ? "브랜드 저장" : "Save brand",
       state: !canSaveToServer
         ? "unavailable"
         : brandSaved
@@ -5167,47 +5188,60 @@ function BrandSection({
     <div className={`${styles.sectionStack} ${styles.brandScreen}`}>
       <AdminStepper
         className={styles.screenStepper}
-        label="브랜드 작업 흐름"
+        label={isKorean ? "브랜드 작업 흐름" : "Brand workflow"}
+        locale={locale}
         steps={brandSteps}
       />
       <header className={styles.brandHeader}>
         <div>
-          <p>상품·재고 / 브랜드</p>
-          <h2>브랜드 관리</h2>
+          <p>{isKorean ? "상품·재고 / 브랜드" : "Products & stock / Brands"}</p>
+          <h2>{isKorean ? "브랜드 관리" : "Brands"}</h2>
         </div>
         <details className={styles.brandHelp}>
-          <summary>도움말</summary>
+          <summary>{isKorean ? "도움말" : "Help"}</summary>
           <p>
-            현재 불러온 상품과 이 화면에서 추가한 브랜드만 표시합니다. 전체 브랜드
-            목록이나 서버의 활성 상태를 조회하는 화면은 아닙니다.
+            {isKorean
+              ? "현재 불러온 상품과 이 화면에서 추가한 브랜드만 표시합니다. 전체 브랜드 목록이나 서버의 활성 상태를 조회하는 화면은 아닙니다."
+              : "Shows only brands from the loaded products and brands added on this screen. This screen does not load the full brand list or server status."}
           </p>
           <p>
-            상품 연결 수는 이 화면의 상품 기준입니다. 연결이 없어도 비활성 브랜드를
-            뜻하지 않습니다. 로고 업로드·브랜드 수정·삭제는 지원하지 않습니다.
+            {isKorean
+              ? "상품 연결 수는 이 화면의 상품 기준입니다. 연결이 없어도 비활성 브랜드를 뜻하지 않습니다. 로고 업로드·브랜드 수정·삭제는 지원하지 않습니다."
+              : "Linked product counts are based on the products on this screen. No link does not mean the brand is inactive. Logo upload, brand edit and delete are not supported."}
           </p>
         </details>
       </header>
       <div className={styles.brandWorkspace}>
         <section className={styles.brandCatalog} aria-labelledby="brand-list-title">
           <div className={styles.brandCatalogHeading}>
-            <h3 id="brand-list-title">이 화면에서 확인한 브랜드</h3>
-            <p>조회 상품·이 화면 추가분 기준 · 전체 목록 아님</p>
+            <h3 id="brand-list-title">
+              {isKorean ? "이 화면에서 확인한 브랜드" : "Brands found on this screen"}
+            </h3>
+            <p>
+              {isKorean
+                ? "조회 상품·이 화면 추가분 기준 · 전체 목록 아님"
+                : "From loaded products and additions here · Not the full list"}
+            </p>
           </div>
           <label className={styles.brandSearch}>
-            <span>브랜드명 검색</span>
+            <span>{isKorean ? "브랜드명 검색" : "Search brand name"}</span>
             <input
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="브랜드명으로 검색"
+              placeholder={isKorean ? "브랜드명으로 검색" : "Search by brand name"}
               type="search"
               value={search}
             />
           </label>
-          <div className={styles.brandFilters} role="group" aria-label="상품 연결 필터">
+          <div
+            className={styles.brandFilters}
+            role="group"
+            aria-label={isKorean ? "상품 연결 필터" : "Product link filter"}
+          >
             {(
               [
-                ["all", "전체"],
-                ["linked", "상품 연결"],
-                ["unlinked", "연결 없음"],
+                ["all", isKorean ? "전체" : "All"],
+                ["linked", isKorean ? "상품 연결" : "Linked"],
+                ["unlinked", isKorean ? "연결 없음" : "Not linked"],
               ] as const
             ).map(([value, label]) => (
               <button
@@ -5227,12 +5261,15 @@ function BrandSection({
           </div>
           {loading ? (
             <p className={styles.brandListNotice} role="status">
-              상품의 브랜드를 불러오는 중…
+              {isKorean
+                ? "상품의 브랜드를 불러오는 중…"
+                : "Loading brands from products…"}
             </p>
           ) : loadFailed ? (
             <p className={styles.brandListError} role="alert">
-              상품 목록을 불러오지 못했습니다. 아래 연결 수는 현재 이 화면에 남은 상품만
-              기준으로 하며 전체 수량이 아닙니다.
+              {isKorean
+                ? "상품 목록을 불러오지 못했습니다. 아래 연결 수는 현재 이 화면에 남은 상품만 기준으로 하며 전체 수량이 아닙니다."
+                : "Could not load the product list. The link counts below use only the products left on this screen and are not totals."}
             </p>
           ) : null}
           {matching.length === 0 ? (
@@ -5240,12 +5277,16 @@ function BrandSection({
           ) : (
             <div className={styles.brandTableWrap}>
               <table className={styles.brandTable}>
-                <caption>브랜드별 이 화면 상품 연결</caption>
+                <caption>
+                  {isKorean
+                    ? "브랜드별 이 화면 상품 연결"
+                    : "Products linked per brand on this screen"}
+                </caption>
                 <thead>
                   <tr>
-                    <th scope="col">브랜드</th>
-                    <th scope="col">연결 상품 수</th>
-                    <th scope="col">확인 출처</th>
+                    <th scope="col">{isKorean ? "브랜드" : "Brand"}</th>
+                    <th scope="col">{isKorean ? "연결 상품 수" : "Linked products"}</th>
+                    <th scope="col">{isKorean ? "확인 출처" : "Source"}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -5260,12 +5301,28 @@ function BrandSection({
                         </span>
                       </th>
                       <td>
-                        <strong>{entry.productCount}개</strong>
+                        <strong>
+                          {isKorean ? `${entry.productCount}개` : entry.productCount}
+                        </strong>
                         <span>
-                          {entry.productCount > 0 ? "상품 연결" : "연결 없음"}
+                          {entry.productCount > 0
+                            ? isKorean
+                              ? "상품 연결"
+                              : "Linked"
+                            : isKorean
+                              ? "연결 없음"
+                              : "Not linked"}
                         </span>
                       </td>
-                      <td>{entry.addedHere ? "이 화면에서 추가" : "상품에서 확인"}</td>
+                      <td>
+                        {entry.addedHere
+                          ? isKorean
+                            ? "이 화면에서 추가"
+                            : "Added here"
+                          : isKorean
+                            ? "상품에서 확인"
+                            : "From products"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -5274,26 +5331,43 @@ function BrandSection({
           )}
         </section>
         <form
-          aria-label="브랜드 추가"
+          aria-label={isKorean ? "브랜드 추가" : "Add brand"}
           className={styles.brandForm}
           noValidate
           onSubmit={onSubmit}
         >
           <div className={styles.brandFormHeading}>
-            <h3>브랜드 추가</h3>
+            <h3>{isKorean ? "브랜드 추가" : "Add brand"}</h3>
             <span>
-              {saving ? "등록 중…" : canSaveToServer ? "등록 전" : "서버 미연결"}
+              {saving
+                ? isKorean
+                  ? "등록 중…"
+                  : "Registering…"
+                : canSaveToServer
+                  ? isKorean
+                    ? "등록 전"
+                    : "Not registered"
+                  : isKorean
+                    ? "서버 미연결"
+                    : "No server"}
             </span>
           </div>
           <p className={styles.brandSaveHint}>
             {canSaveToServer
-              ? "저장하면 서버에 브랜드가 등록됩니다."
-              : "서버 연결이 없어 이 화면에만 임시 추가합니다."}
+              ? isKorean
+                ? "저장하면 서버에 브랜드가 등록됩니다."
+                : "Saving registers the brand on the server."
+              : isKorean
+                ? "서버 연결이 없어 이 화면에만 임시 추가합니다."
+                : "Without a server connection, it is added on this screen only."}
           </p>
           <fieldset disabled={saving} className={styles.brandFields}>
             <label>
               <span>
-                브랜드명 <span className={styles.brandRequired}>(필수)</span>
+                {isKorean ? "브랜드명" : "Brand name"}{" "}
+                <span className={styles.brandRequired}>
+                  {isKorean ? "(필수)" : "(required)"}
+                </span>
                 <span aria-hidden="true" className={requiredStyles.requiredMark}>
                   *
                 </span>
@@ -5302,35 +5376,58 @@ function BrandSection({
                 maxLength={100}
                 required
                 onChange={(event) => onNameChange(event.target.value)}
-                placeholder="예: April"
+                placeholder={isKorean ? "예: April" : "e.g. April"}
                 value={brandName}
               />
             </label>
             <label>
-              <span>운영 메모 (선택)</span>
+              <span>{isKorean ? "운영 메모 (선택)" : "Note (optional)"}</span>
               <textarea
                 maxLength={1_000}
                 onChange={(event) => onMemoChange(event.target.value)}
-                placeholder="운영 시 참고할 내용 · 개인정보 제외"
+                placeholder={
+                  isKorean
+                    ? "운영 시 참고할 내용 · 개인정보 제외"
+                    : "Notes for operations · No personal data"
+                }
                 rows={4}
                 value={brandMemo}
               />
             </label>
-            <section className={styles.brandPreview} aria-label="브랜드명 표시 예시">
-              <h4>브랜드명 표시 예시</h4>
+            <section
+              className={styles.brandPreview}
+              aria-label={
+                isKorean ? "브랜드명 표시 예시" : "Brand name display example"
+              }
+            >
+              <h4>{isKorean ? "브랜드명 표시 예시" : "Brand name display example"}</h4>
               <div>
                 <strong>{previewName}</strong>
-                <span>상품의 브랜드명에 사용</span>
+                <span>
+                  {isKorean
+                    ? "상품의 브랜드명에 사용"
+                    : "Used as the product's brand name"}
+                </span>
               </div>
-              <p>텍스트 표시 예시이며 실제 로고나 공개 화면이 아닙니다.</p>
+              <p>
+                {isKorean
+                  ? "텍스트 표시 예시이며 실제 로고나 공개 화면이 아닙니다."
+                  : "A text example, not an actual logo or public screen."}
+              </p>
             </section>
             <div className={styles.brandFormActions}>
               <button className={styles.primaryButton} type="submit">
                 {saving
-                  ? "등록 중…"
+                  ? isKorean
+                    ? "등록 중…"
+                    : "Registering…"
                   : canSaveToServer
-                    ? "브랜드 등록"
-                    : "이 화면에 임시 추가"}
+                    ? isKorean
+                      ? "브랜드 등록"
+                      : "Register brand"
+                    : isKorean
+                      ? "이 화면에 임시 추가"
+                      : "Add here temporarily"}
               </button>
               <button
                 className={styles.secondaryButton}
@@ -5340,7 +5437,7 @@ function BrandSection({
                 }}
                 type="button"
               >
-                입력 지우기
+                {isKorean ? "입력 지우기" : "Clear input"}
               </button>
             </div>
           </fieldset>
