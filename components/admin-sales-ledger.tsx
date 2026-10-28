@@ -635,18 +635,22 @@ function ActualSalesLedgerPanel({
         </div>
       ) : null}
       {attempt ? (
-        <section aria-label="미확정 요청 보호">
-          <AdminNotice status="blocking">
-            <h3>처리 결과 확인 필요</h3>
+        <section
+          aria-label={isKorean ? "미확정 요청 보호" : "Unconfirmed request protection"}
+        >
+          <AdminNotice status="blocking" locale={locale}>
+            <h3>{isKorean ? "처리 결과 확인 필요" : "Result check needed"}</h3>
             <p>
-              영업일 {attempt.day} · 요청 {attempt.command.action} ·{" "}
+              {isKorean ? "영업일" : "Business day"} {attempt.day} ·{" "}
+              {isKorean ? "요청" : "Request"} {attempt.command.action} ·{" "}
               {"entryId" in attempt.command
                 ? attempt.command.entryId
                 : attempt.command.operationId}
             </p>
             <p>
-              입력 변경·다른 전표 처리·마감을 잠갔습니다. 원래 요청의 번호와 내용을
-              그대로 유지합니다.
+              {isKorean
+                ? "입력 변경·다른 전표 처리·마감을 잠갔습니다. 원래 요청의 번호와 내용을 그대로 유지합니다."
+                : "Input changes, other slips and closing are locked. The original request number and content are kept as is."}
             </p>
             <div className={styles.actions}>
               <button
@@ -654,10 +658,10 @@ function ActualSalesLedgerPanel({
                 disabled={busy}
                 onClick={() => void run(attempt.day, attempt.command, true)}
               >
-                같은 요청 재시도
+                {isKorean ? "같은 요청 재시도" : "Retry the same request"}
               </button>
               <button type="button" disabled={busy} onClick={() => void load(true)}>
-                결과 재조회
+                {isKorean ? "결과 재조회" : "Reload result"}
               </button>
             </div>
             <label className={styles.check}>
@@ -667,7 +671,9 @@ function ActualSalesLedgerPanel({
                 disabled={!resolutionRead || busy}
                 onChange={(e) => setResolutionConfirmed(e.target.checked)}
               />
-              재조회한 장부에서 처리 결과를 직접 확인했습니다
+              {isKorean
+                ? "재조회한 장부에서 처리 결과를 직접 확인했습니다"
+                : "I checked the result myself in the reloaded ledger"}
             </label>
             <button
               type="button"
@@ -677,12 +683,13 @@ function ActualSalesLedgerPanel({
                 setDraft(null);
                 setSelectedId(null);
                 setNoticeKind("neutral");
-                setNotice(
-                  "직접 확인한 결과에 따라 미확정 요청 잠금을 해제했습니다. 필요한 전표를 다시 선택해 주세요.",
-                );
+                setNotice({
+                  ko: "직접 확인한 결과에 따라 미확정 요청 잠금을 해제했습니다. 필요한 전표를 다시 선택해 주세요.",
+                  en: "Released the unconfirmed request lock based on your check. Select the slip you need again.",
+                });
               }}
             >
-              미확정 요청 잠금 해제
+              {isKorean ? "미확정 요청 잠금 해제" : "Release unconfirmed request lock"}
             </button>
           </AdminNotice>
         </section>
@@ -692,76 +699,108 @@ function ActualSalesLedgerPanel({
           <div className={styles.dayStatus}>
             <h3>
               {report.businessDay} ·{" "}
-              {report.status === "CLOSED" ? "마감 완료" : "영업 중"}
+              {report.status === "CLOSED"
+                ? isKorean
+                  ? "마감 완료"
+                  : "Closed"
+                : isKorean
+                  ? "영업 중"
+                  : "Open"}
             </h3>
             <span>
-              조회 기준 {showTime(report.asOf)} · 버전 {report.version}
+              {isKorean ? "조회 기준" : "As of"} {showTime(report.asOf, locale)} ·{" "}
+              {isKorean ? "버전" : "Version"} {report.version}
             </span>
           </div>
-          <div className={styles.summaryGrid} aria-label="확정 순매출 요약">
+          <div
+            className={styles.summaryGrid}
+            aria-label={isKorean ? "확정 순매출 요약" : "Confirmed net sales summary"}
+          >
             <article>
               <span aria-hidden="true" className={styles.metricSymbol}>
                 ↗
               </span>
-              <span>온라인 순매출</span>
-              <strong>{money(report.totals.onlineNet)}</strong>
+              <span>{isKorean ? "온라인 순매출" : "Online net sales"}</span>
+              <strong>{money(report.totals.onlineNet, locale)}</strong>
             </article>
             <article>
               <span aria-hidden="true" className={styles.metricSymbol}>
                 ▣
               </span>
-              <span>오프라인 카드 순매출</span>
-              <strong>{money(report.totals.card)}</strong>
+              <span>
+                {isKorean ? "오프라인 카드 순매출" : "Offline card net sales"}
+              </span>
+              <strong>{money(report.totals.card, locale)}</strong>
             </article>
             <article>
               <span aria-hidden="true" className={styles.metricSymbol}>
                 ▤
               </span>
-              <span>오프라인 현금 순매출</span>
-              <strong>{money(report.totals.cash)}</strong>
+              <span>
+                {isKorean ? "오프라인 현금 순매출" : "Offline cash net sales"}
+              </span>
+              <strong>{money(report.totals.cash, locale)}</strong>
             </article>
             <article>
               <span aria-hidden="true" className={styles.metricSymbol}>
                 ⇄
               </span>
-              <span>오프라인 이체 순매출</span>
-              <strong>{money(report.totals.transfer ?? 0)}</strong>
+              <span>
+                {isKorean ? "오프라인 이체 순매출" : "Offline transfer net sales"}
+              </span>
+              <strong>{money(report.totals.transfer ?? 0, locale)}</strong>
             </article>
             <article>
               <span aria-hidden="true" className={styles.metricSymbol}>
                 Σ
               </span>
-              <span>통합 순매출</span>
-              <strong>{money(report.totals.combinedNet)}</strong>
+              <span>{isKorean ? "통합 순매출" : "Combined net sales"}</span>
+              <strong>{money(report.totals.combinedNet, locale)}</strong>
             </article>
           </div>
           {report.warnings.length ? (
-            <div aria-label="마감 경고">
-              <AdminNotice status="attention" title="마감 전 확인 필요">
+            <div aria-label={isKorean ? "마감 경고" : "Closing warnings"}>
+              <AdminNotice
+                status="attention"
+                title={isKorean ? "마감 전 확인 필요" : "Check before closing"}
+                locale={locale}
+              >
                 <ul>
                   {report.warnings.map((w) => (
-                    <li key={w}>{warnings.ko[w] ?? w}</li>
+                    <li key={w}>{warnings[locale][w] ?? w}</li>
                   ))}
                 </ul>
               </AdminNotice>
             </div>
           ) : null}
           {!report.complete ? (
-            <AdminNotice status="attention">
-              집계가 완료되지 않았습니다. 최신 장부를 다시 조회한 뒤 마감해 주세요.
+            <AdminNotice status="attention" locale={locale}>
+              {isKorean
+                ? "집계가 완료되지 않았습니다. 최신 장부를 다시 조회한 뒤 마감해 주세요."
+                : "Totals are not complete. Reload the latest ledger before closing."}
             </AdminNotice>
           ) : null}
           <details className={`${styles.block} ${styles.reconciliationDetails}`}>
-            <summary>확정 매출 대조표·집계 기준</summary>
+            <summary>
+              {isKorean
+                ? "확정 매출 대조표·집계 기준"
+                : "Confirmed sales reconciliation · Totals basis"}
+            </summary>
             <div className={styles.tableWrap}>
               <table>
-                <caption>확정 매출 대조표 · 원화</caption>
+                <caption>
+                  {isKorean
+                    ? "확정 매출 대조표 · 원화"
+                    : "Confirmed sales reconciliation · KRW"}
+                </caption>
                 <thead>
                   <tr>
-                    <th scope="col">구분</th>
-                    <th scope="col">총매출</th>
-                    <th scope="col">반대전표·환불</th>
-                    <th scope="col">순매출</th>
+                    <th scope="col">{isKorean ? "구분" : "Type"}</th>
+                    <th scope="col">{isKorean ? "총매출" : "Gross sales"}</th>
+                    <th scope="col">
+                      {isKorean ? "반대전표·환불" : "Reversals · Refunds"}
+                    </th>
+                    <th scope="col">{isKorean ? "순매출" : "Net sales"}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -777,63 +816,80 @@ function ActualSalesLedgerPanel({
                         .reduce((s, e) => s + e.amount, 0);
                     return (
                       <tr key={method}>
-                        <th scope="row">오프라인 {methodLabels.ko[method]}</th>
-                        <td>{money(gross)}</td>
-                        <td>{money(refunds)}</td>
-                        <td>{money(methodNet(report.totals, method))}</td>
+                        <th scope="row">
+                          {isKorean ? "오프라인" : "Offline"}{" "}
+                          {methodLabels[locale][method]}
+                        </th>
+                        <td>{money(gross, locale)}</td>
+                        <td>{money(refunds, locale)}</td>
+                        <td>{money(methodNet(report.totals, method), locale)}</td>
                       </tr>
                     );
                   })}
                   <tr>
-                    <th scope="row">오프라인 합계</th>
+                    <th scope="row">{isKorean ? "오프라인 합계" : "Offline total"}</th>
                     <td>
-                      {money(report.totals.offlineNet + report.totals.offlineRefunds)}
+                      {money(
+                        report.totals.offlineNet + report.totals.offlineRefunds,
+                        locale,
+                      )}
                     </td>
-                    <td>{money(report.totals.offlineRefunds)}</td>
-                    <td>{money(report.totals.offlineNet)}</td>
+                    <td>{money(report.totals.offlineRefunds, locale)}</td>
+                    <td>{money(report.totals.offlineNet, locale)}</td>
                   </tr>
                   <tr>
-                    <th scope="row">온라인</th>
-                    <td>{money(report.totals.onlineGross)}</td>
-                    <td>{money(report.totals.onlineRefunds)}</td>
-                    <td>{money(report.totals.onlineNet)}</td>
+                    <th scope="row">{isKorean ? "온라인" : "Online"}</th>
+                    <td>{money(report.totals.onlineGross, locale)}</td>
+                    <td>{money(report.totals.onlineRefunds, locale)}</td>
+                    <td>{money(report.totals.onlineNet, locale)}</td>
                   </tr>
                   <tr className={styles.total}>
-                    <th scope="row">온·오프라인 통합</th>
+                    <th scope="row">
+                      {isKorean ? "온·오프라인 통합" : "Online and offline combined"}
+                    </th>
                     <td>
                       {money(
                         report.totals.offlineNet +
                           report.totals.offlineRefunds +
                           report.totals.onlineGross,
+                        locale,
                       )}
                     </td>
                     <td>
                       {money(
                         report.totals.offlineRefunds + report.totals.onlineRefunds,
+                        locale,
                       )}
                     </td>
-                    <td>{money(report.totals.combinedNet)}</td>
+                    <td>{money(report.totals.combinedNet, locale)}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <p>
-              미확인 거래는 합계에서 제외됩니다. 일마감 전에 결제·환불 결과를 확정해야
-              합니다.
+              {isKorean
+                ? "미확인 거래는 합계에서 제외됩니다. 일마감 전에 결제·환불 결과를 확정해야 합니다."
+                : "Unconfirmed transactions are excluded from totals. Payment and refund results must be confirmed before the daily close."}
             </p>
             <p>
-              이 장부는 온라인+오프라인 통합 승인 총액·환불·순매출 기준입니다. 홈의 오늘
-              매출은 기존 현재 PAID 온라인 주문 요약 기준이므로 이 장부의 통합 합계와
-              다릅니다.
+              {isKorean
+                ? "이 장부는 온라인+오프라인 통합 승인 총액·환불·순매출 기준입니다. 홈의 오늘 매출은 기존 현재 PAID 온라인 주문 요약 기준이므로 이 장부의 통합 합계와 다릅니다."
+                : "This ledger is based on combined online and offline approved totals, refunds and net sales. Today's sales on the home screen use the current PAID online order summary, so they differ from this ledger's combined total."}
             </p>
           </details>
           <div className={styles.ledgerWorkspace}>
             <div className={styles.ledgerMain}>
               <section className={styles.block}>
                 <div className={styles.headingRow}>
-                  <h3>오프라인 전표 · 판매 시간순</h3>
+                  <h3>
+                    {isKorean
+                      ? "오프라인 전표 · 판매 시간순"
+                      : "Offline slips · By sale time"}
+                  </h3>
                   <button
-                    aria-label="판매 등록 · 새 전표"
+                    aria-label={
+                      isKorean ? "판매 등록 · 새 전표" : "Register sale · New slip"
+                    }
                     className={styles.primary}
                     type="button"
                     disabled={!open || locked}
@@ -855,35 +911,47 @@ function ActualSalesLedgerPanel({
                       clearConfirmation();
                     }}
                   >
-                    <span aria-hidden="true">＋</span> 판매 등록
+                    <span aria-hidden="true">＋</span>{" "}
+                    {isKorean ? "판매 등록" : "Register sale"}
                   </button>
                 </div>
                 <p>
-                  작성 중·폐기 전표는 합계에서 제외됩니다. 카드번호·고객 개인정보는
-                  입력하지 마세요.
+                  {isKorean
+                    ? "작성 중·폐기 전표는 합계에서 제외됩니다. 카드번호·고객 개인정보는 입력하지 마세요."
+                    : "Draft and voided slips are excluded from totals. Do not enter card numbers or customer personal data."}
                 </p>
                 <div className={styles.tableWrap}>
                   <table>
-                    <caption>오프라인 판매 전표</caption>
+                    <caption>
+                      {isKorean ? "오프라인 판매 전표" : "Offline sales slips"}
+                    </caption>
                     <thead>
                       <tr>
-                        <th>판매시각 (한국 시간)</th>
-                        <th>구분</th>
-                        <th>전표</th>
-                        <th>금액</th>
-                        <th>상태</th>
-                        <th>열기</th>
+                        <th>
+                          {isKorean ? "판매시각 (한국 시간)" : "Sale time (Korea time)"}
+                        </th>
+                        <th>{isKorean ? "구분" : "Type"}</th>
+                        <th>{isKorean ? "전표" : "Slip"}</th>
+                        <th>{isKorean ? "금액" : "Amount"}</th>
+                        <th>{isKorean ? "상태" : "Status"}</th>
+                        <th>{isKorean ? "열기" : "Open"}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {report.entries.map((e) => (
                         <tr key={e.entryId} data-testid={`ledger-entry-${e.entryId}`}>
-                          <td>{showTime(e.soldAt)}</td>
+                          <td>{showTime(e.soldAt, locale)}</td>
                           <td>
                             <span className={styles.methodChip} data-method={e.method}>
                               {methodLabels[locale][e.method]}
                             </span>{" "}
-                            {e.kind === "REVERSAL" ? "반대전표" : "판매"}
+                            {e.kind === "REVERSAL"
+                              ? isKorean
+                                ? "반대전표"
+                                : "Reversal"
+                              : isKorean
+                                ? "판매"
+                                : "Sale"}
                           </td>
                           <td>
                             <strong>{e.reference}</strong>
@@ -892,13 +960,22 @@ function ActualSalesLedgerPanel({
                                 .slice(0, 2)
                                 .map(
                                   (line) =>
-                                    `${line.name || "미매칭"} · ${line.quantity}개`,
+                                    `${line.name || (isKorean ? "미매칭" : "Unmatched")} · ${isKorean ? `${line.quantity}개` : `×${line.quantity}`}`,
                                 )
                                 .join(" / ")}
-                              {e.lines.length > 2 ? ` 외 ${e.lines.length - 2}줄` : ""}
+                              {e.lines.length > 2
+                                ? isKorean
+                                  ? ` 외 ${e.lines.length - 2}줄`
+                                  : ` +${e.lines.length - 2} more`
+                                : ""}
                             </span>
                           </td>
-                          <td>{money(e.kind === "REVERSAL" ? -e.amount : e.amount)}</td>
+                          <td>
+                            {money(
+                              e.kind === "REVERSAL" ? -e.amount : e.amount,
+                              locale,
+                            )}
+                          </td>
                           <td>
                             <span className={styles.entryStatus} data-state={e.status}>
                               {statusLabels[locale][e.status]}
@@ -907,42 +984,69 @@ function ActualSalesLedgerPanel({
                           <td>
                             <button
                               type="button"
-                              aria-label={`${e.status === "DRAFT" ? "이어서 작성" : "상세"} · ${e.entryId} 전표 선택`}
+                              aria-label={
+                                isKorean
+                                  ? `${e.status === "DRAFT" ? "이어서 작성" : "상세"} · ${e.entryId} 전표 선택`
+                                  : `${e.status === "DRAFT" ? "Continue editing" : "Details"} · Select slip ${e.entryId}`
+                              }
                               disabled={locked}
                               onClick={() => {
                                 setObservedNow(Date.now());
                                 selectEntry(e);
                               }}
                             >
-                              {e.status === "DRAFT" ? "이어서 작성" : "상세"}
+                              {e.status === "DRAFT"
+                                ? isKorean
+                                  ? "이어서 작성"
+                                  : "Continue editing"
+                                : isKorean
+                                  ? "상세"
+                                  : "Details"}
                             </button>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  {!report.entries.length ? <p>등록된 전표가 없습니다.</p> : null}
+                  {!report.entries.length ? (
+                    <p>
+                      {isKorean ? "등록된 전표가 없습니다." : "No slips registered."}
+                    </p>
+                  ) : null}
                 </div>
-                <ol className={styles.workflow} aria-label="판매 등록 순서">
+                <ol
+                  className={styles.workflow}
+                  aria-label={isKorean ? "판매 등록 순서" : "Sale registration steps"}
+                >
                   <li aria-current={draft && !preview ? "step" : undefined}>
-                    <span>1</span> 판매 입력
+                    <span>1</span> {isKorean ? "판매 입력" : "Enter sale"}
                   </li>
                   <li aria-current={preview ? "step" : undefined}>
-                    <span>2</span> 재고 확인
+                    <span>2</span> {isKorean ? "재고 확인" : "Check stock"}
                   </li>
                   <li>
-                    <span>3</span> 판매 확정
+                    <span>3</span> {isKorean ? "판매 확정" : "Post sale"}
                   </li>
                 </ol>
               </section>
               {draft ? (
-                <section className={styles.block} aria-label="판매 전표 편집">
+                <section
+                  className={styles.block}
+                  aria-label={isKorean ? "판매 전표 편집" : "Edit sales slip"}
+                >
                   <h3>
-                    {draft.expectedVersion ? "작성 중 전표 수정" : "새 판매 전표"}
+                    {draft.expectedVersion
+                      ? isKorean
+                        ? "작성 중 전표 수정"
+                        : "Edit draft slip"
+                      : isKorean
+                        ? "새 판매 전표"
+                        : "New sales slip"}
                   </h3>
                   <p className={styles.muted}>
-                    전표 번호 {draft.entryId} · 저장은 작성 중 상태이며 재고를 바꾸지
-                    않습니다.
+                    {isKorean
+                      ? `전표 번호 ${draft.entryId} · 저장은 작성 중 상태이며 재고를 바꾸지 않습니다.`
+                      : `Slip number ${draft.entryId} · Saving keeps it as a draft and does not change stock.`}
                   </p>
                   <form
                     onSubmit={(e) => {
@@ -964,7 +1068,9 @@ function ActualSalesLedgerPanel({
                     <fieldset disabled={locked || !open} className={styles.fieldset}>
                       <div className={styles.fields}>
                         <label>
-                          판매일시 (한국 시간)
+                          {isKorean
+                            ? "판매일시 (한국 시간)"
+                            : "Sale date and time (Korea time)"}
                           <input
                             type="datetime-local"
                             value={draft.soldAt}
@@ -978,20 +1084,22 @@ function ActualSalesLedgerPanel({
                           />
                         </label>
                         <label>
-                          결제 구분
+                          {isKorean ? "결제 구분" : "Payment method"}
                           <select
                             value={draft.method}
                             onChange={(e) =>
                               updateDraft({ method: e.target.value as Draft["method"] })
                             }
                           >
-                            <option value="CARD">카드</option>
-                            <option value="CASH">현금</option>
-                            <option value="TRANSFER">이체</option>
+                            {methodOrder.map((method) => (
+                              <option key={method} value={method}>
+                                {methodLabels[locale][method]}
+                              </option>
+                            ))}
                           </select>
                         </label>
                         <label>
-                          전표 참조번호
+                          {isKorean ? "전표 참조번호" : "Slip reference number"}
                           <input
                             value={draft.reference}
                             maxLength={64}
@@ -1001,7 +1109,7 @@ function ActualSalesLedgerPanel({
                           />
                         </label>
                         <label>
-                          전표 금액
+                          {isKorean ? "전표 금액" : "Slip amount"}
                           <input
                             type="number"
                             min="1"
@@ -1016,7 +1124,7 @@ function ActualSalesLedgerPanel({
                           />
                         </label>
                         <label className={styles.wide}>
-                          메모
+                          {isKorean ? "메모" : "Memo"}
                           <textarea
                             value={draft.memo}
                             maxLength={300}
@@ -1026,11 +1134,13 @@ function ActualSalesLedgerPanel({
                       </div>
                       <div className={styles.matching}>
                         <label>
-                          상품 이름 검색
+                          {isKorean ? "상품 이름 검색" : "Search product name"}
                           <input
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            placeholder="상품명을 입력하세요"
+                            placeholder={
+                              isKorean ? "상품명을 입력하세요" : "Enter a product name"
+                            }
                           />
                         </label>
                         <div className={styles.searchResults}>
@@ -1057,7 +1167,7 @@ function ActualSalesLedgerPanel({
                                 setSearch("");
                               }}
                             >
-                              {p.name} 연결
+                              {p.name} {isKorean ? "연결" : "link"}
                             </button>
                           ))}
                         </div>
@@ -1077,7 +1187,7 @@ function ActualSalesLedgerPanel({
                             ])
                           }
                         >
-                          미매칭 줄 추가
+                          {isKorean ? "미매칭 줄 추가" : "Add unmatched line"}
                         </button>
                       </div>
                       <div className={styles.lines}>
@@ -1088,11 +1198,17 @@ function ActualSalesLedgerPanel({
                               <strong>
                                 {index + 1} ·{" "}
                                 {l.productId
-                                  ? "상품 연결됨"
-                                  : "미매칭 · 재고 반영 불가"}
+                                  ? isKorean
+                                    ? "상품 연결됨"
+                                    : "Product linked"
+                                  : isKorean
+                                    ? "미매칭 · 재고 반영 불가"
+                                    : "Unmatched · Cannot update stock"}
                               </strong>
                               <label>
-                                {index + 1}번 상품명
+                                {isKorean
+                                  ? `${index + 1}번 상품명`
+                                  : `Line ${index + 1} product name`}
                                 <input
                                   value={l.name}
                                   maxLength={160}
@@ -1109,7 +1225,9 @@ function ActualSalesLedgerPanel({
                                 />
                               </label>
                               <label>
-                                {index + 1}번 옵션
+                                {isKorean
+                                  ? `${index + 1}번 옵션`
+                                  : `Line ${index + 1} option`}
                                 {p ? (
                                   <select
                                     value={l.option}
@@ -1123,7 +1241,9 @@ function ActualSalesLedgerPanel({
                                       )
                                     }
                                   >
-                                    <option value="">옵션 선택</option>
+                                    <option value="">
+                                      {isKorean ? "옵션 선택" : "Select option"}
+                                    </option>
                                     {p.sizes
                                       .split(",")
                                       .map((s) => s.trim())
@@ -1151,7 +1271,9 @@ function ActualSalesLedgerPanel({
                                 )}
                               </label>
                               <label>
-                                {index + 1}번 수량
+                                {isKorean
+                                  ? `${index + 1}번 수량`
+                                  : `Line ${index + 1} quantity`}
                                 <input
                                   type="number"
                                   value={l.quantity}
@@ -1171,7 +1293,9 @@ function ActualSalesLedgerPanel({
                                 />
                               </label>
                               <label>
-                                {index + 1}번 단가
+                                {isKorean
+                                  ? `${index + 1}번 단가`
+                                  : `Line ${index + 1} unit price`}
                                 <input
                                   type="number"
                                   value={l.unitAmount}
@@ -1192,19 +1316,24 @@ function ActualSalesLedgerPanel({
                               </label>
                               <button
                                 type="button"
-                                aria-label={`${index + 1}번 줄 삭제`}
+                                aria-label={
+                                  isKorean
+                                    ? `${index + 1}번 줄 삭제`
+                                    : `Delete line ${index + 1}`
+                                }
                                 onClick={() =>
                                   updateRows(draft.lines.filter((_, n) => n !== index))
                                 }
                               >
-                                줄 삭제
+                                {isKorean ? "줄 삭제" : "Delete line"}
                               </button>
                             </div>
                           );
                         })}
                       </div>
                       <p>
-                        상품 줄 합계 {money(lineSum(draft.lines))}{" "}
+                        {isKorean ? "상품 줄 합계" : "Line total"}{" "}
+                        {money(lineSum(draft.lines), locale)}{" "}
                         <button
                           type="button"
                           disabled={!draft.lines.length}
@@ -1213,23 +1342,27 @@ function ActualSalesLedgerPanel({
                             updateDraft({ amount: String(lineSum(draft.lines)) });
                           }}
                         >
-                          줄 합계를 전표 금액에 적용
+                          {isKorean
+                            ? "줄 합계를 전표 금액에 적용"
+                            : "Apply line total to slip amount"}
                         </button>
                       </p>
                       {unmatched ? (
-                        <AdminNotice status="warning">
-                          미매칭 상품·옵션이 있습니다. 초안 보관은 가능하며 재고 반영 전
-                          연결해야 합니다.
+                        <AdminNotice status="warning" locale={locale}>
+                          {isKorean
+                            ? "미매칭 상품·옵션이 있습니다. 초안 보관은 가능하며 재고 반영 전 연결해야 합니다."
+                            : "There are unmatched products or options. You can save the draft, but link them before updating stock."}
                         </AdminNotice>
                       ) : null}
                       {mismatched ? (
-                        <AdminNotice status="warning">
-                          상품 줄 합계와 전표 금액이 다릅니다. 초안 보관은 가능하며 재고
-                          반영 전 대조해야 합니다.
+                        <AdminNotice status="warning" locale={locale}>
+                          {isKorean
+                            ? "상품 줄 합계와 전표 금액이 다릅니다. 초안 보관은 가능하며 재고 반영 전 대조해야 합니다."
+                            : "The line total differs from the slip amount. You can save the draft, but reconcile them before updating stock."}
                         </AdminNotice>
                       ) : null}
                       <button type="submit" disabled={!draftValid}>
-                        초안 저장
+                        {isKorean ? "초안 저장" : "Save draft"}
                       </button>
                     </fieldset>
                   </form>
