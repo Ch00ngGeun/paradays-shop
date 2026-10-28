@@ -3154,6 +3154,7 @@ function ProductOptionControls({
   value: string;
 }>) {
   const { locale } = useLocale();
+  const isKorean = locale === "ko";
   const inputRef = useRef<HTMLInputElement>(null);
   const [deckWidth, setDeckWidth] = useState("");
   const [wheelDiameter, setWheelDiameter] = useState("");
@@ -3173,8 +3174,14 @@ function ProductOptionControls({
         kind: "error",
         message:
           result.reason === "too-many-options"
-            ? "옵션은 최대 20개까지 추가할 수 있습니다."
-            : "각 옵션은 쉼표·줄바꿈 없이 50자 이하로 추가해 주세요.",
+            ? {
+                ko: "옵션은 최대 20개까지 추가할 수 있습니다.",
+                en: "You can add up to 20 options.",
+              }
+            : {
+                ko: "각 옵션은 쉼표·줄바꿈 없이 50자 이하로 추가해 주세요.",
+                en: "Add each option in 50 characters or fewer, without commas or line breaks.",
+              },
       });
       return;
     }
@@ -3182,8 +3189,8 @@ function ProductOptionControls({
     setNotice({
       kind: "success",
       message: result.added
-        ? `${option} 옵션을 추가했습니다.`
-        : "이미 있는 옵션입니다.",
+        ? { ko: `${option} 옵션을 추가했습니다.`, en: `Added the ${option} option.` }
+        : { ko: "이미 있는 옵션입니다.", en: "This option already exists." },
     });
     setDeckWidth("");
     setWheelDiameter("");
@@ -3195,7 +3202,7 @@ function ProductOptionControls({
       className={`${styles.productOptionField} ${category === "Deck" ? styles.productDeckField : ""}`}
     >
       <label htmlFor={`product-options-${editorId}`}>
-        <span>사이즈 / 옵션</span>
+        <span>{isKorean ? "사이즈 / 옵션" : "Size / options"}</span>
         <input
           id={`product-options-${editorId}`}
           onChange={(event) => {
@@ -3210,7 +3217,7 @@ function ProductOptionControls({
       {category === "Deck" ? (
         <div className={styles.productOptionPicker}>
           <select
-            aria-label="데크 규격 선택"
+            aria-label={isKorean ? "데크 규격 선택" : "Choose deck width"}
             onChange={(event) => {
               setDeckWidth(event.target.value);
               setNotice(null);
@@ -3218,13 +3225,13 @@ function ProductOptionControls({
             }}
             value={deckWidth}
           >
-            <option value="">규격 선택</option>
+            <option value="">{isKorean ? "규격 선택" : "Choose width"}</option>
             {PRODUCT_DECK_WIDTHS.map((width) => (
               <option key={width} value={width}>
                 {width}”
               </option>
             ))}
-            <option value="manual">직접 입력</option>
+            <option value="manual">{isKorean ? "직접 입력" : "Enter manually"}</option>
           </select>
           <button
             className={styles.secondaryButton}
@@ -3232,21 +3239,21 @@ function ProductOptionControls({
             onClick={addOption}
             type="button"
           >
-            옵션 추가
+            {isKorean ? "옵션 추가" : "Add option"}
           </button>
         </div>
       ) : category === "Wheels" ? (
         <>
           <div className={styles.productWheelPicker}>
             <select
-              aria-label="바퀴 크기 선택"
+              aria-label={isKorean ? "바퀴 크기 선택" : "Choose wheel size"}
               onChange={(event) => {
                 setWheelDiameter(event.target.value);
                 setNotice(null);
               }}
               value={wheelDiameter}
             >
-              <option value="">크기 선택</option>
+              <option value="">{isKorean ? "크기 선택" : "Choose size"}</option>
               {PRODUCT_WHEEL_DIAMETERS.map((diameter) => (
                 <option key={diameter} value={diameter}>
                   {diameter}mm
@@ -3254,14 +3261,14 @@ function ProductOptionControls({
               ))}
             </select>
             <select
-              aria-label="경도 선택"
+              aria-label={isKorean ? "경도 선택" : "Choose hardness"}
               onChange={(event) => {
                 setWheelHardness(event.target.value);
                 setNotice(null);
               }}
               value={wheelHardness}
             >
-              <option value="">경도 선택</option>
+              <option value="">{isKorean ? "경도 선택" : "Choose hardness"}</option>
               {PRODUCT_WHEEL_HARDNESSES.map((hardness) => (
                 <option key={hardness} value={hardness}>
                   {hardness}a
@@ -3275,15 +3282,19 @@ function ProductOptionControls({
             onClick={addOption}
             type="button"
           >
-            옵션 추가
+            {isKorean ? "옵션 추가" : "Add option"}
           </button>
         </>
       ) : null}
       <small>
         {category === "Deck" || category === "Wheels"
-          ? "선택 후 ‘옵션 추가’를 누르세요. 추가 전 선택값은 저장되지 않습니다. "
+          ? isKorean
+            ? "선택 후 ‘옵션 추가’를 누르세요. 추가 전 선택값은 저장되지 않습니다. "
+            : "After choosing, press ‘Add option’. A choice is not saved until it is added. "
           : ""}
-        여러 옵션은 쉼표로 구분 · 최대 20개
+        {isKorean
+          ? "여러 옵션은 쉼표로 구분 · 최대 20개"
+          : "Separate options with commas · Up to 20"}
       </small>
       {notice ? (
         <small
@@ -3366,6 +3377,8 @@ function ProductSection({
   saving: boolean;
   view: "list" | "create" | "edit";
 }>) {
+  const { locale } = useLocale();
+  const isKorean = locale === "ko";
   const previewDescriptionLines = draft.description
     .split(/\n/)
     .map((line) => line.trim())
@@ -3389,14 +3402,24 @@ function ProductSection({
     currentProduct?.version && currentProduct.isVisible,
   );
   const saveLabel = !canSaveToServer
-    ? "이 브라우저에 초안 보관"
+    ? isKorean
+      ? "이 브라우저에 초안 보관"
+      : "Keep draft in this browser"
     : draft.isVisible
       ? view === "edit" && isCurrentlyPublic
-        ? "공개 상태로 수정 저장"
-        : "저장 후 스토어 공개"
+        ? isKorean
+          ? "공개 상태로 수정 저장"
+          : "Save changes as public"
+        : isKorean
+          ? "저장 후 스토어 공개"
+          : "Save and publish to store"
       : view === "edit"
-        ? "비공개 수정 저장"
-        : "비공개로 저장";
+        ? isKorean
+          ? "비공개 수정 저장"
+          : "Save changes as private"
+        : isKorean
+          ? "비공개로 저장"
+          : "Save as private";
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
   const [filterQuery, setFilterQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">(
@@ -3537,14 +3560,23 @@ function ProductSection({
 
   const productSaved = view !== "list" && notice?.kind === "success" && !saving;
   const productSteps: AdminStep[] = [
-    { label: "상품 선택", state: view === "list" ? "current" : "complete" },
     {
-      label: "정보 입력",
+      label: isKorean ? "상품 선택" : "Select product",
+      state: view === "list" ? "current" : "complete",
+    },
+    {
+      label: isKorean ? "정보 입력" : "Enter details",
       state:
         view === "list" ? "upcoming" : saving || productSaved ? "complete" : "current",
     },
     {
-      label: canSaveToServer ? "서버 저장·공개" : "서버 저장",
+      label: canSaveToServer
+        ? isKorean
+          ? "서버 저장·공개"
+          : "Save to server & publish"
+        : isKorean
+          ? "서버 저장"
+          : "Save to server",
       state: !canSaveToServer
         ? "unavailable"
         : productSaved
@@ -3557,7 +3589,8 @@ function ProductSection({
   const productStepper = (
     <AdminStepper
       className={styles.screenStepper}
-      label="상품 작업 흐름"
+      label={isKorean ? "상품 작업 흐름" : "Product workflow"}
+      locale={locale}
       steps={productSteps}
     />
   );
@@ -3568,55 +3601,63 @@ function ProductSection({
         {productStepper}
         <div className={styles.productListHeader}>
           <div className={styles.productPageHeading}>
-            <h2>상품 관리</h2>
-            <p>상품의 공개 상태와 재고를 확인하세요.</p>
+            <h2>{isKorean ? "상품 관리" : "Products"}</h2>
+            <p>
+              {isKorean
+                ? "상품의 공개 상태와 재고를 확인하세요."
+                : "Check each product's visibility and stock."}
+            </p>
           </div>
           <div className={styles.productListHeaderActions}>
             <button
-              aria-label="새 상품 등록"
+              aria-label={isKorean ? "새 상품 등록" : "Register new product"}
               className={styles.addProductButton}
               onClick={onOpenCreate}
               type="button"
             >
-              <span aria-hidden="true">＋</span> 새 상품
+              <span aria-hidden="true">＋</span> {isKorean ? "새 상품" : "New product"}
             </button>
           </div>
         </div>
         {notice ? <NoticeMessage notice={notice} /> : null}
         <div className={styles.productToolbar}>
           <label className={styles.productFilterSearch}>
-            <span className={styles.srOnly}>상품 검색</span>
+            <span className={styles.srOnly}>
+              {isKorean ? "상품 검색" : "Search products"}
+            </span>
             <input
               onChange={(event) => setFilterQuery(event.target.value)}
-              placeholder="상품명 · 브랜드 · SKU 검색"
+              placeholder={
+                isKorean ? "상품명 · 브랜드 · SKU 검색" : "Search name · brand · SKU"
+              }
               type="search"
               value={filterQuery}
             />
           </label>
           <label className={styles.productFilterSelect}>
-            <span>상태</span>
+            <span>{isKorean ? "상태" : "Status"}</span>
             <select
               onChange={(event) =>
                 setStatusFilter(event.target.value as "all" | "published" | "draft")
               }
               value={statusFilter}
             >
-              <option value="all">전체</option>
-              <option value="published">공개</option>
-              <option value="draft">비공개</option>
+              <option value="all">{isKorean ? "전체" : "All"}</option>
+              <option value="published">{isKorean ? "공개" : "Public"}</option>
+              <option value="draft">{isKorean ? "비공개" : "Private"}</option>
             </select>
           </label>
           <label className={styles.productFilterSelect}>
-            <span>재고</span>
+            <span>{isKorean ? "재고" : "Stock"}</span>
             <select
               onChange={(event) =>
                 setStockFilter(event.target.value as "all" | "inStock" | "soldOut")
               }
               value={stockFilter}
             >
-              <option value="all">전체</option>
-              <option value="inStock">재고 있음</option>
-              <option value="soldOut">품절</option>
+              <option value="all">{isKorean ? "전체" : "All"}</option>
+              <option value="inStock">{isKorean ? "재고 있음" : "In stock"}</option>
+              <option value="soldOut">{isKorean ? "품절" : "Sold out"}</option>
             </select>
           </label>
         </div>
@@ -3632,7 +3673,7 @@ function ProductSection({
               aria-checked={allFilteredSelected}
               className={styles.productCheckbox}
             />
-            <span>전체 선택</span>
+            <span>{isKorean ? "전체 선택" : "Select all"}</span>
           </button>
           <button
             className={styles.productBulkDeleteButton}
@@ -3648,22 +3689,37 @@ function ProductSection({
             type="button"
           >
             {deleting
-              ? "삭제 중…"
+              ? isKorean
+                ? "삭제 중…"
+                : "Deleting…"
               : selectedProducts.length > 0
-                ? `선택 삭제 (${selectedProducts.length})`
-                : "선택 삭제"}
+                ? isKorean
+                  ? `선택 삭제 (${selectedProducts.length})`
+                  : `Delete selected (${selectedProducts.length})`
+                : isKorean
+                  ? "선택 삭제"
+                  : "Delete selected"}
           </button>
         </div>
         {loading ? (
-          <p className={styles.productListEmpty}>상품 목록을 불러오는 중…</p>
+          <p className={styles.productListEmpty}>
+            {isKorean ? "상품 목록을 불러오는 중…" : "Loading products…"}
+          </p>
         ) : filteredProducts.length === 0 ? (
           <p className={styles.productListEmpty}>
             {products.length === 0
-              ? "아직 등록된 상품이 없습니다. 새 상품을 추가해 보세요."
-              : "필터 조건에 맞는 상품이 없습니다."}
+              ? isKorean
+                ? "아직 등록된 상품이 없습니다. 새 상품을 추가해 보세요."
+                : "No products yet. Add a new product."
+              : isKorean
+                ? "필터 조건에 맞는 상품이 없습니다."
+                : "No products match the filters."}
           </p>
         ) : (
-          <ul aria-label="상품 목록" className={styles.productList}>
+          <ul
+            aria-label={isKorean ? "상품 목록" : "Product list"}
+            className={styles.productList}
+          >
             {filteredProducts.map((product) => {
               const isSelected = selectedIds.has(product.id);
 
@@ -3677,7 +3733,9 @@ function ProductSection({
                   key={product.id}
                 >
                   <button
-                    aria-label={`${product.name} 선택`}
+                    aria-label={
+                      isKorean ? `${product.name} 선택` : `Select ${product.name}`
+                    }
                     aria-pressed={isSelected}
                     className={styles.productSelectHit}
                     onClick={(event) => {
@@ -3709,7 +3767,8 @@ function ProductSection({
                   </div>
                   <div className={styles.productRowMeta}>
                     <span className={styles.productStock}>
-                      재고 {product.stock} <StockStatusBadge stock={product.stock} />
+                      {isKorean ? "재고" : "Stock"} {product.stock}{" "}
+                      <StockStatusBadge locale={locale} stock={product.stock} />
                     </span>
                     <span className={styles.productPrice}>
                       {moneyFormatter.format(product.price)}
@@ -3722,10 +3781,16 @@ function ProductSection({
                       }
                     >
                       {product.version <= 0
-                        ? "로컬 초안"
+                        ? isKorean
+                          ? "로컬 초안"
+                          : "Local draft"
                         : product.isVisible
-                          ? "공개"
-                          : "비공개"}
+                          ? isKorean
+                            ? "공개"
+                            : "Public"
+                          : isKorean
+                            ? "비공개"
+                            : "Private"}
                     </span>
                   </div>
                   <div className={styles.productRowActions}>
@@ -3734,7 +3799,7 @@ function ProductSection({
                       onClick={() => onEditProduct(product)}
                       type="button"
                     >
-                      수정
+                      {isKorean ? "수정" : "Edit"}
                     </button>
                     <button
                       className={styles.productRowDeleteButton}
@@ -3744,7 +3809,7 @@ function ProductSection({
                       }
                       type="button"
                     >
-                      삭제
+                      {isKorean ? "삭제" : "Delete"}
                     </button>
                   </div>
                 </li>
