@@ -1049,6 +1049,56 @@ describe("explicit pinned HTTPS OCR demo transport", () => {
   });
 });
 
+describe("OCR error messages in English", () => {
+  const ocrError = (status: number, code?: string, reason?: string) =>
+    new AdminApiRequestError(status, "admin/ocr/jobs", code, reason);
+
+  it.each([
+    [new AdminOcrDemoConnectionError(true), "2-minute wait"],
+    [new AdminOcrDemoConnectionError(false), "HTTPS relay"],
+    [ocrError(401), "sign-in has expired"],
+    [ocrError(403, "LOCAL_OCR_ORIGIN_REQUIRED"), "localhost:3138"],
+    [ocrError(403, "ADMIN_ROLE_REQUIRED"), "admin group"],
+    [ocrError(429, "OCR_PROVIDER_BUSY"), "usage limit"],
+    [ocrError(408, "LOCAL_OCR_BODY_TIMEOUT"), "timed out"],
+    [ocrError(400, "OCR_IMAGE_INVALID"), "image format"],
+    [ocrError(413, "OCR_IMAGE_TOO_LARGE"), "4MiB"],
+    [ocrError(503, "OCR_JOB_CONFIGURATION_UNAVAILABLE"), "settings are empty"],
+    [ocrError(502, "OCR_PROVIDER_REQUEST_FAILED"), "PaddleOCR service failed"],
+    [ocrError(502, "OCR_PROVIDER_RESPONSE_INVALID"), "rec_texts"],
+    [ocrError(503, "OCR_JOB_STORAGE_UNAVAILABLE"), "DynamoDB"],
+    [ocrError(400, "OCR_JOB_RAW_TEXT_INVALID"), "100,000"],
+    [ocrError(413, "OCR_JOB_TOO_LARGE"), "larger than can be saved"],
+    [ocrError(400, "OCR_JOB_MAPPING_UNUSABLE", "missing-geometry"), "position data"],
+    [ocrError(400, "OCR_JOB_MAPPING_INVALID"), "Could not determine product rows"],
+    [ocrError(400, "OCR_JOB_SOURCE_ROWS_UNAVAILABLE"), "no original coordinates"],
+    [ocrError(500), "OCR server processing failed"],
+    [ocrError(400), "The OCR request failed"],
+  ])("maps %o to English without Korean", (error, text) => {
+    const message = getOcrRequestErrorMessage(error, "en");
+    expect(message).toContain(text);
+    expect(message).not.toMatch(/[가-힣]/u);
+  });
+
+  it("keeps the region reason and the kept-review note together in English", () => {
+    expect(
+      getOcrRequestErrorMessage(
+        ocrError(400, "OCR_JOB_MAPPING_UNUSABLE", "quantity-column-conflict"),
+        "en",
+      ),
+    ).toBe(
+      "Price, number or status areas cannot be used as quantity. Select the actual quantity area. The current review is kept.",
+    );
+    expect(
+      getOcrRequestErrorMessage(
+        ocrError(400, "OCR_JOB_MAPPING_UNUSABLE", "quantity-column-conflict"),
+      ),
+    ).toBe(
+      "금액·번호·상태 영역은 수량으로 사용할 수 없습니다. 실제 수량 영역을 선택해 주세요. 현재 검토본은 유지됩니다.",
+    );
+  });
+});
+
 describe("createAdminApiClient", () => {
   it("keeps legacy overview payloads compatible and validates optional live metrics", async () => {
     const baseMetrics = {

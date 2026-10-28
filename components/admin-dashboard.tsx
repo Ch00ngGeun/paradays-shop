@@ -99,6 +99,12 @@ function localizedText(text: LocalizedText, locale: Locale) {
   return typeof text === "string" ? text : text[locale];
 }
 
+function localizedOcrRequestError(error: unknown): LocalizedText | undefined {
+  const ko = getOcrRequestErrorMessage(error, "ko");
+  const en = getOcrRequestErrorMessage(error, "en");
+  return ko && en ? { ko, en } : undefined;
+}
+
 type Notice =
   | Readonly<{ kind: "error"; message: LocalizedText }>
   | Readonly<{ kind: "success"; message: LocalizedText }>
@@ -1912,12 +1918,17 @@ function AdminWorkspace({
         key: "ocr",
         section: "ocr",
         status: "working",
-        detail:
-          "입고 이미지를 선택했습니다. 인식·검토·재고 반영은 아직 완료되지 않았습니다.",
+        detail: {
+          ko: "입고 이미지를 선택했습니다. 인식·검토·재고 반영은 아직 완료되지 않았습니다.",
+          en: "Selected the stock-in image. Recognition, review and stock update are not done yet.",
+        },
       });
       setOcrNotice({
         kind: "success",
-        message: `“${file.name}” 파일의 이름·MIME·매직 바이트·4MiB 직접 전송 한도를 확인했습니다.`,
+        message: {
+          ko: `“${file.name}” 파일의 이름·MIME·매직 바이트·4MiB 직접 전송 한도를 확인했습니다.`,
+          en: `Checked the name, MIME type, magic bytes and 4MiB direct upload limit of “${file.name}”.`,
+        },
       });
     } catch (error) {
       if (selectionId !== ocrFileSelectionRef.current) {
@@ -1927,9 +1938,10 @@ function AdminWorkspace({
       event.target.value = "";
       setOcrNotice({
         kind: "error",
-        message:
-          getOcrInputErrorMessage(error) ??
-          "이미지 파일을 검증하지 못했습니다. 파일을 다시 선택해 주세요.",
+        message: getOcrInputErrorMessage(error) ?? {
+          ko: "이미지 파일을 검증하지 못했습니다. 파일을 다시 선택해 주세요.",
+          en: "Could not validate the image file. Choose the file again.",
+        },
       });
     }
   };
@@ -1947,7 +1959,10 @@ function AdminWorkspace({
     if (!ocrFile) {
       setOcrNotice({
         kind: "error",
-        message: "먼저 입고 목록 이미지 파일을 선택해 주세요.",
+        message: {
+          ko: "먼저 입고 목록 이미지 파일을 선택해 주세요.",
+          en: "Choose a stock-in list image file first.",
+        },
       });
       return;
     }
@@ -1956,8 +1971,10 @@ function AdminWorkspace({
       setOcrState("connection-needed");
       setOcrNotice({
         kind: "error",
-        message:
-          "OCR API 연결을 기다리고 있습니다. 이미지나 OCR 키를 브라우저에 직접 노출하지 않습니다.",
+        message: {
+          ko: "OCR API 연결을 기다리고 있습니다. 이미지나 OCR 키를 브라우저에 직접 노출하지 않습니다.",
+          en: "Waiting for the OCR API connection. Images and OCR keys are never exposed directly in the browser.",
+        },
       });
       return;
     }
@@ -1984,14 +2001,25 @@ function AdminWorkspace({
         kind: result.rows.length > 0 && !hasTableFields ? "error" : "success",
         message:
           result.rows.length === 0
-            ? "인식된 텍스트가 없습니다. 더 선명한 이미지를 선택하거나 행 추가로 직접 입력해 주세요."
+            ? {
+                ko: "인식된 텍스트가 없습니다. 더 선명한 이미지를 선택하거나 행 추가로 직접 입력해 주세요.",
+                en: "No text was recognized. Choose a sharper image or add rows manually.",
+              }
             : hasTableFields
-              ? result.rows.length +
-                "개 상품 행을 인식했습니다. 저장 전에 상품명·브랜드·옵션·수량을 반드시 검토해 주세요."
-              : "표의 열을 확정하지 못해 미분류 원문 " +
-                result.rows.length +
-                "개를 그대로 표시합니다. 열 지정 또는 직접 입력으로 상품 필드를 확인해 주세요. 분류 사유: " +
-                (result.analysis?.reason ?? "이전 응답에 분류 정보 없음"),
+              ? {
+                  ko:
+                    result.rows.length +
+                    "개 상품 행을 인식했습니다. 저장 전에 상품명·브랜드·옵션·수량을 반드시 검토해 주세요.",
+                  en: `Recognized ${result.rows.length} product rows. Review the product name, brand, option and quantity before saving.`,
+                }
+              : {
+                  ko:
+                    "표의 열을 확정하지 못해 미분류 원문 " +
+                    result.rows.length +
+                    "개를 그대로 표시합니다. 열 지정 또는 직접 입력으로 상품 필드를 확인해 주세요. 분류 사유: " +
+                    (result.analysis?.reason ?? "이전 응답에 분류 정보 없음"),
+                  en: `Could not determine the table columns, so ${result.rows.length} unclassified source lines are shown as is. Check the product fields with column mapping or manual input. Reason: ${result.analysis?.reason ?? "no classification in the earlier response"}`,
+                },
       });
     } catch (error) {
       if (
@@ -2005,14 +2033,18 @@ function AdminWorkspace({
         key: "ocr",
         section: "ocr",
         status: "attention",
-        detail: "OCR 인식 결과를 확인하지 못했습니다. 연결과 이미지를 확인해야 합니다.",
+        detail: {
+          ko: "OCR 인식 결과를 확인하지 못했습니다. 연결과 이미지를 확인해야 합니다.",
+          en: "Could not confirm the OCR result. Check the connection and the image.",
+        },
       });
       setOcrNotice({
         kind: "error",
-        message:
-          getOcrInputErrorMessage(error) ??
-          getOcrRequestErrorMessage(error) ??
-          "OCR 요청에 실패했습니다. 이미지 형식과 관리자 API·PaddleOCR 연결을 확인해 주세요.",
+        message: getOcrInputErrorMessage(error) ??
+          localizedOcrRequestError(error) ?? {
+            ko: "OCR 요청에 실패했습니다. 이미지 형식과 관리자 API·PaddleOCR 연결을 확인해 주세요.",
+            en: "The OCR request failed. Check the image format and the admin API and PaddleOCR connections.",
+          },
       });
     }
   };
@@ -2032,7 +2064,10 @@ function AdminWorkspace({
     if (ocrRows.length >= OCR_INPUT_LIMITS.maxReviewRows) {
       setOcrNotice({
         kind: "error",
-        message: `검토 행은 최대 ${OCR_INPUT_LIMITS.maxReviewRows}개까지 추가할 수 있습니다.`,
+        message: {
+          ko: `검토 행은 최대 ${OCR_INPUT_LIMITS.maxReviewRows}개까지 추가할 수 있습니다.`,
+          en: `You can add up to ${OCR_INPUT_LIMITS.maxReviewRows} review rows.`,
+        },
       });
       return;
     }
@@ -2048,7 +2083,13 @@ function AdminWorkspace({
 
   const handleOcrSave = async () => {
     if (ocrRows.length === 0) {
-      setOcrNotice({ kind: "error", message: "저장할 입고 행이 없습니다." });
+      setOcrNotice({
+        kind: "error",
+        message: {
+          ko: "저장할 입고 행이 없습니다.",
+          en: "There are no stock-in rows to save.",
+        },
+      });
       return;
     }
 
@@ -2065,12 +2106,17 @@ function AdminWorkspace({
         key: "ocr",
         section: "ocr",
         status: "attention",
-        detail: "입고 검토 저장 연결이 필요합니다. 서버 미저장 · 재고 미반영",
+        detail: {
+          ko: "입고 검토 저장 연결이 필요합니다. 서버 미저장 · 재고 미반영",
+          en: "The stock-in review save needs a connection. Not saved to the server · Stock not updated",
+        },
       });
       setOcrNotice({
         kind: "error",
-        message:
-          "OCR 검토 저장 API가 연결되지 않았습니다. 현재 화면의 초안은 서버에 저장되지 않았습니다.",
+        message: {
+          ko: "OCR 검토 저장 API가 연결되지 않았습니다. 현재 화면의 초안은 서버에 저장되지 않았습니다.",
+          en: "The OCR review save API is not connected. The draft on this screen was not saved to the server.",
+        },
       });
       return;
     }
@@ -2103,25 +2149,36 @@ function AdminWorkspace({
           key: "ocr",
           section: "ocr",
           status: "attention",
-          detail: "검토본이 변경되어 최신 내용을 다시 확인해야 합니다.",
+          detail: {
+            ko: "검토본이 변경되어 최신 내용을 다시 확인해야 합니다.",
+            en: "The review changed. Check the latest content again.",
+          },
         });
         setOcrNotice({
           kind: "error",
-          message:
-            "다른 관리자의 수정이 먼저 저장되어 최신 OCR 검토본을 다시 불러왔습니다. 내용을 다시 확인한 뒤 저장해 주세요.",
+          message: {
+            ko: "다른 관리자의 수정이 먼저 저장되어 최신 OCR 검토본을 다시 불러왔습니다. 내용을 다시 확인한 뒤 저장해 주세요.",
+            en: "Another admin saved changes first, so the latest OCR review was reloaded. Check the content again, then save.",
+          },
         });
         return;
       }
 
       setOcrNotice({
         kind: "success",
-        message: `검토한 입고 행을 관리자 API에 저장했습니다. 서버 버전 ${result.job.version}을 적용했습니다. 실제 재고를 변경하려면 아래 재고 반영에서 상품과 수량을 확인해 주세요.`,
+        message: {
+          ko: `검토한 입고 행을 관리자 API에 저장했습니다. 서버 버전 ${result.job.version}을 적용했습니다. 실제 재고를 변경하려면 아래 재고 반영에서 상품과 수량을 확인해 주세요.`,
+          en: `Saved the reviewed stock-in rows to the admin API as server version ${result.job.version}. To change actual stock, check the products and quantities in the stock update below.`,
+        },
       });
       recordActivity({
         key: "ocr",
         section: "ocr",
         status: "draft",
-        detail: "입고 검토 초안을 서버에 저장했습니다. 실제 재고 반영은 별도입니다.",
+        detail: {
+          ko: "입고 검토 초안을 서버에 저장했습니다. 실제 재고 반영은 별도입니다.",
+          en: "Saved the stock-in review draft to the server. Updating actual stock is a separate step.",
+        },
       });
       setOcrInventoryJob(result.job);
     } catch {
@@ -2130,14 +2187,19 @@ function AdminWorkspace({
       }
       setOcrNotice({
         kind: "error",
-        message: "입고 행을 저장하지 못했습니다. 내용을 확인한 뒤 다시 시도해 주세요.",
+        message: {
+          ko: "입고 행을 저장하지 못했습니다. 내용을 확인한 뒤 다시 시도해 주세요.",
+          en: "Could not save the stock-in rows. Check the content, then try again.",
+        },
       });
       recordActivity({
         key: "ocr",
         section: "ocr",
         status: "attention",
-        detail:
-          "입고 검토 초안의 저장 결과를 확인해야 합니다. 재고 반영 완료가 아닙니다.",
+        detail: {
+          ko: "입고 검토 초안의 저장 결과를 확인해야 합니다. 재고 반영 완료가 아닙니다.",
+          en: "Check the save result of the stock-in review draft. Stock has not been updated.",
+        },
       });
     } finally {
       if (requestGeneration === ocrRequestGenerationRef.current) {
@@ -2170,15 +2232,27 @@ function AdminWorkspace({
           status: result.kind === "conflict" ? "attention" : "working",
           detail:
             result.kind === "conflict"
-              ? "검토본이 변경되어 최신 내용을 다시 확인해야 합니다."
-              : "열 지정이 변경되었습니다. 상품 필드를 다시 검토하고 초안을 저장하세요.",
+              ? {
+                  ko: "검토본이 변경되어 최신 내용을 다시 확인해야 합니다.",
+                  en: "The review changed. Check the latest content again.",
+                }
+              : {
+                  ko: "열 지정이 변경되었습니다. 상품 필드를 다시 검토하고 초안을 저장하세요.",
+                  en: "The column mapping changed. Review the product fields again and save the draft.",
+                },
         });
         setOcrNotice({
           kind: result.kind === "conflict" ? "error" : "success",
           message:
             result.kind === "conflict"
-              ? "다른 수정이 먼저 저장되어 최신 OCR 검토본을 불러왔습니다. 열 지정을 다시 미리보기해 주세요."
-              : `열 지정을 원본 OCR에 적용했습니다. 서버 버전 ${result.job.version}의 상품 필드를 검토한 뒤 초안을 저장해 주세요.`,
+              ? {
+                  ko: "다른 수정이 먼저 저장되어 최신 OCR 검토본을 불러왔습니다. 열 지정을 다시 미리보기해 주세요.",
+                  en: "Another change was saved first, so the latest OCR review was loaded. Preview the column mapping again.",
+                }
+              : {
+                  ko: `열 지정을 원본 OCR에 적용했습니다. 서버 버전 ${result.job.version}의 상품 필드를 검토한 뒤 초안을 저장해 주세요.`,
+                  en: `Applied the column mapping to the original OCR. Review the product fields of server version ${result.job.version}, then save the draft.`,
+                },
         });
       }
       return result;
@@ -2188,13 +2262,17 @@ function AdminWorkspace({
           key: "ocr",
           section: "ocr",
           status: "attention",
-          detail: "열 지정 결과를 확인하지 못했습니다. 기존 검토본은 유지됩니다.",
+          detail: {
+            ko: "열 지정 결과를 확인하지 못했습니다. 기존 검토본은 유지됩니다.",
+            en: "Could not confirm the column mapping result. The existing review is kept.",
+          },
         });
         setOcrNotice({
           kind: "error",
-          message:
-            getOcrRequestErrorMessage(error) ??
-            "열 지정에 실패했습니다. 현재 검토본은 유지됩니다.",
+          message: localizedOcrRequestError(error) ?? {
+            ko: "열 지정에 실패했습니다. 현재 검토본은 유지됩니다.",
+            en: "The column mapping failed. The current review is kept.",
+          },
         });
       }
       return null;
