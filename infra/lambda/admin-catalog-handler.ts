@@ -1556,6 +1556,8 @@ function readDescriptionI18n(
 
 const DECK_SPEC_FIELDS = ["nose", "tail", "width", "length", "wheelbase"] as const;
 const MAX_DECK_SPEC_INCHES = 100;
+// Up to 4 decimals (1/16" = 0.0625), matching what the admin modal can type and reopen unchanged.
+const DECK_SPEC_INCHES_PATTERN = /^\d+(?:\.\d{1,4})?$/;
 
 /** 생략·null은 상세사이즈 없음(undefined), 형식 오류는 null로 구분합니다. */
 function readDeckSpec(value: unknown): CatalogDeckSpec | undefined | null {
@@ -1583,7 +1585,8 @@ function isCatalogDeckSpec(value: unknown): value is CatalogDeckSpec {
         typeof inches === "number" &&
         Number.isFinite(inches) &&
         inches > 0 &&
-        inches <= MAX_DECK_SPEC_INCHES
+        inches <= MAX_DECK_SPEC_INCHES &&
+        DECK_SPEC_INCHES_PATTERN.test(String(inches))
       );
     })
   );

@@ -901,6 +901,8 @@ test("deckSpec-only PATCH saves, publishes, survives other edits and clears with
     { ...deckSpec, tail: 0 },
     { ...deckSpec, width: "8.5" },
     { ...deckSpec, length: 101 },
+    { ...deckSpec, nose: 6.87501 },
+    { ...deckSpec, tail: 1e-7 },
     { nose: 6.875 },
     "8.5",
   ]) {
