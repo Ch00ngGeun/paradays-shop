@@ -144,6 +144,30 @@ const warnings: Record<Locale, Record<string, string>> = {
       "Online payment results are pending. Only confirmed amounts are included in the totals.",
   },
 };
+const onlineKind = (kind: string, locale: Locale) =>
+  kind === "APPROVAL"
+    ? locale === "ko"
+      ? "승인"
+      : "Approval"
+    : locale === "ko"
+      ? "환불"
+      : "Refund";
+const timeBasis = (basis: string, locale: Locale) =>
+  basis === "OBSERVED"
+    ? locale === "ko"
+      ? "서버 확인시각 기준"
+      : "Server-observed time"
+    : locale === "ko"
+      ? "결제 제공자 시각 기준"
+      : "Payment provider time";
+/** 서버가 일마감에 붙이는 고정 사유만 번역함. 관리자가 입력한 재개방 사유는 데이터라 그대로 둠. */
+export const historyReason = (
+  h: Readonly<{ action: string; reason: string }>,
+  locale: Locale,
+) =>
+  locale === "en" && h.action === "CLOSE" && h.reason === "매출 대조 확인"
+    ? "Sales reconciliation confirmed"
+    : h.reason;
 const lineSum = (rows: readonly Row[]) =>
   rows.reduce((s, l) => s + Number(l.quantity) * Number(l.unitAmount), 0);
 const draftOf = (e: SaleEntry): Draft => ({
@@ -1370,8 +1394,12 @@ function ActualSalesLedgerPanel({
                     <>
                       <p>
                         {unsaved
-                          ? "수정 내용을 초안 저장한 뒤 재고 미리보기를 요청해 주세요."
-                          : "저장된 초안의 상품·수량을 다시 확인해 주세요."}
+                          ? isKorean
+                            ? "수정 내용을 초안 저장한 뒤 재고 미리보기를 요청해 주세요."
+                            : "Save your changes as a draft, then request the stock preview."
+                          : isKorean
+                            ? "저장된 초안의 상품·수량을 다시 확인해 주세요."
+                            : "Check the saved draft's products and quantities again."}
                       </p>
                       <button
                         type="button"
@@ -1384,11 +1412,13 @@ function ActualSalesLedgerPanel({
                           })
                         }
                       >
-                        재고 반영 미리보기
+                        {isKorean ? "재고 반영 미리보기" : "Preview stock changes"}
                       </button>
                       <div className={styles.actions}>
                         <label>
-                          보류 전표 폐기 사유
+                          {isKorean
+                            ? "보류 전표 폐기 사유"
+                            : "Reason for voiding the held slip"}
                           <input
                             required
                             value={voidReason}
@@ -1409,7 +1439,7 @@ function ActualSalesLedgerPanel({
                             })
                           }
                         >
-                          초안 폐기
+                          {isKorean ? "초안 폐기" : "Void draft"}
                         </button>
                       </div>
                     </>
@@ -1417,19 +1447,26 @@ function ActualSalesLedgerPanel({
                 </section>
               ) : null}
               {preview ? (
-                <section className={styles.block} aria-label="재고 변동 확인">
-                  <h3>예정 재고 변동</h3>
+                <section
+                  className={styles.block}
+                  aria-label={isKorean ? "재고 변동 확인" : "Stock change check"}
+                >
+                  <h3>{isKorean ? "예정 재고 변동" : "Planned stock changes"}</h3>
                   <div className={styles.tableWrap}>
                     <table>
-                      <caption>확정할 전표의 재고 변동</caption>
+                      <caption>
+                        {isKorean
+                          ? "확정할 전표의 재고 변동"
+                          : "Stock changes for the slip to post"}
+                      </caption>
                       <thead>
                         <tr>
-                          <th>상품</th>
-                          <th>현재 총재고</th>
-                          <th>예약</th>
-                          <th>판매 가능</th>
-                          <th>변동</th>
-                          <th>반영 후</th>
+                          <th>{isKorean ? "상품" : "Product"}</th>
+                          <th>{isKorean ? "현재 총재고" : "Current total stock"}</th>
+                          <th>{isKorean ? "예약" : "Reserved"}</th>
+                          <th>{isKorean ? "판매 가능" : "Available"}</th>
+                          <th>{isKorean ? "변동" : "Change"}</th>
+                          <th>{isKorean ? "반영 후" : "After"}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1453,7 +1490,9 @@ function ActualSalesLedgerPanel({
                       disabled={locked}
                       onChange={(e) => setStockConfirmed(e.target.checked)}
                     />
-                    상품·옵션·수량과 재고 변동을 확인했습니다
+                    {isKorean
+                      ? "상품·옵션·수량과 재고 변동을 확인했습니다"
+                      : "I checked the products, options, quantities and stock changes"}
                   </label>
                   <button
                     className={styles.primary}
@@ -1469,47 +1508,62 @@ function ActualSalesLedgerPanel({
                       })
                     }
                   >
-                    판매 확정·재고 반영
+                    {isKorean ? "판매 확정·재고 반영" : "Post sale · Update stock"}
                   </button>
                 </section>
               ) : null}
               {selected && selected.status !== "DRAFT" ? (
-                <section className={styles.block} aria-label="판매 전표 상세">
+                <section
+                  className={styles.block}
+                  aria-label={isKorean ? "판매 전표 상세" : "Sales slip details"}
+                >
                   <h3>
                     {selected.reference} · {statusLabels[locale][selected.status]}
                   </h3>
                   <p>
-                    판매시각 {showTime(selected.soldAt)} · {money(selected.amount)} ·{" "}
-                    {selected.memo || "메모 없음"}
+                    {isKorean ? "판매시각" : "Sale time"}{" "}
+                    {showTime(selected.soldAt, locale)} ·{" "}
+                    {money(selected.amount, locale)} ·{" "}
+                    {selected.memo || (isKorean ? "메모 없음" : "No memo")}
                   </p>
                   <ul>
                     {selected.lines.map((l, i) => (
                       <li key={i}>
-                        {l.name || "미매칭"} · {l.option || "옵션 없음"} · {l.quantity}
-                        개 × {money(l.unitAmount)}
+                        {l.name || (isKorean ? "미매칭" : "Unmatched")} ·{" "}
+                        {l.option || (isKorean ? "옵션 없음" : "No option")} ·{" "}
+                        {isKorean ? `${l.quantity}개` : l.quantity} ×{" "}
+                        {money(l.unitAmount, locale)}
                       </li>
                     ))}
                   </ul>
                   {selected.kind === "REVERSAL" ? (
                     <p>
-                      원전표 {selected.original?.businessDay} /{" "}
-                      {selected.original?.entryId} ·{" "}
+                      {isKorean ? "원전표" : "Original slip"}{" "}
+                      {selected.original?.businessDay} / {selected.original?.entryId} ·{" "}
                       {selected.restocked
-                        ? "입고·검수 확인 후 재고 복원됨"
-                        : "금액 반대전표만 기록됨 · 재고 복원 없음"}
+                        ? isKorean
+                          ? "입고·검수 확인 후 재고 복원됨"
+                          : "Stock restored after receipt and inspection"
+                        : isKorean
+                          ? "금액 반대전표만 기록됨 · 재고 복원 없음"
+                          : "Amount reversal only · No stock restored"}
                     </p>
                   ) : null}
                   {selected.status === "POSTED" && selected.kind === "SALE" ? (
                     <div className={styles.reversal}>
-                      <h4>원전표 전체 반대전표</h4>
+                      <h4>
+                        {isKorean
+                          ? "원전표 전체 반대전표"
+                          : "Full reversal of the original slip"}
+                      </h4>
                       <p>
-                        원전표를 고치지 않고 전체 금액의 반대전표를 기록합니다. 실제
-                        카드 취소·현금 환급·이체 반환은 별도로 처리하며, 검수 확인을
-                        선택한 경우에만 전 수량을 복원합니다.
+                        {isKorean
+                          ? "원전표를 고치지 않고 전체 금액의 반대전표를 기록합니다. 실제 카드 취소·현금 환급·이체 반환은 별도로 처리하며, 검수 확인을 선택한 경우에만 전 수량을 복원합니다."
+                          : "Records a reversal for the full amount without editing the original slip. Actual card cancellations, cash refunds and transfer returns are handled separately, and all quantities are restored only when inspection is confirmed."}
                       </p>
                       <div className={styles.fields}>
                         <label>
-                          반대전표 영업일
+                          {isKorean ? "반대전표 영업일" : "Reversal business day"}
                           <input
                             type="date"
                             required
@@ -1527,7 +1581,9 @@ function ActualSalesLedgerPanel({
                           />
                         </label>
                         <label>
-                          반대전표 판매일시 (한국 시간)
+                          {isKorean
+                            ? "반대전표 판매일시 (한국 시간)"
+                            : "Reversal date and time (Korea time)"}
                           <input
                             type="datetime-local"
                             required
@@ -1546,7 +1602,7 @@ function ActualSalesLedgerPanel({
                           />
                         </label>
                         <label className={styles.wide}>
-                          반대전표 사유
+                          {isKorean ? "반대전표 사유" : "Reversal reason"}
                           <input
                             required
                             value={reverseReason}
@@ -1563,7 +1619,9 @@ function ActualSalesLedgerPanel({
                           disabled={locked}
                           onChange={(e) => setRestock(e.target.checked)}
                         />
-                        실물 입고·검수 완료 및 재판매 가능을 확인했습니다
+                        {isKorean
+                          ? "실물 입고·검수 완료 및 재판매 가능을 확인했습니다"
+                          : "I confirmed the items were received, inspected and are resalable"}
                       </label>
                       <label className={styles.check}>
                         <input
@@ -1572,7 +1630,9 @@ function ActualSalesLedgerPanel({
                           disabled={locked}
                           onChange={(e) => setReverseConfirmed(e.target.checked)}
                         />
-                        원전표 전체 금액의 반대전표임을 확인했습니다
+                        {isKorean
+                          ? "원전표 전체 금액의 반대전표임을 확인했습니다"
+                          : "I confirm this reverses the full amount of the original slip"}
                       </label>
                       <button
                         type="button"
@@ -1600,27 +1660,29 @@ function ActualSalesLedgerPanel({
                           })
                         }
                       >
-                        반대전표 기록
+                        {isKorean ? "반대전표 기록" : "Record reversal"}
                       </button>
                     </div>
                   ) : null}
                 </section>
               ) : null}
               <details className={styles.block}>
-                <summary>온라인 집계 근거 {report.onlineEvents.length}건</summary>
+                <summary>
+                  {isKorean
+                    ? `온라인 집계 근거 ${report.onlineEvents.length}건`
+                    : `Online totals evidence: ${report.onlineEvents.length}`}
+                </summary>
                 <p>
-                  온라인 거래는 행별 시각 출처를 표시합니다. 결제 제공자 시각의 근거가
-                  부족한 거래는 서버가 확인한 시각으로 집계하며 실제 거래 발생시각을
-                  뜻하지 않습니다.
+                  {isKorean
+                    ? "온라인 거래는 행별 시각 출처를 표시합니다. 결제 제공자 시각의 근거가 부족한 거래는 서버가 확인한 시각으로 집계하며 실제 거래 발생시각을 뜻하지 않습니다."
+                    : "Online transactions show the time source per row. Transactions without enough payment provider time evidence are counted at the server-observed time, which is not the actual transaction time."}
                 </p>
                 <ul>
                   {report.onlineEvents.map((e, i) => (
                     <li key={`${e.orderId}-${i}`}>
-                      {showTime(e.occurredAt)} · {e.orderId} ·{" "}
-                      {e.kind === "APPROVAL" ? "승인" : "환불"} · {money(e.amount)} ·{" "}
-                      {e.timeBasis === "OBSERVED"
-                        ? "서버 확인시각 기준"
-                        : "결제 제공자 시각 기준"}
+                      {showTime(e.occurredAt, locale)} · {e.orderId} ·{" "}
+                      {onlineKind(e.kind, locale)} · {money(e.amount, locale)} ·{" "}
+                      {timeBasis(e.timeBasis, locale)}
                     </li>
                   ))}
                 </ul>
@@ -1628,50 +1690,54 @@ function ActualSalesLedgerPanel({
             </div>
             <section
               className={`${styles.block} ${styles.closePanel}`}
-              aria-label="일마감"
+              aria-label={isKorean ? "일마감" : "Daily close"}
             >
-              <h3>일마감 대조</h3>
+              <h3>{isKorean ? "일마감 대조" : "Daily close reconciliation"}</h3>
               <dl className={styles.closeTotals}>
                 <div>
-                  <dt>온라인 순매출</dt>
-                  <dd>{money(report.totals.onlineNet)}</dd>
+                  <dt>{isKorean ? "온라인 순매출" : "Online net sales"}</dt>
+                  <dd>{money(report.totals.onlineNet, locale)}</dd>
                 </div>
                 <div>
-                  <dt>카드 순매출</dt>
-                  <dd>{money(report.totals.card)}</dd>
+                  <dt>{isKorean ? "카드 순매출" : "Card net sales"}</dt>
+                  <dd>{money(report.totals.card, locale)}</dd>
                 </div>
                 <div>
-                  <dt>현금 순매출</dt>
-                  <dd>{money(report.totals.cash)}</dd>
+                  <dt>{isKorean ? "현금 순매출" : "Cash net sales"}</dt>
+                  <dd>{money(report.totals.cash, locale)}</dd>
                 </div>
                 <div>
-                  <dt>이체 순매출</dt>
-                  <dd>{money(report.totals.transfer ?? 0)}</dd>
+                  <dt>{isKorean ? "이체 순매출" : "Transfer net sales"}</dt>
+                  <dd>{money(report.totals.transfer ?? 0, locale)}</dd>
                 </div>
                 <div>
-                  <dt>통합 순매출</dt>
-                  <dd>{money(report.totals.combinedNet)}</dd>
+                  <dt>{isKorean ? "통합 순매출" : "Combined net sales"}</dt>
+                  <dd>{money(report.totals.combinedNet, locale)}</dd>
                 </div>
               </dl>
               {report.entries.some((entry) => entry.status === "DRAFT") ? (
-                <AdminNotice status="attention">
-                  작성 중 전표{" "}
-                  {report.entries.filter((entry) => entry.status === "DRAFT").length}건
+                <AdminNotice status="attention" locale={locale}>
+                  {isKorean ? "작성 중 전표" : "Draft slips"}{" "}
+                  {report.entries.filter((entry) => entry.status === "DRAFT").length}
+                  {isKorean ? "건" : ""}
                 </AdminNotice>
               ) : null}
               <p>
-                현금 대조액은 현금 판매에서 반대전표를 뺀 순매출이며 금고
-                잔액·시재·입금액이 아닙니다. 카드·이체 금액은 현금 대조에 포함하지
-                않습니다.
+                {isKorean
+                  ? "현금 대조액은 현금 판매에서 반대전표를 뺀 순매출이며 금고 잔액·시재·입금액이 아닙니다. 카드·이체 금액은 현금 대조에 포함하지 않습니다."
+                  : "The cash comparison amount is cash sales minus reversals, not the safe balance, cash on hand or deposits. Card and transfer amounts are not included in the cash comparison."}
               </p>
               <p>
-                카드 원문·이체 입금 내역과 현금 수기장부를 대조하고, 온라인 주문을
-                오프라인 전표에도 중복 기록하지 않았는지 직접 확인해 주세요.
+                {isKorean
+                  ? "카드 원문·이체 입금 내역과 현금 수기장부를 대조하고, 온라인 주문을 오프라인 전표에도 중복 기록하지 않았는지 직접 확인해 주세요."
+                  : "Compare card records, transfer deposits and the handwritten cash book, and check yourself that no online order was also recorded as an offline slip."}
               </p>
               {open ? (
                 <>
                   <label>
-                    현금 순매출 수기 대조액
+                    {isKorean
+                      ? "현금 순매출 수기 대조액"
+                      : "Handwritten cash net sales amount"}
                     <input
                       type="number"
                       step="1"
@@ -1685,8 +1751,10 @@ function ActualSalesLedgerPanel({
                     />
                   </label>
                   <p>
-                    장부 현금 순매출 {money(report.totals.cash)} · 통합 순매출{" "}
-                    {money(report.totals.combinedNet)}
+                    {isKorean ? "장부 현금 순매출" : "Ledger cash net sales"}{" "}
+                    {money(report.totals.cash, locale)} ·{" "}
+                    {isKorean ? "통합 순매출" : "Combined net sales"}{" "}
+                    {money(report.totals.combinedNet, locale)}
                   </p>
                   <label className={styles.check}>
                     <input
@@ -1695,7 +1763,9 @@ function ActualSalesLedgerPanel({
                       disabled={locked || !!report.warnings.length}
                       onChange={(e) => setCloseConfirmed(e.target.checked)}
                     />
-                    온라인·오프라인 매출과 경고를 모두 확인했습니다
+                    {isKorean
+                      ? "온라인·오프라인 매출과 경고를 모두 확인했습니다"
+                      : "I checked all online and offline sales and warnings"}
                   </label>
                   <button
                     className={styles.primary}
@@ -1712,33 +1782,54 @@ function ActualSalesLedgerPanel({
                       })
                     }
                   >
-                    선택일 장부 마감
+                    {isKorean ? "선택일 장부 마감" : "Close the selected day"}
                   </button>
                   {!canClose ? (
                     <p className={styles.closeReason}>
-                      {locked
-                        ? "진행 중이거나 미확정인 요청을 먼저 확인하세요."
-                        : !report.complete
-                          ? "최신 집계가 완료되어야 마감할 수 있습니다."
-                          : report.warnings.length
-                            ? "마감 경고를 먼저 확인하세요."
-                            : report.entries.some((entry) => entry.status === "DRAFT")
-                              ? "작성 중 전표를 먼저 확인하세요."
-                              : cashCompared.trim() === "" ||
-                                  Number(cashCompared) !== report.totals.cash
-                                ? "현금 순매출 대조액을 확인하세요."
-                                : "매출과 경고 확인 항목을 체크해 주세요."}
+                      {
+                        (locked
+                          ? {
+                              ko: "진행 중이거나 미확정인 요청을 먼저 확인하세요.",
+                              en: "Check the in-progress or unconfirmed request first.",
+                            }
+                          : !report.complete
+                            ? {
+                                ko: "최신 집계가 완료되어야 마감할 수 있습니다.",
+                                en: "The latest totals must be complete before closing.",
+                              }
+                            : report.warnings.length
+                              ? {
+                                  ko: "마감 경고를 먼저 확인하세요.",
+                                  en: "Check the closing warnings first.",
+                                }
+                              : report.entries.some((entry) => entry.status === "DRAFT")
+                                ? {
+                                    ko: "작성 중 전표를 먼저 확인하세요.",
+                                    en: "Check the draft slips first.",
+                                  }
+                                : cashCompared.trim() === "" ||
+                                    Number(cashCompared) !== report.totals.cash
+                                  ? {
+                                      ko: "현금 순매출 대조액을 확인하세요.",
+                                      en: "Check the cash net sales comparison amount.",
+                                    }
+                                  : {
+                                      ko: "매출과 경고 확인 항목을 체크해 주세요.",
+                                      en: "Tick the sales and warnings confirmation.",
+                                    })[locale]
+                      }
                     </p>
                   ) : null}
                 </>
               ) : (
                 <>
                   <p>
-                    마감된 영업일은 전표 쓰기가 잠깁니다. 변경이 필요하면 사유를 남겨
-                    재개방한 뒤 다시 마감해 주세요.
+                    {isKorean
+                      ? "마감된 영업일은 전표 쓰기가 잠깁니다. 변경이 필요하면 사유를 남겨 재개방한 뒤 다시 마감해 주세요."
+                      : "Slip writing is locked for a closed business day. To make changes, reopen it with a reason and close it again."}
                   </p>
                   <label>
-                    재개방 사유
+                    {isKorean ? "재개방 사유" : "Reopen reason"}
                     <input
                       required
                       value={reopenReason}
@@ -1759,57 +1850,97 @@ function ActualSalesLedgerPanel({
                       })
                     }
                   >
-                    마감 재개방
+                    {isKorean ? "마감 재개방" : "Reopen day"}
                   </button>
                 </>
               )}
-              <p className={styles.muted}>일마감은 재고를 다시 차감하지 않습니다.</p>
+              <p className={styles.muted}>
+                {isKorean
+                  ? "일마감은 재고를 다시 차감하지 않습니다."
+                  : "The daily close does not deduct stock again."}
+              </p>
               <details className={styles.closeHistory}>
-                <summary>마감표·재개방 이력</summary>
-                <h4>마감표 이력 {report.snapshots.length}건</h4>
+                <summary>
+                  {isKorean ? "마감표·재개방 이력" : "Closing sheets · Reopen history"}
+                </summary>
+                <h4>
+                  {isKorean
+                    ? `마감표 이력 ${report.snapshots.length}건`
+                    : `Closing sheets: ${report.snapshots.length}`}
+                </h4>
                 {report.snapshots.map((s) => (
                   <details key={s.snapshotId}>
                     <summary>
-                      {showTime(s.closedAt)} · 통합 순매출 {money(s.totals.combinedNet)}
+                      {showTime(s.closedAt, locale)} ·{" "}
+                      {isKorean ? "통합 순매출" : "Combined net sales"}{" "}
+                      {money(s.totals.combinedNet, locale)}
                     </summary>
                     <p>
-                      마감 번호 {s.snapshotId} · 버전 {s.version}
+                      {isKorean ? "마감 번호" : "Closing number"} {s.snapshotId} ·{" "}
+                      {isKorean ? "버전" : "Version"} {s.version}
                     </p>
                     <p>
                       {s.entryManifest
-                        ? `마감 당시 전표 ${s.entryCount}건의 근거를 보관했습니다.`
-                        : "마감 당시 전표 근거가 제공되지 않았습니다."}
+                        ? isKorean
+                          ? `마감 당시 전표 ${s.entryCount}건의 근거를 보관했습니다.`
+                          : `Kept evidence for ${s.entryCount} slips at closing.`
+                        : isKorean
+                          ? "마감 당시 전표 근거가 제공되지 않았습니다."
+                          : "No slip evidence was provided at closing."}
                     </p>
                     <p>
-                      카드 순매출 {money(s.totals.card)} · 현금 순매출{" "}
-                      {money(s.totals.cash)} · 이체 순매출{" "}
-                      {money(s.totals.transfer ?? 0)} · 오프라인 반대전표{" "}
-                      {money(s.totals.offlineRefunds)} · 온라인 총매출{" "}
-                      {money(s.totals.onlineGross)} · 온라인 환불{" "}
-                      {money(s.totals.onlineRefunds)} · 온라인 순매출{" "}
-                      {money(s.totals.onlineNet)} · 현금 대조액{" "}
-                      {money(s.cashComparedAmount)}
+                      {(isKorean
+                        ? [
+                            ["카드 순매출", s.totals.card],
+                            ["현금 순매출", s.totals.cash],
+                            ["이체 순매출", s.totals.transfer ?? 0],
+                            ["오프라인 반대전표", s.totals.offlineRefunds],
+                            ["온라인 총매출", s.totals.onlineGross],
+                            ["온라인 환불", s.totals.onlineRefunds],
+                            ["온라인 순매출", s.totals.onlineNet],
+                            ["현금 대조액", s.cashComparedAmount],
+                          ]
+                        : [
+                            ["Card net sales", s.totals.card],
+                            ["Cash net sales", s.totals.cash],
+                            ["Transfer net sales", s.totals.transfer ?? 0],
+                            ["Offline reversals", s.totals.offlineRefunds],
+                            ["Online gross sales", s.totals.onlineGross],
+                            ["Online refunds", s.totals.onlineRefunds],
+                            ["Online net sales", s.totals.onlineNet],
+                            ["Cash comparison amount", s.cashComparedAmount],
+                          ]
+                      )
+                        .map(
+                          ([label, amount]) =>
+                            `${label} ${money(Number(amount), locale)}`,
+                        )
+                        .join(" · ")}
                     </p>
                     <ul>
                       {s.onlineEvents.map((e, i) => (
                         <li key={`${e.orderId}-${i}`}>
-                          {showTime(e.occurredAt)} · {e.orderId} ·{" "}
-                          {e.kind === "APPROVAL" ? "승인" : "환불"} · {money(e.amount)}{" "}
-                          ·{" "}
-                          {e.timeBasis === "OBSERVED"
-                            ? "서버 확인시각 기준"
-                            : "결제 제공자 시각 기준"}
+                          {showTime(e.occurredAt, locale)} · {e.orderId} ·{" "}
+                          {onlineKind(e.kind, locale)} · {money(e.amount, locale)} ·{" "}
+                          {timeBasis(e.timeBasis, locale)}
                         </li>
                       ))}
                     </ul>
                   </details>
                 ))}
-                <h4>마감·재개방 기록</h4>
+                <h4>{isKorean ? "마감·재개방 기록" : "Close and reopen history"}</h4>
                 <ul>
                   {report.history.map((h, i) => (
                     <li key={`${h.at}-${i}`}>
-                      {showTime(h.at)} · {h.action === "CLOSE" ? "마감" : "재개방"} ·{" "}
-                      {h.reason}
+                      {showTime(h.at, locale)} ·{" "}
+                      {h.action === "CLOSE"
+                        ? isKorean
+                          ? "마감"
+                          : "Close"
+                        : isKorean
+                          ? "재개방"
+                          : "Reopen"}{" "}
+                      · {historyReason(h, locale)}
                     </li>
                   ))}
                 </ul>
@@ -1819,8 +1950,9 @@ function ActualSalesLedgerPanel({
         </div>
       ) : (
         <p className={styles.empty}>
-          영업일을 선택해 장부를 조회해 주세요. 조회가 완료되면 전표 기록과 일마감을
-          시작할 수 있습니다.
+          {isKorean
+            ? "영업일을 선택해 장부를 조회해 주세요. 조회가 완료되면 전표 기록과 일마감을 시작할 수 있습니다."
+            : "Select a business day and load the ledger. Once it loads you can record slips and run the daily close."}
         </p>
       )}
     </section>
