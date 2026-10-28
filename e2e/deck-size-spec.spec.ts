@@ -1,0 +1,366 @@
+import { expect, test, type Page, type Route } from "@playwright/test";
+
+const ORIGIN = "http://127.0.0.1:3139";
+const API = "https://api.sales.test/prod/";
+const TRANSLATE = "https://api.mymemory.translated.net/get";
+const SUBJECT = "deck-size-synthetic-admin";
+const DECK = { slug: "odwyer-sync-1-8-375", id: "prd_deck_size_synthetic" };
+const PLAIN = { slug: "synthetic-deck-without-spec", id: "prd_deck_size_plain" };
+const SPEC = { nose: 6.875, tail: 6.5, width: 8.5, length: 31.75, wheelbase: 14.25 };
+
+type Stored = {
+  productId: string;
+  slug: string;
+  name: string;
+  version: number;
+  deckSpec?: typeof SPEC;
+};
+type Audit = { blocked: string[]; patches: Record<string, unknown>[]; store: Stored[] };
+
+function respond(route: Route, body: unknown, status = 200) {
+  return route.fulfill({
+    status,
+    json: body,
+    headers: {
+      "access-control-allow-origin": "*",
+      "access-control-allow-headers": "authorization,content-type",
+      "access-control-allow-methods": "GET,PATCH,OPTIONS",
+    },
+  });
+}
+
+function adminShape(item: Stored) {
+  return {
+    productId: item.productId,
+    slug: item.slug,
+    name: item.name,
+    brandId: "brand_test",
+    brandName: "TEST",
+    category: "Deck",
+    price: 107_000,
+    currency: "KRW",
+    status: "PUBLISHED",
+    inventoryQuantity: 5,
+    featured: false,
+    image: "/images/product-placeholder.svg",
+    images: ["/images/product-placeholder.svg"],
+    description: ["Synthetic deck size fixture"],
+    sizes: ["8.5"],
+    version: item.version,
+    createdAt: "2026-10-28T00:00:00Z",
+    updatedAt: "2026-10-28T00:00:00Z",
+    ...(item.deckSpec ? { deckSpec: item.deckSpec } : {}),
+  };
+}
+
+function publicShape(item: Stored) {
+  return {
+    id: item.productId,
+    slug: item.slug,
+    name: item.name,
+    category: "Deck",
+    brand: "TEST",
+    price: 107_000,
+    inventoryQuantity: 5,
+    image: "/images/product-placeholder.svg",
+    description: ["Synthetic deck size fixture"],
+    sizes: ["8.5"],
+    featured: false,
+    ...(item.deckSpec ? { deckSpec: item.deckSpec } : {}),
+  };
+}
+
+async function setup(page: Page, path: string, deckSpec?: typeof SPEC) {
+  const store: Stored[] = [
+    {
+      productId: DECK.id,
+      slug: DECK.slug,
+      name: "[TEST] Deck size A",
+      version: 3,
+      deckSpec,
+    },
+    { productId: PLAIN.id, slug: PLAIN.slug, name: "[TEST] Deck size B", version: 1 },
+  ];
+  const audit: Audit = { blocked: [], patches: [], store };
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (url.origin === ORIGIN && ["GET", "HEAD"].includes(request.method()))
+      return route.continue();
+    if (request.url().startsWith(TRANSLATE))
+      return respond(route, {
+        responseStatus: 200,
+        responseData: { translatedText: url.searchParams.get("q") ?? "" },
+      });
+    if (!request.url().startsWith(API)) {
+      audit.blocked.push(`${request.method()} ${url.origin}${url.pathname}`);
+      return route.abort();
+    }
+    if (request.method() === "OPTIONS") return respond(route, {});
+    const itemMatch = /^\/prod\/admin\/catalog\/products\/([^/]+)$/.exec(url.pathname);
+    if (request.method() === "PATCH" && itemMatch) {
+      const body = request.postDataJSON() as Record<string, unknown>;
+      audit.patches.push(body);
+      const item = store.find((entry) => entry.productId === itemMatch[1]);
+      if (!item) return respond(route, { code: "CATALOG_PRODUCT_NOT_FOUND" }, 404);
+      if (body.version !== item.version)
+        return respond(route, { code: "CATALOG_PRODUCT_VERSION_CONFLICT" }, 409);
+      if ("deckSpec" in body) {
+        if (body.deckSpec) item.deckSpec = body.deckSpec as typeof SPEC;
+        else delete item.deckSpec;
+      }
+      item.version += 1;
+      return respond(route, { product: adminShape(item) });
+    }
+    if (request.method() !== "GET") {
+      audit.blocked.push(`${request.method()} ${url.pathname}`);
+      return route.abort();
+    }
+    if (url.pathname === "/prod/catalog/products") {
+      const slug = url.searchParams.get("slug");
+      const found = store.find((item) => item.slug === slug);
+      return slug
+        ? found
+          ? respond(route, { product: publicShape(found) })
+          : respond(route, { code: "NOT_FOUND" }, 404)
+        : respond(route, { products: store.map(publicShape) });
+    }
+    if (url.pathname === "/prod/admin/catalog/products")
+      return respond(route, { products: store.map(adminShape) });
+    if (url.pathname === "/prod/admin/overview")
+      return respond(route, {
+        asOf: "2026-10-28T00:00:00Z",
+        timezone: "Asia/Seoul",
+        todayOrderCount: 0,
+        lowStockCount: 0,
+        lowStockThreshold: 3,
+        activeCouponCount: 0,
+        marketingConsentCount: 0,
+      });
+    if (url.pathname === "/prod/me")
+      return respond(route, { userSub: SUBJECT, marketingConsent: false });
+    if (url.pathname === "/prod/orders") return respond(route, { orders: [] });
+    audit.blocked.push(`GET ${url.pathname}`);
+    return route.abort();
+  });
+  const accessToken = [
+    Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url"),
+    Buffer.from(
+      JSON.stringify({ sub: SUBJECT, exp: 4102444800, "cognito:groups": ["admin"] }),
+    ).toString("base64url"),
+    "test-only-signature",
+  ].join(".");
+  await page.addInitScript(
+    ({ session }) => {
+      sessionStorage.setItem("paradays.auth.session", JSON.stringify(session));
+      localStorage.setItem("paradays-locale", "ko");
+    },
+    {
+      session: {
+        accessToken,
+        expiresAt: 4102444800000,
+        user: { sub: SUBJECT, username: "synthetic-admin", groups: ["admin"] },
+      },
+    },
+  );
+  await page.goto(path);
+  await page.waitForLoadState("networkidle");
+  return audit;
+}
+
+test("admin saves the deck size spec from its own modal and the product form saves without a conflict", async ({
+  page,
+}) => {
+  const audit = await setup(page, "/admin?section=products");
+  const row = page
+    .getByRole("list", { name: "상품 목록" })
+    .getByRole("listitem")
+    .filter({ hasText: "[TEST] Deck size A" });
+  await row.getByRole("button", { name: "수정", exact: true }).click();
+
+  await page.getByRole("button", { name: "+ 상세사이즈 등록" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "저장", exact: true }),
+  ).toBeDisabled();
+  for (const [field, value] of Object.entries(SPEC))
+    await dialog.getByRole("textbox", { name: field }).fill(String(value));
+  await expect(dialog).toContainText("(17.5cm)");
+  await expect(dialog.locator("svg")).toContainText('6.875"');
+  await dialog.getByRole("button", { name: "저장", exact: true }).click();
+
+  await expect(dialog).toBeHidden();
+  expect(audit.patches).toEqual([{ version: 3, deckSpec: SPEC }]);
+  await expect(page.getByText('8.5" × 31.75" · WB 14.25"')).toBeVisible();
+  await expect(page.getByRole("button", { name: "상세사이즈 수정" })).toBeVisible();
+
+  // Saving a public product asks for confirmation first.
+  page.once("dialog", (prompt) => void prompt.accept());
+  await page.getByRole("button", { name: /수정 저장/ }).click();
+  await expect.poll(() => audit.patches.length).toBe(2);
+  expect(audit.patches[1]).toMatchObject({ version: 4 });
+  expect(audit.patches[1]).not.toHaveProperty("deckSpec");
+  await expect(page.getByText(/409|충돌/)).toHaveCount(0);
+  expect(audit.blocked).toEqual([]);
+});
+
+test("ESC during a pending save keeps the modal open, and a failed save keeps the inputs with an error", async ({
+  page,
+}) => {
+  const audit = await setup(page, "/admin?section=products");
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  // Registered after setup, so it takes precedence for the deckSpec PATCH only.
+  await page.route(`${API}admin/catalog/products/*`, async (route) => {
+    if (route.request().method() !== "PATCH") return route.fallback();
+    await gate;
+    return respond(route, { code: "CATALOG_STORAGE_UNAVAILABLE" }, 503);
+  });
+  await page
+    .getByRole("list", { name: "상품 목록" })
+    .getByRole("listitem")
+    .filter({ hasText: "[TEST] Deck size A" })
+    .getByRole("button", { name: "수정", exact: true })
+    .click();
+  await page.getByRole("button", { name: "+ 상세사이즈 등록" }).click();
+  const dialog = page.getByRole("dialog");
+  for (const [field, value] of Object.entries(SPEC))
+    await dialog.getByRole("textbox", { name: field }).fill(String(value));
+  await dialog.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "저장 중…" })).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeVisible();
+
+  release();
+  await expect(dialog.getByRole("alert")).toContainText("저장하지 못했습니다");
+  await expect(dialog.getByRole("textbox", { name: "nose" })).toHaveValue("6.875");
+  await expect(dialog.getByRole("button", { name: "저장", exact: true })).toBeEnabled();
+  expect(audit.patches).toEqual([]);
+  expect(audit.blocked).toEqual([]);
+});
+
+async function openDeckSpecModal(page: Page, productName: string) {
+  await page
+    .getByRole("list", { name: "상품 목록" })
+    .getByRole("listitem")
+    .filter({ hasText: productName })
+    .getByRole("button", { name: "수정", exact: true })
+    .click();
+  await page.getByRole("button", { name: "+ 상세사이즈 등록" }).click();
+  const dialog = page.getByRole("dialog");
+  for (const [field, value] of Object.entries(SPEC))
+    await dialog.getByRole("textbox", { name: field }).fill(String(value));
+  return dialog;
+}
+
+test("after a lost save response, a retry stops on the conflict instead of overwriting", async ({
+  page,
+}) => {
+  const audit = await setup(page, "/admin?section=products");
+  let lost = false;
+  await page.route(`${API}admin/catalog/products/*`, async (route) => {
+    if (route.request().method() !== "PATCH" || lost) return route.fallback();
+    lost = true;
+    // The server commits the write, but the browser never sees a valid response.
+    const item = audit.store.find((entry) => entry.productId === DECK.id)!;
+    item.deckSpec = SPEC;
+    item.version += 1;
+    return respond(route, { code: "INTERNAL" }, 500);
+  });
+  const dialog = await openDeckSpecModal(page, "[TEST] Deck size A");
+  await dialog.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("저장하지 못했습니다");
+
+  await dialog.getByRole("textbox", { name: "tail" }).fill("6.625");
+  await dialog.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(page.getByText("편집을 닫고 다시 열어")).toBeVisible();
+  await expect(dialog).toBeVisible();
+  expect(audit.patches).toEqual([{ version: 3, deckSpec: { ...SPEC, tail: 6.625 } }]);
+  expect(audit.store.find((entry) => entry.productId === DECK.id)).toMatchObject({
+    version: 4,
+    deckSpec: SPEC,
+  });
+  expect(audit.blocked).toEqual([]);
+});
+
+test("a late save response for one product does not close another product's modal", async ({
+  page,
+}) => {
+  const audit = await setup(page, "/admin?section=products");
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(`${API}admin/catalog/products/${DECK.id}`, async (route) => {
+    if (route.request().method() !== "PATCH") return route.fallback();
+    await gate;
+    return route.fallback();
+  });
+  const first = await openDeckSpecModal(page, "[TEST] Deck size A");
+  await first.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(first.getByRole("button", { name: "저장 중…" })).toBeVisible();
+
+  await page.goBack();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const second = await openDeckSpecModal(page, "[TEST] Deck size B");
+  release();
+  await expect.poll(() => audit.patches.length).toBe(1);
+  await expect(second).toBeVisible();
+  await expect(second.getByRole("textbox", { name: "nose" })).toHaveValue("6.875");
+  expect(audit.blocked).toEqual([]);
+});
+
+test("a late save response does not close a new modal after returning to the same editor", async ({
+  page,
+}) => {
+  const audit = await setup(page, "/admin?section=products");
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(`${API}admin/catalog/products/${DECK.id}`, async (route) => {
+    if (route.request().method() !== "PATCH") return route.fallback();
+    await gate;
+    return route.fallback();
+  });
+  const first = await openDeckSpecModal(page, "[TEST] Deck size A");
+  await first.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(first.getByRole("button", { name: "저장 중…" })).toBeVisible();
+
+  await page.goBack();
+  await page.goForward();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "+ 상세사이즈 등록" }).click();
+  const second = page.getByRole("dialog");
+  await second.getByRole("textbox", { name: "nose" }).fill("7");
+  release();
+  await expect.poll(() => audit.patches.length).toBe(1);
+  await expect(second).toBeVisible();
+  await expect(second.getByRole("textbox", { name: "nose" })).toHaveValue("7");
+  expect(audit.blocked).toEqual([]);
+});
+
+test("the storefront shows a size chart with inches and cm only when the product has a spec", async ({
+  page,
+}) => {
+  const audit = await setup(page, `/products/${DECK.slug}`, SPEC);
+  await expect(page.getByRole("heading", { name: "[TEST] Deck size A" })).toBeVisible();
+
+  await page.getByRole("button", { name: "상세사이즈" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("img", { name: "[TEST] Deck size A" })).toBeVisible();
+  for (const text of ['6.875"', "(17.5cm)", '31.75"', "(80.6cm)", '14.25"', "(36.2cm)"])
+    await expect(dialog.locator("svg")).toContainText(text);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
+  await page.goto(`/products?slug=${PLAIN.slug}`);
+  await expect(page.getByRole("heading", { name: "[TEST] Deck size B" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "상세사이즈" })).toHaveCount(0);
+  expect(audit.blocked).toEqual([]);
+});
