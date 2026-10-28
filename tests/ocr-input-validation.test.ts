@@ -3,11 +3,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   AdminOcrInputError,
+  isSafeOcrFileName,
   OCR_INPUT_LIMITS,
   validateOcrImageFile,
 } from "@/lib/admin-ui/ocr-input-validation";
 
 const PNG_SIGNATURE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const NFD_SCREENSHOT_NAME =
+  "\u1109\u1173\u110f\u1173\u1105\u1175\u11ab\u1109\u1163\u11ba2.png";
 
 function createPngFile(byteLength: number, name = "arrival.png") {
   const bytes = new Uint8Array(byteLength);
@@ -65,6 +68,81 @@ const FORMATS = [
 ] as const;
 
 describe("OCR file boundary regression", () => {
+  it("accepts a decomposed Hangul screenshot name and preserves every original code unit", async () => {
+    const result = await validateOcrImageFile(createPngFile(8, NFD_SCREENSHOT_NAME));
+    expect(result.fileName).toBe(NFD_SCREENSHOT_NAME);
+    expect(result.fileName).not.toBe("스크린샷2.png");
+    expect([...result.fileName].map((character) => character.charCodeAt(0))).toEqual(
+      [...NFD_SCREENSHOT_NAME].map((character) => character.charCodeAt(0)),
+    );
+  });
+
+  it.each([
+    "\u1100",
+    "\u11ff",
+    "\u3131",
+    "\u318e",
+    "\ua960",
+    "\ua97c",
+    "\ud7b0",
+    "\ud7c6",
+    "\ud7cb",
+    "\ud7fb",
+  ])(
+    "allows standalone Hangul jamo %s at the start or inside a file name",
+    async (jamo) => {
+      for (const name of [jamo + ".png", "image-" + jamo + ".png"]) {
+        expect(isSafeOcrFileName(name)).toBe(true);
+        await expect(
+          validateOcrImageFile(createPngFile(8, name)),
+        ).resolves.toMatchObject({
+          fileName: name,
+        });
+      }
+    },
+  );
+
+  it("keeps the limit at 120 original UTF-16 code units for decomposed Hangul", async () => {
+    const name = "\u1100\u1161".repeat(58) + ".png";
+    expect(name.length).toBe(120);
+    await expect(validateOcrImageFile(createPngFile(8, name))).resolves.toMatchObject({
+      fileName: name,
+    });
+    expect(isSafeOcrFileName("\u1100" + name)).toBe(false);
+  });
+
+  it.each([
+    "../" + NFD_SCREENSHOT_NAME,
+    "a/" + NFD_SCREENSHOT_NAME,
+    "a\\" + NFD_SCREENSHOT_NAME,
+    " " + NFD_SCREENSHOT_NAME,
+    NFD_SCREENSHOT_NAME + " ",
+    "." + NFD_SCREENSHOT_NAME,
+    "_" + NFD_SCREENSHOT_NAME,
+    "-" + NFD_SCREENSHOT_NAME,
+    "a\u0000.png",
+    "a\nb.png",
+    "a\tb.png",
+    "a\r.png",
+    "😀.png",
+    "e\u0301.png",
+    "a\u200d.png",
+    "a\u202e.png",
+    "\u3130.png",
+    "\u318f.png",
+    "\ua97d.png",
+    "\ud7c7.png",
+    "\ud7fc.png",
+  ])(
+    "continues rejecting unsafe or unrelated Unicode file names (%#)",
+    async (name) => {
+      expect(isSafeOcrFileName(name)).toBe(false);
+      await expect(validateOcrImageFile(createPngFile(8, name))).rejects.toMatchObject({
+        reason: "FILE_NAME_INVALID",
+      });
+    },
+  );
+
   it.each(FORMATS)(
     "accepts matching $mime signature and preserves file name",
     async ({ mime, bytes, name }) => {
