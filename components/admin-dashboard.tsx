@@ -2484,7 +2484,7 @@ function AdminWorkspace({
               onOpenCreate={() => selectSection("products", { productView: "create" })}
             />
             <AdminOrderInventoryPanel />
-            <AdminOrderSimulationPanel />
+            <AdminOrderSimulationPanel locale={locale} />
           </>
         ) : null}
         {activeSection === "products" ? (

@@ -28,6 +28,14 @@ describe("simulation access and IO isolation", () => {
     expect(html).not.toContain("모의 주문번호");
     expect(html).not.toContain("TEST_PRODUCT_DECK");
   });
+  it("renders the opt-in warning in English when the admin locale is English", () => {
+    const html = renderToStaticMarkup(
+      createElement(AdminOrderSimulationPanel, { locale: "en" }),
+    );
+    expect(html).toContain("Mock order and stock test");
+    expect(html).toMatch(/<button[^>]*disabled[^>]*>\s*Start mock test\s*<\/button>/);
+    expect(html).not.toMatch(/[가-힣]/);
+  });
   it("members, anonymous and initializing sessions cannot render the test controls", () => {
     auth.user = { sub: "synthetic-member", groups: [] };
     expect(renderToStaticMarkup(createElement(AdminOrderSimulationPanel))).toBe("");
