@@ -6724,6 +6724,7 @@ function OcrSection({
   state: OcrState;
 }>) {
   const { locale } = useLocale();
+  const isKorean = locale === "ko";
   const localOcr = useSyncExternalStore(
     subscribeToLocalOcrMode,
     isLocalOcrDevelopmentMode,
@@ -6736,14 +6737,24 @@ function OcrSection({
   );
   const recognizing = state === "recognizing";
   const statusLabel = recognizing
-    ? "인식 중"
+    ? isKorean
+      ? "인식 중"
+      : "Recognizing"
     : reviewSaved
-      ? "검토본 저장됨"
+      ? isKorean
+        ? "검토본 저장됨"
+        : "Review saved"
       : state === "review"
-        ? "검토 중 · 저장 필요"
+        ? isKorean
+          ? "검토 중 · 저장 필요"
+          : "Reviewing · Needs saving"
         : state === "connection-needed"
-          ? "API 연결 필요"
-          : "이미지 선택";
+          ? isKorean
+            ? "API 연결 필요"
+            : "API connection needed"
+          : isKorean
+            ? "이미지 선택"
+            : "Choose image";
   const quantityValid = (value: string) => /^[0-9]{1,9}$/.test(value);
   const invalidQuantities = rows.filter(
     (row) => row.quantity !== "" && !quantityValid(row.quantity),
@@ -6762,9 +6773,12 @@ function OcrSection({
   const reviewing = state === "review";
   // 입고 반영 결과는 아래 반영 패널이 직접 표시하므로 이 흐름에서 완료로 표시하지 않습니다.
   const ocrSteps: AdminStep[] = [
-    { label: "이미지 선택", state: recognizing || reviewing ? "complete" : "current" },
     {
-      label: "OCR 인식",
+      label: isKorean ? "이미지 선택" : "Choose image",
+      state: recognizing || reviewing ? "complete" : "current",
+    },
+    {
+      label: isKorean ? "OCR 인식" : "OCR recognition",
       state:
         state === "connection-needed"
           ? "unavailable"
@@ -6775,12 +6789,15 @@ function OcrSection({
               : "upcoming",
     },
     {
-      label: "내용 검토",
+      label: isKorean ? "내용 검토" : "Review content",
       state: !reviewing ? "upcoming" : reviewSaved ? "complete" : "current",
     },
-    { label: "검토본 저장", state: reviewing && reviewSaved ? "complete" : "upcoming" },
     {
-      label: "입고 반영",
+      label: isKorean ? "검토본 저장" : "Save review",
+      state: reviewing && reviewSaved ? "complete" : "upcoming",
+    },
+    {
+      label: isKorean ? "입고 반영" : "Apply stock-in",
       state: reviewing && reviewSaved && inventoryPanel ? "current" : "upcoming",
     },
   ];
@@ -6790,8 +6807,8 @@ function OcrSection({
     >
       <header className={styles.ocrHeader}>
         <div>
-          <p>재고 / 입고 OCR</p>
-          <h2>입고 검토</h2>
+          <p>{isKorean ? "재고 / 입고 OCR" : "Inventory / Stock-in OCR"}</p>
+          <h2>{isKorean ? "입고 검토" : "Stock-in review"}</h2>
           <p>
             {locale === "ko"
               ? "이미지와 인식 결과를 비교하고 상품 정보를 확인하세요."
@@ -6802,31 +6819,58 @@ function OcrSection({
           {statusLabel}
         </span>
       </header>
-      <AdminStepper label="OCR 등록 흐름" steps={ocrSteps} />
-      <div className={styles.ocrSummary} aria-label="현재 검토 행 요약">
+      <AdminStepper
+        label={isKorean ? "OCR 등록 흐름" : "OCR intake workflow"}
+        locale={locale}
+        steps={ocrSteps}
+      />
+      <div
+        className={styles.ocrSummary}
+        aria-label={isKorean ? "현재 검토 행 요약" : "Current review row summary"}
+      >
         <article>
-          <span>검토 행</span>
-          <strong>{rows.length.toLocaleString("ko-KR")}행</strong>
+          <span>{isKorean ? "검토 행" : "Review rows"}</span>
+          <strong>
+            {isKorean
+              ? `${rows.length.toLocaleString("ko-KR")}행`
+              : rows.length.toLocaleString("en-US")}
+          </strong>
         </article>
         <article>
-          <span>입력 수량 합계</span>
+          <span>{isKorean ? "입력 수량 합계" : "Total entered quantity"}</span>
           <strong>
             {invalidQuantities
-              ? "수량 확인 필요"
-              : `${totalQuantity.toLocaleString("ko-KR")}개`}
+              ? isKorean
+                ? "수량 확인 필요"
+                : "Check quantities"
+              : isKorean
+                ? `${totalQuantity.toLocaleString("ko-KR")}개`
+                : totalQuantity.toLocaleString("en-US")}
           </strong>
-          <small>빈 수량 제외 · 실제 재고와 무관</small>
+          <small>
+            {isKorean
+              ? "빈 수량 제외 · 실제 재고와 무관"
+              : "Excludes empty quantities · Unrelated to actual stock"}
+          </small>
         </article>
         <article>
-          <span>빈 항목 포함 행</span>
-          <strong>{incompleteRows.toLocaleString("ko-KR")}행</strong>
-          <small>상품명·브랜드·옵션·수량 기준</small>
+          <span>{isKorean ? "빈 항목 포함 행" : "Rows with empty fields"}</span>
+          <strong>
+            {isKorean
+              ? `${incompleteRows.toLocaleString("ko-KR")}행`
+              : incompleteRows.toLocaleString("en-US")}
+          </strong>
+          <small>
+            {isKorean
+              ? "상품명·브랜드·옵션·수량 기준"
+              : "By name, brand, option and quantity"}
+          </small>
         </article>
       </div>
       {notice ? <NoticeMessage notice={notice} /> : null}
       <div className={styles.ocrWorkspace}>
         <section className={styles.ocrSourcePanel} aria-labelledby="ocr-source-title">
-          <h3 id="ocr-source-title">원본 이미지</h3>
+          <h3 id="ocr-source-title">{isKorean ? "원본 이미지" : "Source image"}</h3>
           <p className={styles.ocrSourceHint}>
             {locale === "ko"
               ? "PNG·JPG·WEBP · 4MiB 이하 · 표 전체가 보이는 이미지"
@@ -6875,7 +6919,7 @@ function OcrSection({
             </p>
           )}
           <label className={styles.ocrFileControl}>
-            <span>이미지 파일 선택</span>
+            <span>{isKorean ? "이미지 파일 선택" : "Choose image file"}</span>
             <input
               accept="image/png,image/jpeg,image/webp"
               onChange={onFileChange}
@@ -6888,14 +6932,24 @@ function OcrSection({
             onClick={onRecognize}
             type="button"
           >
-            {recognizing ? "OCR 인식 중…" : "OCR로 텍스트 추출"}
+            {recognizing
+              ? isKorean
+                ? "OCR 인식 중…"
+                : "Recognizing…"
+              : isKorean
+                ? "OCR로 텍스트 추출"
+                : "Extract text with OCR"}
           </button>
           {file ? (
             <OcrSourcePreview file={file} />
           ) : (
             <div className={styles.ocrSourceEmpty}>
               <span aria-hidden="true">▧</span>
-              <p>이미지를 선택하면 여기에 표시됩니다.</p>
+              <p>
+                {isKorean
+                  ? "이미지를 선택하면 여기에 표시됩니다."
+                  : "The selected image appears here."}
+              </p>
             </div>
           )}
           <details className={styles.ocrProcessingHelp}>
@@ -6932,8 +6986,14 @@ function OcrSection({
         <section className={styles.ocrReviewPanel} aria-labelledby="ocr-review-title">
           <div className={styles.ocrReviewHeading}>
             <div>
-              <h3 id="ocr-review-title">인식 결과</h3>
-              <p>상품명·브랜드·옵션·수량을 직접 확인하고 수정하세요.</p>
+              <h3 id="ocr-review-title">
+                {isKorean ? "인식 결과" : "Recognition results"}
+              </h3>
+              <p>
+                {isKorean
+                  ? "상품명·브랜드·옵션·수량을 직접 확인하고 수정하세요."
+                  : "Check and correct the product name, brand, option and quantity."}
+              </p>
             </div>
             <button
               className={styles.secondaryButton}
@@ -6941,38 +7001,54 @@ function OcrSection({
               onClick={onAddRow}
               type="button"
             >
-              행 추가
+              {isKorean ? "행 추가" : "Add row"}
             </button>
           </div>
           {rows.length === 0 ? (
             <EmptyState
-              title="검토할 입고 행이 없습니다"
-              description="이미지를 선택해 OCR 인식을 실행하면 수정 가능한 행이 표시됩니다. 누락된 항목은 행 추가로 입력하세요."
+              title={
+                isKorean ? "검토할 입고 행이 없습니다" : "No stock-in rows to review"
+              }
+              description={
+                isKorean
+                  ? "이미지를 선택해 OCR 인식을 실행하면 수정 가능한 행이 표시됩니다. 누락된 항목은 행 추가로 입력하세요."
+                  : "Choose an image and run OCR to see editable rows. Add rows for anything missing."
+              }
             />
           ) : (
             <ol className={styles.ocrReviewRows}>
               {rows.map((row, index) => (
                 <li key={row.id}>
                   <article
-                    aria-label={`${index + 1}번째 입고 행`}
+                    aria-label={
+                      isKorean
+                        ? `${index + 1}번째 입고 행`
+                        : `Stock-in row ${index + 1}`
+                    }
                     className={styles.ocrReviewRow}
                   >
                     <div className={styles.ocrRowHeading}>
-                      <strong>{index + 1}번 행</strong>
+                      <strong>
+                        {isKorean ? `${index + 1}번 행` : `Row ${index + 1}`}
+                      </strong>
                       <button
-                        aria-label={`${index + 1}번 입고 행 삭제`}
+                        aria-label={
+                          isKorean
+                            ? `${index + 1}번 입고 행 삭제`
+                            : `Delete stock-in row ${index + 1}`
+                        }
                         className={styles.secondaryButton}
                         onClick={() => onRemoveRow(row.id)}
                         type="button"
                       >
-                        행 삭제
+                        {isKorean ? "행 삭제" : "Delete row"}
                       </button>
                     </div>
                     <div className={styles.ocrMainFields}>
                       <label>
-                        <span>상품명</span>
+                        <span>{isKorean ? "상품명" : "Product name"}</span>
                         <input
-                          aria-label="상품명"
+                          aria-label={isKorean ? "상품명" : "Product name"}
                           aria-describedby="ocr-row-edit-limits"
                           maxLength={OCR_INPUT_LIMITS.maxProductNameLength}
                           onChange={(event) =>
@@ -6982,9 +7058,9 @@ function OcrSection({
                         />
                       </label>
                       <label>
-                        <span>브랜드</span>
+                        <span>{isKorean ? "브랜드" : "Brand"}</span>
                         <input
-                          aria-label="브랜드"
+                          aria-label={isKorean ? "브랜드" : "Brand"}
                           aria-describedby="ocr-row-edit-limits"
                           maxLength={OCR_INPUT_LIMITS.maxBrandLength}
                           onChange={(event) =>
@@ -6994,9 +7070,9 @@ function OcrSection({
                         />
                       </label>
                       <label>
-                        <span>옵션</span>
+                        <span>{isKorean ? "옵션" : "Option"}</span>
                         <input
-                          aria-label="옵션"
+                          aria-label={isKorean ? "옵션" : "Option"}
                           aria-describedby="ocr-row-edit-limits"
                           maxLength={OCR_INPUT_LIMITS.maxOptionLength}
                           onChange={(event) =>
@@ -7006,9 +7082,9 @@ function OcrSection({
                         />
                       </label>
                       <label>
-                        <span>수량</span>
+                        <span>{isKorean ? "수량" : "Quantity"}</span>
                         <input
-                          aria-label="수량"
+                          aria-label={isKorean ? "수량" : "Quantity"}
                           aria-describedby="ocr-row-edit-limits"
                           inputMode="numeric"
                           maxLength={OCR_INPUT_LIMITS.maxQuantityDigits}
@@ -7021,11 +7097,23 @@ function OcrSection({
                       </label>
                     </div>
                     <details className={styles.ocrRowDetails}>
-                      <summary>인식 원문·상세 보기</summary>
+                      <summary>
+                        {isKorean
+                          ? "인식 원문·상세 보기"
+                          : "View source text and details"}
+                      </summary>
                       <label>
-                        <span>OCR 원문 (수정 가능)</span>
+                        <span>
+                          {isKorean
+                            ? "OCR 원문 (수정 가능)"
+                            : "OCR source text (editable)"}
+                        </span>
                         <input
-                          aria-label="OCR 원문 (수정 가능)"
+                          aria-label={
+                            isKorean
+                              ? "OCR 원문 (수정 가능)"
+                              : "OCR source text (editable)"
+                          }
                           aria-describedby="ocr-row-edit-limits"
                           maxLength={OCR_INPUT_LIMITS.maxSourceTextLength}
                           onChange={(event) =>
@@ -7036,11 +7124,15 @@ function OcrSection({
                       </label>
                       <dl>
                         <div>
-                          <dt>신뢰도 (읽기 전용)</dt>
+                          <dt>
+                            {isKorean ? "신뢰도 (읽기 전용)" : "Confidence (read-only)"}
+                          </dt>
                           <dd>{formatOcrConfidence(row.confidence)}</dd>
                         </div>
                         <div>
-                          <dt>좌표 (읽기 전용)</dt>
+                          <dt>
+                            {isKorean ? "좌표 (읽기 전용)" : "Coordinates (read-only)"}
+                          </dt>
                           <dd>{formatOcrBoundingBox(row.box)}</dd>
                         </div>
                       </dl>
@@ -7051,15 +7143,13 @@ function OcrSection({
             </ol>
           )}
           <details className={styles.ocrEditHelp}>
-            <summary>입력 제한·빈 항목 안내</summary>
+            <summary>
+              {isKorean ? "입력 제한·빈 항목 안내" : "Input limits and empty fields"}
+            </summary>
             <p id="ocr-row-edit-limits">
-              원문 {OCR_INPUT_LIMITS.maxSourceTextLength.toLocaleString("ko-KR")}자,
-              상품명 {OCR_INPUT_LIMITS.maxProductNameLength}자, 브랜드{" "}
-              {OCR_INPUT_LIMITS.maxBrandLength}자, 옵션{" "}
-              {OCR_INPUT_LIMITS.maxOptionLength}자까지 입력할 수 있습니다. 검토 행은
-              최대 {OCR_INPUT_LIMITS.maxReviewRows}개이며 수량은 비우거나 0~999,999,999
-              정수만 허용됩니다. 빈 항목은 검토본에 보관할 수 있으나 실제 입고 전에
-              상품과 수량을 별도로 확인해야 합니다.
+              {isKorean
+                ? `원문 ${OCR_INPUT_LIMITS.maxSourceTextLength.toLocaleString("ko-KR")}자, 상품명 ${OCR_INPUT_LIMITS.maxProductNameLength}자, 브랜드 ${OCR_INPUT_LIMITS.maxBrandLength}자, 옵션 ${OCR_INPUT_LIMITS.maxOptionLength}자까지 입력할 수 있습니다. 검토 행은 최대 ${OCR_INPUT_LIMITS.maxReviewRows}개이며 수량은 비우거나 0~999,999,999 정수만 허용됩니다. 빈 항목은 검토본에 보관할 수 있으나 실제 입고 전에 상품과 수량을 별도로 확인해야 합니다.`
+                : `Source text up to ${OCR_INPUT_LIMITS.maxSourceTextLength.toLocaleString("en-US")} characters, product name ${OCR_INPUT_LIMITS.maxProductNameLength}, brand ${OCR_INPUT_LIMITS.maxBrandLength}, option ${OCR_INPUT_LIMITS.maxOptionLength}. Up to ${OCR_INPUT_LIMITS.maxReviewRows} review rows; quantity is empty or a whole number from 0 to 999,999,999. Empty fields can stay in the review, but check the product and quantity separately before stock-in.`}
             </p>
           </details>
           <div className={styles.ocrReviewSave}>
@@ -7071,10 +7161,16 @@ function OcrSection({
             <div>
               <span>
                 {reviewSaved
-                  ? `검토본 저장됨 · 서버 버전 ${jobVersion}`
+                  ? isKorean
+                    ? `검토본 저장됨 · 서버 버전 ${jobVersion}`
+                    : `Review saved · Server version ${jobVersion}`
                   : rows.length
-                    ? "검토본 저장 필요"
-                    : "인식 결과 대기"}
+                    ? isKorean
+                      ? "검토본 저장 필요"
+                      : "Review needs saving"
+                    : isKorean
+                      ? "인식 결과 대기"
+                      : "Waiting for results"}
               </span>
               <button
                 className={styles.primaryButton}
@@ -7082,7 +7178,13 @@ function OcrSection({
                 onClick={onSave}
                 type="button"
               >
-                {isSaving ? "처리 중…" : "검토본 저장"}
+                {isSaving
+                  ? isKorean
+                    ? "처리 중…"
+                    : "Processing…"
+                  : isKorean
+                    ? "검토본 저장"
+                    : "Save review"}
               </button>
             </div>
           </div>
@@ -7090,26 +7192,37 @@ function OcrSection({
       </div>
       {mappingPanel ? (
         <details className={styles.ocrAdvanced}>
-          <summary>표 인식이 다르면 · 열·이미지 영역 직접 지정</summary>
+          <summary>
+            {isKorean
+              ? "표 인식이 다르면 · 열·이미지 영역 직접 지정"
+              : "If the table is misread · Set columns or image areas"}
+          </summary>
           <p>
-            상품명·브랜드·옵션·수량의 위치를 지정하고 미리보기로 확인한 뒤 적용하세요.
-            적용하면 검토 내용을 다시 확인하고 저장해야 합니다.
+            {isKorean
+              ? "상품명·브랜드·옵션·수량의 위치를 지정하고 미리보기로 확인한 뒤 적용하세요. 적용하면 검토 내용을 다시 확인하고 저장해야 합니다."
+              : "Set where the product name, brand, option and quantity are, check the preview, then apply. After applying, review the content again and save."}
           </p>
           {mappingPanel}
         </details>
       ) : null}
       {rawText ? (
         <details className={styles.ocrRawReadOnly}>
-          <summary>인식 원문 보기 · 읽기 전용</summary>
+          <summary>
+            {isKorean ? "인식 원문 보기 · 읽기 전용" : "View source text · Read-only"}
+          </summary>
           <pre>{rawText}</pre>
         </details>
       ) : null}
       {inventoryPanel ? (
-        <section className={styles.ocrInventoryStage} aria-label="검토본 입고 반영">
-          <h3>5. 입고 반영</h3>
+        <section
+          className={styles.ocrInventoryStage}
+          aria-label={isKorean ? "검토본 입고 반영" : "Apply review to stock"}
+        >
+          <h3>{isKorean ? "5. 입고 반영" : "5. Apply stock-in"}</h3>
           <p>
-            아래에서 상품과 수량을 별도로 확인합니다. 이 화면의 검토본 저장 상태는 입고
-            완료를 뜻하지 않습니다.
+            {isKorean
+              ? "아래에서 상품과 수량을 별도로 확인합니다. 이 화면의 검토본 저장 상태는 입고 완료를 뜻하지 않습니다."
+              : "Check the products and quantities separately below. A saved review on this screen does not mean the stock-in is done."}
           </p>
           {inventoryPanel}
         </section>
@@ -7119,6 +7232,8 @@ function OcrSection({
 }
 
 function OcrSourcePreview({ file }: Readonly<{ file: File }>) {
+  const { locale } = useLocale();
+  const isKorean = locale === "ko";
   const imageRef = useRef<HTMLImageElement>(null);
   const expandedImageRef = useRef<HTMLImageElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -7140,7 +7255,10 @@ function OcrSourcePreview({ file }: Readonly<{ file: File }>) {
     <figure className={styles.ocrSourceFigure}>
       {/* 로컬 blob을 DOM ref로 교체·폐기하는 미리보기이며 최적화 서버로 전송하지 않습니다. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img alt="선택한 입고 원본 이미지" ref={imageRef} />
+      <img
+        alt={isKorean ? "선택한 입고 원본 이미지" : "Selected stock-in source image"}
+        ref={imageRef}
+      />
       <figcaption>
         {file.name} ·{" "}
         {(file.size / 1024).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}KiB
@@ -7150,7 +7268,7 @@ function OcrSourcePreview({ file }: Readonly<{ file: File }>) {
         onClick={() => dialogRef.current?.showModal()}
         type="button"
       >
-        원본 이미지 확대 보기
+        {isKorean ? "원본 이미지 확대 보기" : "Enlarge source image"}
       </button>
       <dialog
         aria-labelledby="ocr-image-dialog-title"
@@ -7158,20 +7276,25 @@ function OcrSourcePreview({ file }: Readonly<{ file: File }>) {
         ref={dialogRef}
       >
         <div>
-          <h3 id="ocr-image-dialog-title">원본 이미지 확대</h3>
+          <h3 id="ocr-image-dialog-title">
+            {isKorean ? "원본 이미지 확대" : "Enlarged source image"}
+          </h3>
           <button
             autoFocus
             className={styles.secondaryButton}
             onClick={() => dialogRef.current?.close()}
             type="button"
           >
-            확대 보기 닫기
+            {isKorean ? "확대 보기 닫기" : "Close enlarged view"}
           </button>
         </div>
         <p>{file.name}</p>
         {/* 동일한 로컬 blob URL을 사용하며 파일 교체·언마운트 시 폐기합니다. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img alt="입고 원본 이미지 확대" ref={expandedImageRef} />
+        <img
+          alt={isKorean ? "입고 원본 이미지 확대" : "Enlarged stock-in source image"}
+          ref={expandedImageRef}
+        />
       </dialog>
     </figure>
   );
