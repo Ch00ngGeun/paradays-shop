@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 
 import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { useModalLayer } from "@/hooks/use-modal-layer";
-import type { DeckSpec } from "@/types/store";
+import type { DeckSpec, Locale } from "@/types/store";
 
 import styles from "./admin-deck-spec-modal.module.css";
 import { DeckSizeDiagram, formatDeckCm } from "./deck-size-diagram";
@@ -61,6 +61,8 @@ type AdminDeckSpecFormProps = Readonly<{
   onSave: (spec: DeckSpec | null) => Promise<void>;
   /** 저장 중 여부를 모달에 알려 ESC로 닫히지 않게 합니다. */
   onBusyChange?: (busy: boolean) => void;
+  /** 단위 테스트가 provider 없이 렌더하므로 언어는 prop으로 받습니다. */
+  locale?: Locale;
 }>;
 
 /** 모달 본문. 저장 성공 시 caller가 모달을 닫고, 실패하면 입력값을 그대로 두고 오류를 보여 줍니다. */
@@ -69,21 +71,23 @@ export function AdminDeckSpecForm({
   onCancel,
   onSave,
   onBusyChange,
+  locale = "ko",
 }: AdminDeckSpecFormProps) {
+  const isKorean = locale === "ko";
   const [inputs, setInputs] = useState(() => toInputs(initialSpec));
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
   const spec = parseDeckSpecInputs(inputs);
 
   const submit = async (next: DeckSpec | null) => {
     setSaving(true);
     onBusyChange?.(true);
-    setError(null);
+    setFailed(false);
 
     try {
       await onSave(next);
     } catch {
-      setError("저장하지 못했습니다. 입력값은 그대로 두었으니 다시 저장해 주세요.");
+      setFailed(true);
       setSaving(false);
     } finally {
       onBusyChange?.(false);
@@ -133,7 +137,9 @@ export function AdminDeckSpecForm({
           );
         })}
         <p className={styles.hint}>
-          인치로 입력하면 cm는 자동으로 계산됩니다. 0 초과 100 이하.
+          {isKorean
+            ? "인치로 입력하면 cm는 자동으로 계산됩니다. 0 초과 100 이하."
+            : "Enter inches; cm is calculated automatically. Above 0, up to 100."}
         </p>
       </div>
 
@@ -142,14 +148,18 @@ export function AdminDeckSpecForm({
           <DeckSizeDiagram spec={spec} />
         ) : (
           <p className={styles.previewEmpty}>
-            5칸을 모두 입력하면 도면 미리보기가 나타납니다.
+            {isKorean
+              ? "5칸을 모두 입력하면 도면 미리보기가 나타납니다."
+              : "Fill in all 5 fields to see the diagram preview."}
           </p>
         )}
       </div>
 
-      {error ? (
+      {failed ? (
         <p className={styles.error} role="alert">
-          {error}
+          {isKorean
+            ? "저장하지 못했습니다. 입력값은 그대로 두었으니 다시 저장해 주세요."
+            : "Could not save. Your input is kept, so save again."}
         </p>
       ) : null}
 
@@ -161,7 +171,7 @@ export function AdminDeckSpecForm({
             onClick={() => void submit(null)}
             type="button"
           >
-            삭제
+            {isKorean ? "삭제" : "Delete"}
           </button>
         ) : null}
         <button
@@ -170,10 +180,10 @@ export function AdminDeckSpecForm({
           onClick={onCancel}
           type="button"
         >
-          취소
+          {isKorean ? "취소" : "Cancel"}
         </button>
         <button className={styles.saveButton} disabled={!spec || saving} type="submit">
-          {saving ? "저장 중…" : "저장"}
+          {saving ? (isKorean ? "저장 중…" : "Saving…") : isKorean ? "저장" : "Save"}
         </button>
       </div>
     </form>
@@ -190,6 +200,7 @@ export function AdminDeckSpecModal({
   initialSpec,
   onCancel,
   onSave,
+  locale = "ko",
 }: AdminDeckSpecModalProps) {
   const layer = useModalLayer(isOpen);
   const busyRef = useRef(false);
@@ -214,10 +225,11 @@ export function AdminDeckSpecModal({
         tabIndex={-1}
       >
         <h2 className={styles.title} id="admin-deck-spec-title">
-          상세사이즈 · {productName}
+          {locale === "ko" ? "상세사이즈" : "Size chart"} · {productName}
         </h2>
         <AdminDeckSpecForm
           initialSpec={initialSpec}
+          locale={locale}
           onBusyChange={(busy) => {
             busyRef.current = busy;
           }}

@@ -81,4 +81,28 @@ describe("admin deck spec modal", () => {
     expect(markup).toMatch(/<button[^>]*type="submit"[^>]*>저장<\/button>/);
     expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*type="submit"/);
   });
+
+  it("renders the form in English without Korean when the admin uses English", () => {
+    const empty = renderToStaticMarkup(
+      createElement(AdminDeckSpecForm, {
+        locale: "en",
+        onCancel: () => {},
+        onSave: noop,
+      }),
+    );
+    const filled = renderToStaticMarkup(
+      createElement(AdminDeckSpecForm, {
+        initialSpec: spec,
+        locale: "en",
+        onCancel: () => {},
+        onSave: noop,
+      }),
+    );
+
+    expect(empty + filled).not.toMatch(/[가-힣]/u);
+    expect(empty).toContain("Fill in all 5 fields to see the diagram preview.");
+    expect(filled).toMatch(/<button[^>]*type="submit"[^>]*>Save<\/button>/);
+    expect(filled).toContain(">Delete</button>");
+    expect(filled).toContain(">Cancel</button>");
+  });
 });
