@@ -1,5 +1,6 @@
 // 역할: 브라우저에서 OCR 입력 파일과 검토 행을 서버 계약과 같은 제한으로 먼저 검증합니다.
 // 기능: private OCR credential 없이 MIME·매직 바이트·안전한 inline 전송 크기만 확인합니다.
+import type { Locale } from "@/types/store";
 
 export const OCR_INPUT_LIMITS = {
   maxFileNameLength: 120,
@@ -98,32 +99,46 @@ export function getOcrReviewRowValidationMessage(
       quantity: string;
     }>
   >,
+  locale: Locale = "ko",
 ): string | undefined {
+  const isKorean = locale === "ko";
   if (rows.length === 0 || rows.length > OCR_INPUT_LIMITS.maxReviewRows) {
-    return `검토 행은 1~${OCR_INPUT_LIMITS.maxReviewRows}개만 저장할 수 있습니다.`;
+    return isKorean
+      ? `검토 행은 1~${OCR_INPUT_LIMITS.maxReviewRows}개만 저장할 수 있습니다.`
+      : `You can save only 1–${OCR_INPUT_LIMITS.maxReviewRows} review rows.`;
   }
 
   for (const [index, row] of rows.entries()) {
     const rowNumber = index + 1;
 
     if (!isOcrEditableText(row.sourceText, OCR_INPUT_LIMITS.maxSourceTextLength)) {
-      return `${rowNumber}번째 원문은 ${OCR_INPUT_LIMITS.maxSourceTextLength.toLocaleString("ko-KR")}자 이하로 입력해 주세요.`;
+      return isKorean
+        ? `${rowNumber}번째 원문은 ${OCR_INPUT_LIMITS.maxSourceTextLength.toLocaleString("ko-KR")}자 이하로 입력해 주세요.`
+        : `Enter row ${rowNumber} source text in ${OCR_INPUT_LIMITS.maxSourceTextLength.toLocaleString("en-US")} characters or fewer.`;
     }
 
     if (!isOcrEditableText(row.productName, OCR_INPUT_LIMITS.maxProductNameLength)) {
-      return `${rowNumber}번째 상품명은 ${OCR_INPUT_LIMITS.maxProductNameLength}자 이하로 입력해 주세요.`;
+      return isKorean
+        ? `${rowNumber}번째 상품명은 ${OCR_INPUT_LIMITS.maxProductNameLength}자 이하로 입력해 주세요.`
+        : `Enter row ${rowNumber} product name in ${OCR_INPUT_LIMITS.maxProductNameLength} characters or fewer.`;
     }
 
     if (!isOcrEditableText(row.brand, OCR_INPUT_LIMITS.maxBrandLength)) {
-      return `${rowNumber}번째 브랜드는 ${OCR_INPUT_LIMITS.maxBrandLength}자 이하로 입력해 주세요.`;
+      return isKorean
+        ? `${rowNumber}번째 브랜드는 ${OCR_INPUT_LIMITS.maxBrandLength}자 이하로 입력해 주세요.`
+        : `Enter row ${rowNumber} brand in ${OCR_INPUT_LIMITS.maxBrandLength} characters or fewer.`;
     }
 
     if (!isOcrEditableText(row.option, OCR_INPUT_LIMITS.maxOptionLength)) {
-      return `${rowNumber}번째 옵션은 ${OCR_INPUT_LIMITS.maxOptionLength}자 이하로 입력해 주세요.`;
+      return isKorean
+        ? `${rowNumber}번째 옵션은 ${OCR_INPUT_LIMITS.maxOptionLength}자 이하로 입력해 주세요.`
+        : `Enter row ${rowNumber} option in ${OCR_INPUT_LIMITS.maxOptionLength} characters or fewer.`;
     }
 
     if (!isOcrQuantity(row.quantity)) {
-      return `${rowNumber}번째 수량은 비우거나 0~999,999,999 정수로 입력해 주세요.`;
+      return isKorean
+        ? `${rowNumber}번째 수량은 비우거나 0~999,999,999 정수로 입력해 주세요.`
+        : `Leave row ${rowNumber} quantity empty or enter a whole number from 0 to 999,999,999.`;
     }
   }
 
@@ -148,32 +163,48 @@ export function isOcrQuantity(value: unknown): value is string {
 }
 
 /** 파일 선택·전송 오류를 API 세부 정보 없이 운영자가 조치할 수 있는 문구로 바꿉니다. */
-export function getOcrInputErrorMessage(error: unknown): string | undefined {
+export function getOcrInputErrorMessage(
+  error: unknown,
+  locale: Locale = "ko",
+): string | undefined {
   if (!(error instanceof AdminOcrInputError)) {
     return undefined;
   }
+  const isKorean = locale === "ko";
 
   if (error.reason === "FILE_NAME_INVALID") {
-    return "파일명은 120자 이하의 한글·영문·숫자·공백·._-만 사용할 수 있습니다.";
+    return isKorean
+      ? "파일명은 120자 이하의 한글·영문·숫자·공백·._-만 사용할 수 있습니다."
+      : "File names can use only Korean, English letters, digits, spaces and ._- within 120 characters.";
   }
 
   if (error.reason === "FILE_TYPE_INVALID") {
-    return "OCR은 PNG, JPEG, WEBP 파일만 받을 수 있습니다.";
+    return isKorean
+      ? "OCR은 PNG, JPEG, WEBP 파일만 받을 수 있습니다."
+      : "OCR accepts only PNG, JPEG and WEBP files.";
   }
 
   if (error.reason === "FILE_TOO_LARGE") {
-    return "OCR 원본 파일은 6MiB를 초과할 수 없습니다.";
+    return isKorean
+      ? "OCR 원본 파일은 6MiB를 초과할 수 없습니다."
+      : "OCR source files cannot exceed 6MiB.";
   }
 
   if (error.reason === "INLINE_PAYLOAD_TOO_LARGE") {
-    return "현재 직접 OCR은 4MiB 이하만 지원합니다. 4~6MiB 파일은 private S3 업로드 경로가 배포된 뒤 사용할 수 있습니다.";
+    return isKorean
+      ? "현재 직접 OCR은 4MiB 이하만 지원합니다. 4~6MiB 파일은 private S3 업로드 경로가 배포된 뒤 사용할 수 있습니다."
+      : "Direct OCR currently supports files up to 4MiB. Files of 4–6MiB can be used after the private S3 upload path is deployed.";
   }
 
   if (error.reason === "IMAGE_SIGNATURE_INVALID") {
-    return "선택한 파일의 실제 이미지 형식이 PNG, JPEG, WEBP MIME 정보와 일치하지 않습니다.";
+    return isKorean
+      ? "선택한 파일의 실제 이미지 형식이 PNG, JPEG, WEBP MIME 정보와 일치하지 않습니다."
+      : "The selected file's actual image format does not match its PNG, JPEG or WEBP MIME type.";
   }
 
-  return "이미지 파일을 읽지 못했습니다. 파일을 다시 선택해 주세요.";
+  return isKorean
+    ? "이미지 파일을 읽지 못했습니다. 파일을 다시 선택해 주세요."
+    : "Could not read the image file. Choose the file again.";
 }
 
 /** 브라우저가 입력한 이름을 서버가 그대로 안전하게 저장 전 검증할 수 있는지 확인합니다. */
