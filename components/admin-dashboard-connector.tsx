@@ -24,6 +24,7 @@ export function AdminDashboardConnector() {
         listCatalogProducts: client.listCatalogProducts,
         saveProductDraft: client.saveProductDraft,
         updateProductStock: client.updateProductStock,
+        updateProductDeckSpec: client.updateProductDeckSpec,
         deleteCatalogProducts: client.deleteCatalogProducts,
         saveBrandDraft: client.saveBrandDraft,
         saveCouponDraft: client.saveCouponDraft,

@@ -53,6 +53,7 @@ import type {
   AdminOverviewMetrics,
   AdminProductDraft,
 } from "@/lib/admin-ui/types";
+import type { DeckSpec } from "@/types/store";
 import {
   appendProductOption,
   createProductSku,
@@ -71,6 +72,7 @@ import {
   validateOcrImageFile,
 } from "@/lib/admin-ui/ocr-input-validation";
 import {
+  AdminApiRequestError,
   getOcrRequestErrorMessage,
   isLocalOcrDevelopmentMode,
   isRemoteOcrDemoMode,
@@ -83,6 +85,8 @@ import { AdminOrderInventoryPanel } from "./admin-order-inventory";
 import { AdminOrderSimulationPanel } from "./admin-order-simulation";
 import { AdminSalesLedgerPanel } from "./admin-sales-ledger";
 import { AdminNotice, AdminStatusBadge, StockStatusBadge } from "./admin-status";
+import { AdminDeckSpecModal } from "./admin-deck-spec-modal";
+import { formatDeckInches } from "./deck-size-diagram";
 import {
   OcrInventoryCommitPanel,
   OcrInventoryAttemptStore,
@@ -1190,6 +1194,54 @@ function AdminWorkspace({
     }
   };
 
+  /**
+   * 상세사이즈 모달 저장: 상품 저장과 별도로 즉시 서버에 반영합니다.
+   * 폼이 기준으로 삼은 version으로만 보내므로, 그 사이 다른 곳에서 바뀌었으면 409로 멈추고 덮어쓰지 않습니다.
+   * 직접 받은 성공 응답일 때만 폼 version을 올려 이후 상품 저장이 409가 나지 않게 합니다.
+   */
+  const saveProductDeckSpec = async (deckSpec: DeckSpec | null) => {
+    const editor = productEditor;
+    const productId = editor?.draft.productId;
+    const version = editor?.draft.version;
+
+    if (!actions?.updateProductDeckSpec || !editor || !productId || !version) {
+      throw new Error("DECK_SPEC_UNAVAILABLE");
+    }
+
+    let updated: AdminCatalogListItem;
+    try {
+      updated = await actions.updateProductDeckSpec({
+        id: productId,
+        version,
+        deckSpec,
+      });
+    } catch (error) {
+      // Success is never guessed from a re-read; a conflict only refreshes the list and asks to reopen.
+      if (error instanceof AdminApiRequestError && error.status === 409) {
+        void refreshCatalogProducts();
+        if (getAdminProductEditorId() === editor.id)
+          setProductNotice({
+            kind: "error",
+            message:
+              "다른 곳에서 이 상품이 바뀌었거나 이전 상세사이즈 저장이 이미 반영됐습니다. 편집을 닫고 다시 열어 최신 값을 확인한 뒤 저장해 주세요.",
+          });
+      }
+      throw error;
+    }
+    catalogMutationGenerationRef.current += 1;
+    setLocalProducts((current) =>
+      current.map((item) =>
+        item.id === updated.id && item.version <= updated.version ? updated : item,
+      ),
+    );
+    // 버튼 옆 요약이 바뀌는 것으로 저장을 알립니다. 상품 저장 완료 알림(productSaved)과 섞지 않습니다.
+    productEditors.updateDraft(editor.id, (current) =>
+      current.productId === updated.id && current.version === version
+        ? { ...current, version: updated.version }
+        : current,
+    );
+  };
+
   const resetProductDraft = () => {
     if (productEditor) {
       removePendingProductActivity(productEditor.id);
@@ -2108,6 +2160,9 @@ function AdminWorkspace({
             onOpenCreate={openNewProductEditor}
             onReset={resetProductDraft}
             onSave={(event) => void handleProductSave(event)}
+            onSaveDeckSpec={
+              actions?.updateProductDeckSpec ? saveProductDeckSpec : undefined
+            }
             onTextChange={updateProductText}
             onToggleChange={updateProductToggle}
             previewCompareAtPrice={previewCompareAtPrice}
@@ -2887,6 +2942,7 @@ function ProductSection({
   onOpenCreate,
   onReset,
   onSave,
+  onSaveDeckSpec,
   onTextChange,
   onToggleChange,
   previewCompareAtPrice,
@@ -2915,6 +2971,7 @@ function ProductSection({
   onOpenCreate: () => void;
   onReset: () => void;
   onSave: (event: FormEvent<HTMLFormElement>) => void;
+  onSaveDeckSpec?: (deckSpec: DeckSpec | null) => Promise<void>;
   onTextChange: (
     field: Exclude<
       keyof AdminProductDraft,
@@ -2942,6 +2999,20 @@ function ProductSection({
     .map((line) => line.trim())
     .filter(Boolean);
   const currentProduct = products.find((product) => product.id === draft.productId);
+  const deckSpec = currentProduct?.deckSpec;
+  // 모달은 열 때마다 새 번호를 받고, 저장 응답은 자기 번호의 모달만 닫습니다. 편집기를 벗어나면 모달을 비웁니다.
+  const deckSpecSessionRef = useRef(0);
+  const [deckSpecModal, setDeckSpecModal] = useState<{
+    editorKey: string;
+    session: number;
+  } | null>(null);
+  const editorKey = `${view}:${editorId}`;
+  const [deckSpecEditorKey, setDeckSpecEditorKey] = useState(editorKey);
+  if (deckSpecEditorKey !== editorKey) {
+    setDeckSpecEditorKey(editorKey);
+    setDeckSpecModal(null);
+  }
+  const canEditDeckSpec = Boolean(onSaveDeckSpec && draft.productId && draft.version);
   const isCurrentlyPublic = Boolean(
     currentProduct?.version && currentProduct.isVisible,
   );
@@ -3477,6 +3548,56 @@ function ProductSection({
               onChange={(value) => onTextChange("sizes", value)}
               value={draft.sizes}
             />
+            {draft.category === "Deck" ? (
+              <div className={styles.productLegacyPrice}>
+                <span>
+                  상세사이즈
+                  <strong>
+                    {deckSpec
+                      ? `${formatDeckInches(deckSpec.width)} × ${formatDeckInches(deckSpec.length)} · WB ${formatDeckInches(deckSpec.wheelbase)}`
+                      : "미등록"}
+                  </strong>
+                </span>
+                <button
+                  className={styles.secondaryButton}
+                  disabled={!canEditDeckSpec}
+                  onClick={() =>
+                    setDeckSpecModal({
+                      editorKey,
+                      session: ++deckSpecSessionRef.current,
+                    })
+                  }
+                  type="button"
+                >
+                  {deckSpec ? "상세사이즈 수정" : "+ 상세사이즈 등록"}
+                </button>
+                {onSaveDeckSpec && deckSpecModal?.editorKey === editorKey ? (
+                  <AdminDeckSpecModal
+                    initialSpec={deckSpec}
+                    isOpen
+                    key={deckSpecModal.session}
+                    onCancel={() => setDeckSpecModal(null)}
+                    onSave={async (next) => {
+                      const { session } = deckSpecModal;
+                      await onSaveDeckSpec(next);
+                      setDeckSpecModal((current) =>
+                        current?.session === session ? null : current,
+                      );
+                    }}
+                    productName={previewName}
+                  />
+                ) : null}
+                {canEditDeckSpec ? (
+                  <small>모달의 저장 버튼을 누르면 바로 반영됩니다.</small>
+                ) : (
+                  <small>
+                    {onSaveDeckSpec
+                      ? "상품을 먼저 저장하면 등록할 수 있습니다."
+                      : "서버에 연결된 관리자 화면에서만 등록할 수 있습니다."}
+                  </small>
+                )}
+              </div>
+            ) : null}
             {view === "edit" && draft.compareAtPrice ? (
               <div className={styles.productLegacyPrice}>
                 <span>
