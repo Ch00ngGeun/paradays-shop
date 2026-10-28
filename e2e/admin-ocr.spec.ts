@@ -1341,6 +1341,10 @@ test.describe("remote PC OCR demo fixture", () => {
       });
     });
     await page.goto(`${FIREBASE_ORIGIN}/admin`);
+    // The locale provider starts in English and restores the saved Korean choice after hydration.
+    await expect(
+      page.getByRole("button", { name: "한국어", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
     await selectAdminTab(page, "입고 OCR");
     await expect(
       page.getByRole("note", { name: "PC OCR 임시 테스트", exact: true }),
@@ -1403,15 +1407,20 @@ test.describe("remote PC OCR demo fixture", () => {
     await expect(english).toContainText(
       "Separately confirming inventory application changes real product inventory",
     );
-    await expect(help).toContainText("does not store image files");
-    await expect(help).toContainText("shared secret stays only on the operator’s PC");
-    await expect(help).toContainText(
+    const englishHelp = page
+      .getByRole("region", { name: "Source image", exact: true })
+      .locator("details[open]");
+    await expect(englishHelp).toContainText("does not store image files");
+    await expect(englishHelp).toContainText(
+      "shared secret stays only on the operator’s PC",
+    );
+    await expect(englishHelp).toContainText(
       "signed authentication token lacks the admin group",
     );
-    await expect(help).toContainText("rejected (403)");
-    await expect(help).toContainText("up to about 2 minutes");
-    await expect(help).toContainText("times out or the connection fails");
-    await expect(help).toContainText("before retrying");
+    await expect(englishHelp).toContainText("rejected (403)");
+    await expect(englishHelp).toContainText("up to about 2 minutes");
+    await expect(englishHelp).toContainText("times out or the connection fails");
+    await expect(englishHelp).toContainText("before retrying");
     await page.getByRole("button", { name: "KOR", exact: true }).click();
     await recognize(page, "Remote intake.png");
     await page.getByRole("button", { name: "검토본 저장", exact: true }).click();
