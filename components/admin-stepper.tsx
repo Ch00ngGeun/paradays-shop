@@ -1,3 +1,5 @@
+import type { Locale } from "@/types/store";
+
 import styles from "./admin-stepper.module.css";
 
 /**
@@ -16,13 +18,22 @@ export interface AdminStepperProps {
   label: string;
   steps: readonly AdminStep[];
   className?: string;
+  locale?: Locale;
 }
 
-const stateNames: Record<AdminStepState, string> = {
-  complete: "완료",
-  current: "현재 단계",
-  upcoming: "예정",
-  unavailable: "연결 필요",
+const stateNames: Record<Locale, Record<AdminStepState, string>> = {
+  ko: {
+    complete: "완료",
+    current: "현재 단계",
+    upcoming: "예정",
+    unavailable: "연결 필요",
+  },
+  en: {
+    complete: "done",
+    current: "current step",
+    upcoming: "upcoming",
+    unavailable: "Needs connection",
+  },
 };
 
 /** 앞 단계가 모두 완료면 첫 미완료 단계를 current로 만듭니다. unavailable은 건너뛰지 않습니다. */
@@ -45,7 +56,13 @@ export function deriveSteps(
   }));
 }
 
-export function AdminStepper({ label, steps, className }: AdminStepperProps) {
+export function AdminStepper({
+  label,
+  steps,
+  className,
+  locale = "ko",
+}: AdminStepperProps) {
+  const names = stateNames[locale];
   return (
     <ol
       aria-label={label}
@@ -77,9 +94,9 @@ export function AdminStepper({ label, steps, className }: AdminStepperProps) {
             {step.state === "complete" ? <span>{index + 1} </span> : null}
             {step.label}
             <span>
-              {step.state === "unavailable" ? ` · ${stateNames.unavailable}` : null}
+              {step.state === "unavailable" ? ` · ${names.unavailable}` : null}
             </span>
-            <span className={styles.srOnly}> ({stateNames[step.state]})</span>
+            <span className={styles.srOnly}> ({names[step.state]})</span>
           </span>
         </li>
       ))}

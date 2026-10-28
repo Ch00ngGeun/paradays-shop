@@ -11,6 +11,7 @@ import {
   type AdminStatus,
   type StockStatus,
 } from "@/components/admin-status";
+import { AdminStepper, deriveSteps } from "@/components/admin-stepper";
 
 const statusCases: [AdminStatus, AdminSeverity, string][] = [
   ["urgent", "danger", "긴급"],
@@ -220,6 +221,62 @@ function contrast(first: string, second: string): number {
   const values = [luminance(first), luminance(second)].sort((a, b) => b - a);
   return (values[0] + 0.05) / (values[1] + 0.05);
 }
+
+describe("english admin status labels", () => {
+  it("renders every status, stock and step name in English without Korean", () => {
+    const html = [
+      ...statusCases.map(([status]) =>
+        renderToStaticMarkup(createElement(AdminStatusBadge, { status, locale: "en" })),
+      ),
+      ...statusCases.map(([status]) =>
+        renderToStaticMarkup(
+          createElement(AdminNotice, { status, title: "Saved", locale: "en" }),
+        ),
+      ),
+      ...[7, 3, 0, undefined].map((stock) =>
+        renderToStaticMarkup(createElement(StockStatusBadge, { stock, locale: "en" })),
+      ),
+      renderToStaticMarkup(
+        createElement(AdminStepper, {
+          label: "Flow",
+          locale: "en",
+          steps: deriveSteps(["A", "B", "C", "D"], 1, 3),
+        }),
+      ),
+    ].join("");
+    expect(html).not.toMatch(/[가-힣]/);
+    for (const name of [
+      "Urgent",
+      "Blocked",
+      "Error",
+      "Done",
+      "Needs review",
+      "Warning",
+    ])
+      expect(html).toContain(`>${name}</span>`);
+    expect(html).toContain(">Info · Saved</strong>");
+    for (const name of ["In stock", "Low", "Sold out"])
+      expect(html).toContain(`>${name}</span>`);
+    for (const name of [
+      "(done)",
+      "(current step)",
+      "(upcoming)",
+      " · Needs connection",
+    ])
+      expect(html).toContain(name);
+  });
+
+  it("keeps Korean as the default when no locale is given", () => {
+    expect(
+      renderToStaticMarkup(createElement(AdminStatusBadge, { status: "success" })),
+    ).toContain(">완료</span>");
+    expect(
+      renderToStaticMarkup(
+        createElement(AdminStepper, { label: "흐름", steps: deriveSteps(["A"], 0) }),
+      ),
+    ).toContain("(현재 단계)");
+  });
+});
 
 describe("shared status CSS accessibility", () => {
   for (const theme of ["light", "dark"] as const) {
