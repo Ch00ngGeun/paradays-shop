@@ -37,6 +37,15 @@ export type CatalogDescriptionI18n = Readonly<{
   ko: readonly string[];
 }>;
 
+/** 데크 상세사이즈(인치). 관리자 상세사이즈 모달이 PATCH로 단독 저장합니다. */
+export type CatalogDeckSpec = Readonly<{
+  nose: number;
+  tail: number;
+  width: number;
+  length: number;
+  wheelbase: number;
+}>;
+
 /** DynamoDB catalog table에 저장하는 정규화된 상품 행입니다. */
 export type CatalogProductRecord = Readonly<{
   productId: string;
@@ -64,6 +73,7 @@ export type CatalogProductRecord = Readonly<{
   description: readonly string[];
   descriptionI18n?: CatalogDescriptionI18n;
   sizes: readonly string[];
+  deckSpec?: CatalogDeckSpec;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -90,6 +100,7 @@ export type PublicCatalogProduct = Readonly<{
   inventoryQuantity: number;
   /** 신상품 New 배지 */
   featured: boolean;
+  deckSpec?: CatalogDeckSpec;
 }>;
 
 /** 관리자 UI에 반환하는 allowlist 기반 상품 shape입니다. audit subject 등 저장 원본은 제외합니다. */
@@ -113,6 +124,7 @@ export type AdminCatalogProduct = Readonly<{
   description: readonly string[];
   descriptionI18n?: CatalogDescriptionI18n;
   sizes: readonly string[];
+  deckSpec?: CatalogDeckSpec;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -788,12 +800,12 @@ async function updateProduct(
   if (input.inventoryQuantity < reserved || (reserved > 0 && reservedIdentityChanged))
     return jsonResponse(409, { code: "CATALOG_PRODUCT_RESERVED" });
 
-  const existingWithoutCompareAtPrice = { ...existingProduct };
-  delete existingWithoutCompareAtPrice.compareAtPrice;
+  // Optional fields named in the patch come only from the parsed input, so null clears them.
+  const existingBase = { ...existingProduct };
+  if (hasOwn(body, "compareAtPrice")) delete existingBase.compareAtPrice;
+  if (hasOwn(body, "deckSpec")) delete existingBase.deckSpec;
   const updatedProduct: CatalogProductRecord = {
-    ...(hasOwn(body, "compareAtPrice")
-      ? existingWithoutCompareAtPrice
-      : existingProduct),
+    ...existingBase,
     ...input,
     version: existingProduct.version + 1,
     updatedAt: new Date().toISOString(),
@@ -941,6 +953,7 @@ export function isCatalogProductRecord(value: unknown): value is CatalogProductR
     (value.descriptionI18n === undefined ||
       isCatalogDescriptionI18n(value.descriptionI18n)) &&
     isStringArray(value.sizes) &&
+    (value.deckSpec === undefined || isCatalogDeckSpec(value.deckSpec)) &&
     typeof value.version === "number" &&
     Number.isSafeInteger(value.version) &&
     value.version > 0 &&
@@ -982,6 +995,7 @@ export function toPublicCatalogProduct(
     sizes: [...product.sizes],
     inventoryQuantity: product.inventoryQuantity - (product.inventoryReserved ?? 0),
     featured: product.featured,
+    ...(product.deckSpec ? { deckSpec: { ...product.deckSpec } } : {}),
   };
 }
 
@@ -1016,6 +1030,7 @@ export function toAdminCatalogProduct(
         }
       : {}),
     sizes: product.sizes,
+    ...(product.deckSpec ? { deckSpec: { ...product.deckSpec } } : {}),
     version: product.version,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
@@ -1095,13 +1110,15 @@ function parseProductInput(body: unknown): ProductInput | null {
   const sizes = readTextList(body.sizes, 20, 50, "comma");
   const nameI18n = readNameI18n(body.nameI18n);
   const descriptionI18n = readDescriptionI18n(body.descriptionI18n);
+  const deckSpec = readDeckSpec(body.deckSpec);
 
   if (
     !images ||
     !description ||
     !sizes ||
     nameI18n === null ||
-    descriptionI18n === null
+    descriptionI18n === null ||
+    deckSpec === null
   ) {
     return null;
   }
@@ -1130,6 +1147,7 @@ function parseProductInput(body: unknown): ProductInput | null {
     description,
     ...(descriptionI18n ? { descriptionI18n } : {}),
     sizes,
+    ...(deckSpec ? { deckSpec } : {}),
   };
 }
 
@@ -1163,6 +1181,7 @@ function mergeProductPatch(
         }
       : {}),
     sizes: [...product.sizes],
+    ...(product.deckSpec ? { deckSpec: { ...product.deckSpec } } : {}),
   };
 
   const directFields = [
@@ -1183,6 +1202,7 @@ function mergeProductPatch(
     "description",
     "descriptionI18n",
     "sizes",
+    "deckSpec",
   ];
 
   for (const field of directFields) {
@@ -1532,6 +1552,41 @@ function readDescriptionI18n(
   }
 
   return { en, ko };
+}
+
+const DECK_SPEC_FIELDS = ["nose", "tail", "width", "length", "wheelbase"] as const;
+const MAX_DECK_SPEC_INCHES = 100;
+
+/** 생략·null은 상세사이즈 없음(undefined), 형식 오류는 null로 구분합니다. */
+function readDeckSpec(value: unknown): CatalogDeckSpec | undefined | null {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  return isCatalogDeckSpec(value)
+    ? {
+        nose: value.nose,
+        tail: value.tail,
+        width: value.width,
+        length: value.length,
+        wheelbase: value.wheelbase,
+      }
+    : null;
+}
+
+function isCatalogDeckSpec(value: unknown): value is CatalogDeckSpec {
+  return (
+    isRecord(value) &&
+    DECK_SPEC_FIELDS.every((field) => {
+      const inches = value[field];
+      return (
+        typeof inches === "number" &&
+        Number.isFinite(inches) &&
+        inches > 0 &&
+        inches <= MAX_DECK_SPEC_INCHES
+      );
+    })
+  );
 }
 
 function isCatalogNameI18n(value: unknown): value is CatalogNameI18n {
