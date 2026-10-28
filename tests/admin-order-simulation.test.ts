@@ -23,7 +23,9 @@ describe("simulation access and IO isolation", () => {
     expect(html).toContain("모의 주문·재고 테스트");
     expect(html).toContain("실제 결제나 재고 검증 결과가 아닙니다.");
     expect(html).toContain("브라우저 메모리");
-    expect(html).toMatch(/<button[^>]+disabled/);
+    // The start button itself is disabled until consent, and no simulated order exists yet.
+    expect(html).toMatch(/<button[^>]*disabled[^>]*>\s*모의 테스트 시작\s*<\/button>/);
+    expect(html).not.toContain("모의 주문번호");
     expect(html).not.toContain("TEST_PRODUCT_DECK");
   });
   it("members, anonymous and initializing sessions cannot render the test controls", () => {

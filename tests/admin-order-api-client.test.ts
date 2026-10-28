@@ -105,7 +105,9 @@ describe("order operations", () => {
       resalableConfirmed: true as const,
     };
     const fetcher = vi.fn(async (_input: unknown, init?: RequestInit) => {
-      expect(JSON.parse(init!.body as string).rows[0].quantity).toBe(1);
+      const sent = JSON.parse(init!.body as string);
+      expect(sent.rows[0].quantity).toBe(1);
+      expect(sent.operationId).toBe("return_operation_01");
       return new Response(JSON.stringify({ order }), { status: 200 });
     });
     const client = createAdminOrderApiClient({
@@ -117,6 +119,7 @@ describe("order operations", () => {
     operation.rows[0]!.quantity = 2;
     resume("fake");
     await pending;
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
   it("missing auth never sends any request", async () => {
     const fetcher = vi.fn();
