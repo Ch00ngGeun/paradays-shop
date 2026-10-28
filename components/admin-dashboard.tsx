@@ -53,7 +53,7 @@ import type {
   AdminOverviewMetrics,
   AdminProductDraft,
 } from "@/lib/admin-ui/types";
-import type { DeckSpec } from "@/types/store";
+import type { DeckSpec, Locale } from "@/types/store";
 import {
   appendProductOption,
   createProductSku,
@@ -111,10 +111,18 @@ type OperationActivity = Readonly<{
 }>;
 
 const operationStatusLabels = {
-  working: "작업 중",
-  draft: "임시저장",
-  complete: "완료",
-  attention: "확인 필요",
+  ko: {
+    working: "작업 중",
+    draft: "임시저장",
+    complete: "완료",
+    attention: "확인 필요",
+  },
+  en: {
+    working: "In progress",
+    draft: "Draft",
+    complete: "Done",
+    attention: "Needs review",
+  },
 } as const;
 
 /** Capture wall-clock time only when an administrator event is handled, never in render. */
@@ -146,28 +154,43 @@ const subscribeToAdminViewport = (onChange: () => void) => {
 const getDesktopAdminSnapshot = () => window.matchMedia(desktopAdminQuery).matches;
 const getServerDesktopAdminSnapshot = () => false;
 
-const sectionShortLabels: Record<AdminSection, string> = {
-  overview: "홈",
-  products: "상품",
-  inventory: "재고",
-  sales: "매출·일마감",
-  brands: "브랜드",
-  members: "회원",
-  coupons: "쿠폰",
-  marketing: "마케팅",
-  ocr: "입고 OCR",
+const sectionShortLabels: Record<Locale, Record<AdminSection, string>> = {
+  ko: {
+    overview: "홈",
+    products: "상품",
+    inventory: "재고",
+    sales: "매출·일마감",
+    brands: "브랜드",
+    members: "회원",
+    coupons: "쿠폰",
+    marketing: "마케팅",
+    ocr: "입고 OCR",
+  },
+  en: {
+    overview: "Home",
+    products: "Products",
+    inventory: "Inventory",
+    sales: "Sales & close",
+    brands: "Brands",
+    members: "Members",
+    coupons: "Coupons",
+    marketing: "Marketing",
+    ocr: "Stock-in OCR",
+  },
 };
 
-const sectionItems: ReadonlyArray<Readonly<{ id: AdminSection; label: string }>> = [
-  { id: "overview", label: "운영 현황" },
-  { id: "products", label: "상품 등록" },
-  { id: "inventory", label: "재고 수정" },
-  { id: "sales", label: "매출·일마감" },
-  { id: "brands", label: "브랜드" },
-  { id: "members", label: "회원" },
-  { id: "coupons", label: "쿠폰" },
-  { id: "marketing", label: "마케팅" },
-  { id: "ocr", label: "입고 OCR" },
+const sectionItems: ReadonlyArray<
+  Readonly<{ id: AdminSection; label: Readonly<Record<Locale, string>> }>
+> = [
+  { id: "overview", label: { ko: "운영 현황", en: "Operations overview" } },
+  { id: "products", label: { ko: "상품 등록", en: "Product registration" } },
+  { id: "inventory", label: { ko: "재고 수정", en: "Stock editing" } },
+  { id: "sales", label: { ko: "매출·일마감", en: "Sales & daily close" } },
+  { id: "brands", label: { ko: "브랜드", en: "Brands" } },
+  { id: "members", label: { ko: "회원", en: "Members" } },
+  { id: "coupons", label: { ko: "쿠폰", en: "Coupons" } },
+  { id: "marketing", label: { ko: "마케팅", en: "Marketing" } },
+  { id: "ocr", label: { ko: "입고 OCR", en: "Stock-in OCR" } },
 ];
 
 function AdminMenuIcon({
@@ -216,6 +239,8 @@ function AdminProductImage({
   compact = false,
   src,
 }: Readonly<{ alt: string; className?: string; compact?: boolean; src?: string }>) {
+  const { locale } = useLocale();
+  const isKorean = locale === "ko";
   const original = src?.trim() ?? "";
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const [failedExampleFor, setFailedExampleFor] = useState<string | null>(null);
@@ -234,7 +259,13 @@ function AdminProductImage({
       {!exampleFailed ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          alt={isExample ? "상품 이미지 없음 · 보드 예시 이미지" : alt}
+          alt={
+            isExample
+              ? isKorean
+                ? "상품 이미지 없음 · 보드 예시 이미지"
+                : "No product image · example board image"
+              : alt
+          }
           onError={() => {
             if (isExample) setFailedExampleFor(original);
             else setFailedSrc(original);
@@ -243,8 +274,17 @@ function AdminProductImage({
         />
       ) : null}
       {isExample ? (
-        <span className={styles.exampleImageLabel} title="이미지 없음 · 예시 이미지">
-          {compact ? "예시" : "이미지 없음 · 예시 이미지"}
+        <span
+          className={styles.exampleImageLabel}
+          title={isKorean ? "이미지 없음 · 예시 이미지" : "No image · example image"}
+        >
+          {compact
+            ? isKorean
+              ? "예시"
+              : "Example"
+            : isKorean
+              ? "이미지 없음 · 예시 이미지"
+              : "No image · example image"}
         </span>
       ) : null}
     </span>
@@ -1959,7 +1999,10 @@ function AdminWorkspace({
   };
 
   return (
-    <section className={styles.adminPage} aria-label="PARADAYS 관리자 화면">
+    <section
+      className={styles.adminPage}
+      aria-label={locale === "ko" ? "PARADAYS 관리자 화면" : "PARADAYS admin"}
+    >
       <header className={styles.adminHeader}>
         <div>
           <p className={styles.adminBreadcrumb}>
@@ -1969,9 +2012,11 @@ function AdminWorkspace({
               ? locale === "ko"
                 ? "홈"
                 : "Home"
-              : sectionShortLabels[activeSection]}
+              : sectionShortLabels[locale][activeSection]}
           </p>
-          <h1 className={styles.srOnly}>스토어 운영</h1>
+          <h1 className={styles.srOnly}>
+            {locale === "ko" ? "스토어 운영" : "Store operations"}
+          </h1>
         </div>
         <div className={styles.headerActions}>
           <div className={styles.languageSwitch} aria-label="Language">
@@ -2008,7 +2053,10 @@ function AdminWorkspace({
         </div>
       </header>
 
-      <nav aria-label="관리자 메뉴" className={styles.sidebar}>
+      <nav
+        aria-label={locale === "ko" ? "관리자 메뉴" : "Admin menu"}
+        className={styles.sidebar}
+      >
         <div className={styles.sidebarIntro}>
           <strong>PARADAYS</strong>
           <span>{locale === "ko" ? "관리자" : "Admin"}</span>
@@ -2025,7 +2073,11 @@ function AdminWorkspace({
           ref={menuButtonRef}
           type="button"
         >
-          <span className="srOnly">운영 메뉴 {isOpsMenuOpen ? "닫기" : "열기"}</span>
+          <span className="srOnly">
+            {locale === "ko"
+              ? `운영 메뉴 ${isOpsMenuOpen ? "닫기" : "열기"}`
+              : `${isOpsMenuOpen ? "Close" : "Open"} operations menu`}
+          </span>
           <span aria-hidden="true" />
           <span aria-hidden="true" />
           <span aria-hidden="true" />
@@ -2034,7 +2086,7 @@ function AdminWorkspace({
 
       {isOpsMenuOpen && !isDesktopAdmin ? (
         <button
-          aria-label="메뉴 닫기"
+          aria-label={locale === "ko" ? "메뉴 닫기" : "Close menu"}
           className={styles.opsMenuScrim}
           onClick={() => {
             setIsOpsMenuOpen(false);
@@ -2046,7 +2098,7 @@ function AdminWorkspace({
 
       <div
         aria-hidden={!isMenuVisible}
-        aria-label="관리자 메뉴"
+        aria-label={locale === "ko" ? "관리자 메뉴" : "Admin menu"}
         aria-modal={isOpsMenuOpen && !isDesktopAdmin ? true : undefined}
         className={
           isOpsMenuOpen
@@ -2064,7 +2116,7 @@ function AdminWorkspace({
             <span>{locale === "ko" ? "관리자" : "Admin"}</span>
           </div>
           <button
-            aria-label="메뉴 닫기"
+            aria-label={locale === "ko" ? "메뉴 닫기" : "Close menu"}
             className={styles.opsMenuClose}
             onClick={() => {
               setIsOpsMenuOpen(false);
@@ -2080,7 +2132,9 @@ function AdminWorkspace({
           {sectionItems.map((section) => (
             <button
               aria-label={
-                section.id === "overview" ? copy.adminOverviewMenu : section.label
+                section.id === "overview"
+                  ? copy.adminOverviewMenu
+                  : section.label[locale]
               }
               aria-controls={`admin-panel-${section.id}`}
               aria-selected={activeSection === section.id}
@@ -2094,7 +2148,7 @@ function AdminWorkspace({
               type="button"
             >
               <AdminMenuIcon section={section.id} />
-              <span>{sectionShortLabels[section.id]}</span>
+              <span>{sectionShortLabels[locale][section.id]}</span>
             </button>
           ))}
         </div>
@@ -2641,7 +2695,7 @@ function OverviewSection({
                   <li data-status={activity.status} key={activity.key}>
                     <AdminNotice
                       status="attention"
-                      title={`${sectionShortLabels[activity.section]} 작업`}
+                      title={`${sectionShortLabels[locale][activity.section]} 작업`}
                     >
                       <time dateTime={new Date(activity.at).toISOString()}>
                         {new Intl.DateTimeFormat("ko-KR", {
@@ -2667,7 +2721,7 @@ function OverviewSection({
                         {resume ? "이어서 수정" : "메뉴 보기"}
                         <span className={styles.srOnly}>
                           {" "}
-                          · {sectionShortLabels[activity.section]}
+                          · {sectionShortLabels[locale][activity.section]}
                         </span>
                       </button>
                     </AdminNotice>
@@ -2696,9 +2750,9 @@ function OverviewSection({
                     <AdminMenuIcon section={activity.section} />
                   </div>
                   <div className={styles.operationDescription}>
-                    <strong>{sectionShortLabels[activity.section]} 작업</strong>
+                    <strong>{sectionShortLabels[locale][activity.section]} 작업</strong>
                     <span className={styles.operationStatus}>
-                      {operationStatusLabels[activity.status]}
+                      {operationStatusLabels[locale][activity.status]}
                     </span>
                     <p>{activity.detail}</p>
                     {activity.editorId && !resume ? (
@@ -2716,7 +2770,7 @@ function OverviewSection({
                     {resume ? "이어서 수정" : "메뉴 보기"}
                     <span className={styles.srOnly}>
                       {" "}
-                      · {sectionShortLabels[activity.section]}
+                      · {sectionShortLabels[locale][activity.section]}
                     </span>
                   </button>
                 </li>
