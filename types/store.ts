@@ -3,6 +3,15 @@
 /** UI·스토리지에서 쓰는 지원 언어 */
 export type Locale = "en" | "ko";
 
+/** 데크 상세사이즈 (인치). 관리자가 상세사이즈 모달에서 등록함 */
+export type DeckSpec = {
+  nose: number;
+  tail: number;
+  width: number;
+  length: number;
+  wheelbase: number;
+};
+
 /** 카탈로그 상품 (홈 카드·상세·장바구니 라인의 공통 필드) */
 export type Product = {
   id: string;
@@ -27,6 +36,8 @@ export type Product = {
   inventoryQuantity?: number;
   /** 신상품(New) 배지 */
   featured?: boolean;
+  /** 데크 상세사이즈. 5개 값이 모두 있을 때만 상세 페이지에 상세사이즈 버튼을 표시 */
+  deckSpec?: DeckSpec;
 };
 
 /** 장바구니에 담긴 한 줄 (상품·선택 옵션·수량). 결제 요청은 이 식별자 대신 productId+selectedSize만 전송합니다. */

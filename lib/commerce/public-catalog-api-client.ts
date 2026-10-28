@@ -1,5 +1,5 @@
 // 역할: 정적 스토어프론트가 배포된 관리자 카탈로그의 발행 상품만 읽도록 하는 공개 API 어댑터입니다.
-import type { Product } from "@/types/store";
+import type { DeckSpec, Product } from "@/types/store";
 
 /** public catalog API가 없거나 실패했을 때 정적 초기 카탈로그를 유지하게 하는 오류입니다. */
 export class PublicCatalogApiError extends Error {
@@ -148,6 +148,7 @@ function parseProduct(value: unknown): Product {
 
   const nameI18n = parseNameI18n(value.nameI18n);
   const descriptionI18n = parseDescriptionI18n(value.descriptionI18n);
+  const deckSpec = parseDeckSpec(value.deckSpec);
 
   return {
     id: value.id,
@@ -169,7 +170,34 @@ function parseProduct(value: unknown): Product {
       ? { inventoryQuantity: value.inventoryQuantity }
       : {}),
     ...(typeof value.featured === "boolean" ? { featured: value.featured } : {}),
+    ...(deckSpec ? { deckSpec } : {}),
   };
+}
+
+const DECK_SPEC_FIELDS = ["nose", "tail", "width", "length", "wheelbase"] as const;
+
+/** 상세사이즈는 부가 정보라 형식이 어긋나면 상품 전체를 버리지 않고 이 필드만 숨깁니다. */
+function parseDeckSpec(value: unknown): DeckSpec | undefined {
+  if (
+    !isRecord(value) ||
+    !DECK_SPEC_FIELDS.every((field) => isSafeInches(value[field]))
+  ) {
+    return undefined;
+  }
+
+  return {
+    nose: value.nose as number,
+    tail: value.tail as number,
+    width: value.width as number,
+    length: value.length as number,
+    wheelbase: value.wheelbase as number,
+  };
+}
+
+function isSafeInches(value: unknown): value is number {
+  return (
+    typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 100
+  );
 }
 
 function parseNameI18n(
