@@ -405,3 +405,29 @@ test("OCR hold pins the deployed OCR bundle and keeps its routes scope-free; wit
   for (const route of ocrRoutes(shipped))
     assert.equal(route.Properties.AuthorizationScopes.length, 1);
 });
+
+test("refund routes keep the deployed logical IDs and share the POST integration", () => {
+  const template = synthesize({});
+  const routes = template.findResources("AWS::ApiGatewayV2::Route");
+  const get = routes.H012AdminOrderGetRoute;
+  assert.equal(get?.Properties.RouteKey, "GET /admin/orders/{orderId}/refunds");
+  const post = Object.values(routes).find(
+    (route) => route.Properties.RouteKey === "POST /admin/orders/{orderId}/refunds",
+  );
+  const sharedIntegration = {
+    "Fn::Join": [
+      "",
+      [
+        "integrations/",
+        {
+          Ref: "CommerceHttpApiPOSTadminordersorderIdrefundsAdminRefundIntegration1B789E79",
+        },
+      ],
+    ],
+  };
+  assert.deepEqual(get.Properties.Target, sharedIntegration);
+  assert.deepEqual(post?.Properties.Target, sharedIntegration);
+  assert.ok(
+    template.findResources("AWS::Lambda::Permission").H012AdminOrderGetPermission,
+  );
+});
