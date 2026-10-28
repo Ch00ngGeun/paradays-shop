@@ -1798,17 +1798,17 @@ test("product form refinement: deck choices append only explicitly and category 
   await raw.fill(legacy);
   await chooser.selectOption("8.125");
   await expect(raw).toHaveValue(legacy);
-  await expect(productPreview(page)).not.toContainText("8.125 inch");
+  await expect(productPreview(page)).not.toContainText("8.125”");
   await page.getByRole("button", { name: "옵션 추가", exact: true }).click();
-  await expect(raw).toHaveValue(`${legacy}, 8.125 inch`);
-  await expect(productPreview(page)).toContainText("8.125 inch");
+  await expect(raw).toHaveValue(`${legacy}, 8.125”`);
+  await expect(productPreview(page)).toContainText("8.125”");
   await chooser.selectOption("8.125");
   await page.getByRole("button", { name: "옵션 추가", exact: true }).click();
-  await expect(raw).toHaveValue(`${legacy}, 8.125 inch`);
+  await expect(raw).toHaveValue(`${legacy}, 8.125”`);
   await page
     .getByRole("combobox", { name: "카테고리", exact: true })
     .selectOption("Wheels");
-  await expect(raw).toHaveValue(`${legacy}, 8.125 inch`);
+  await expect(raw).toHaveValue(`${legacy}, 8.125”`);
   await expect(chooser).toHaveCount(0);
   await expect(
     page.getByRole("combobox", { name: "바퀴 크기 선택", exact: true }),
@@ -1816,11 +1816,11 @@ test("product form refinement: deck choices append only explicitly and category 
   await page
     .getByRole("combobox", { name: "카테고리", exact: true })
     .selectOption("Deck");
-  await expect(raw).toHaveValue(`${legacy}, 8.125 inch`);
+  await expect(raw).toHaveValue(`${legacy}, 8.125”`);
   await chooser.selectOption("manual");
   await expect(raw).toBeFocused();
-  await expect(raw).toHaveValue(`${legacy}, 8.125 inch`);
-  await raw.fill(`${legacy}, 8.125 inch, TEST_CUSTOM_8.375`);
+  await expect(raw).toHaveValue(`${legacy}, 8.125”`);
+  await raw.fill(`${legacy}, 8.125”, TEST_CUSTOM_8.375`);
   await expect(productPreview(page)).toContainText("TEST_CUSTOM_8.375");
   expect(audit.syntheticWrites).toEqual([]);
 });

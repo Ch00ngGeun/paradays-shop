@@ -103,7 +103,7 @@ export function appendProductOption(
 
 /** 새로 선택하는 규격에만 사용합니다. 저장된 legacy 옵션을 이 형식으로 바꾸지 않습니다. */
 export function formatProductDeckOption(width: string): string | null {
-  return PRODUCT_DECK_WIDTHS.includes(width) ? `${width} inch` : null;
+  return PRODUCT_DECK_WIDTHS.includes(width) ? `${width}”` : null;
 }
 
 /** 크기·경도가 모두 선택된 조합 하나가 한 개의 구매 옵션입니다. */
