@@ -1,4 +1,5 @@
 // 역할: 정적 관리자 화면과 배포 후 관리자 API 어댑터가 공유하는 안전한 UI 계약을 정의합니다.
+import type { DeckSpec } from "@/types/store";
 import type {
   OcrMapping,
   OcrTableAnalysis,
@@ -53,6 +54,7 @@ export type AdminCatalogListItem = Readonly<{
   isFeatured: boolean;
   nameI18n?: Readonly<{ en: string; ko: string }>;
   descriptionI18n?: Readonly<{ en: readonly string[]; ko: readonly string[] }>;
+  deckSpec?: DeckSpec;
 }>;
 
 /** OCR provider가 반환하는 다각형 좌표입니다. 검토 UI에서는 읽기 전용 metadata로만 표시합니다. */
@@ -214,6 +216,10 @@ export type AdminDashboardActions = Readonly<{
   /** 재고만 부분 갱신. 성공 시 최신 version·stock이 반영된 목록 행을 반환합니다. */
   updateProductStock?: (
     input: Readonly<{ id: string; version: number; stock: number }>,
+  ) => Promise<AdminCatalogListItem>;
+  /** 상세사이즈만 즉시 저장(null이면 삭제). 성공 시 최신 version이 반영된 목록 행을 반환합니다. */
+  updateProductDeckSpec?: (
+    input: Readonly<{ id: string; version: number; deckSpec: DeckSpec | null }>,
   ) => Promise<AdminCatalogListItem>;
   deleteCatalogProducts?: (
     items: ReadonlyArray<Readonly<{ id: string; version: number }>>,
