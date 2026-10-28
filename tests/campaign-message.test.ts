@@ -67,4 +67,20 @@ describe("campaign email body template", () => {
     expect(campaignChannelSupport("sms").detail).toContain("MMS");
     expect(campaignChannelSupport("push").inlineLogo).toBe(false);
   });
+
+  it("describes every channel in English without changing the support flags", () => {
+    for (const channel of ["email", "sms", "push"] as const) {
+      const en = campaignChannelSupport(channel, "en");
+      const ko = campaignChannelSupport(channel);
+      expect(en).toMatchObject({
+        channel,
+        inlineLogo: ko.inlineLogo,
+        sendingConnected: false,
+      });
+      expect(`${en.label} ${en.detail}`).not.toMatch(/[가-힣]/u);
+      expect(ko.label).toMatch(/[가-힣]/u);
+    }
+    expect(campaignChannelSupport("sms", "en").detail).toContain("MMS");
+    expect(campaignChannelSupport("email").label).toBe("로고 본문 삽입 · 발송 미연결");
+  });
 });
