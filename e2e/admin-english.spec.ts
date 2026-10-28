@@ -1,5 +1,11 @@
 /** H-033 완료 판정: 영어 관리자 화면에 번역 제외 데이터 말고는 한글이 없음. 합성 API만 사용함. */
 import { expect, test, type Page, type Route } from "@playwright/test";
+import { deflateSync } from "node:zlib";
+import {
+  parseOcrTableRows,
+  type OcrMapping,
+  type OcrTableToken,
+} from "../infra/lambda/ocr-table-parser.js";
 import {
   calculateTotals,
   type DayReport,
@@ -211,55 +217,96 @@ function dayReport(day: string): DayReport {
   } as DayReport;
 }
 
-// OCR 검토본 고정값. 원문·상품명은 ASCII 합성 데이터만 사용함.
-let ocrJob = {
+// OCR 원문 토큰은 ASCII 합성값만 사용함. 영역 지정 결과는 실제 파서로 계산함.
+function token(
+  id: string,
+  sourceText: string,
+  left: number,
+  top: number,
+  width: number,
+) {
+  return {
+    id,
+    sourceText,
+    confidence: 0.94,
+    box: [
+      [left, top],
+      [left + width, top],
+      [left + width, top + 30],
+      [left, top + 30],
+    ] as [number, number][],
+  };
+}
+const ocrTokens: OcrTableToken[] = [
+  token("title", "Synthetic intake", 100, 70, 260),
+  token("name1", "Synthetic deck", 100, 200, 250),
+  token("brand1", "Test Maker", 500, 200, 120),
+  token("option1", "Black", 800, 200, 120),
+  token("qty1", "2", 1300, 200, 30),
+  token("price1", "120000", 1100, 200, 100),
+  token("name2", "Synthetic wheels", 100, 320, 280),
+  token("brand2", "Test Maker", 500, 320, 120),
+  token("option2", "White", 800, 320, 120),
+  token("qty2", "3", 1300, 320, 30),
+  token("price2", "150000", 1100, 320, 100),
+  token("footer", "Total", 100, 420, 80),
+  token("footerqty", "5", 1300, 420, 30),
+];
+const initialOcrJob = () => ({
   jobId: "ocr_english",
   version: 1,
-  rawText: "Synthetic intake line 1",
-  analysis: {
-    mode: "table",
-    mapping: {
-      schemaVersion: 1,
-      headerRow: 0,
-      columns: { productName: 0, brand: 1, option: 2, quantity: 3 },
-    },
-    table: {
-      headerRow: 0,
-      columns: [
-        { index: 0, label: "Product", role: "productName" },
-        { index: 1, label: "Brand", role: "brand" },
-        { index: 2, label: "Option", role: "option" },
-        { index: 3, label: "Qty", role: "quantity" },
-      ],
-    },
-  },
-  rows: [
-    {
-      id: "inventory-row-1",
-      sourceText: "Synthetic intake line 1",
-      confidence: 0.94,
-      box: [
-        [10, 20],
-        [30, 20],
-        [30, 40],
-        [10, 40],
-      ],
-      productName: "[TEST] English deck",
-      brand: "TEST",
-      option: "8.5",
-      quantity: "4",
-    },
-  ],
-};
-const PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aRfsAAAAASUVORK5CYII=",
-  "base64",
-);
+  rawText: ocrTokens.map((row) => row.sourceText).join("\n"),
+  rows: ocrTokens.map((row) => ({
+    ...row,
+    productName: "",
+    brand: "",
+    option: "",
+    quantity: "",
+  })) as Record<string, unknown>[],
+  analysis: { mode: "unclassified", reason: "header-not-found" } as Record<
+    string,
+    unknown
+  >,
+});
+let ocrJob = initialOcrJob();
+/** 1600×820 흰 PNG. 영역 드래그 좌표가 실제 이미지 크기로 정규화되도록 크기만 맞춤. */
+function blankPng(width = 1600, height = 820) {
+  const crc = (bytes: Buffer) => {
+    let c = 0xffffffff;
+    for (const byte of bytes) {
+      c ^= byte;
+      for (let bit = 0; bit < 8; bit++) c = (c >>> 1) ^ (c & 1 ? 0xedb88320 : 0);
+    }
+    return (c ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (name: string, data: Buffer) => {
+    const type = Buffer.from(name);
+    const size = Buffer.alloc(4);
+    const checksum = Buffer.alloc(4);
+    size.writeUInt32BE(data.length);
+    checksum.writeUInt32BE(crc(Buffer.concat([type, data])));
+    return Buffer.concat([size, type, data, checksum]);
+  };
+  const pixels = Buffer.alloc((width * 3 + 1) * height, 255);
+  for (let y = 0; y < height; y++) pixels[y * (width * 3 + 1)] = 0;
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8;
+  header[9] = 2;
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk("IHDR", header),
+    chunk("IDAT", deflateSync(pixels)),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+const PNG = blankPng();
 
 async function setup(page: Page, path = "/admin") {
   const audit: Audit = { blocked: [] };
   audits.set(page, audit);
-  ocrJob = { ...ocrJob, version: 1 };
+  ocrJob = initialOcrJob();
   await page.route("**/*", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -320,23 +367,45 @@ async function setup(page: Page, path = "/admin") {
       if (method === "POST") return respond(route, { job: ocrJob }, 201);
       if (method === "GET") return respond(route, { job: ocrJob });
       const body = request.postDataJSON();
-      ocrJob = {
-        ...ocrJob,
-        version: ocrJob.version + 1,
-        rows: body.rows ?? ocrJob.rows,
-      };
+      if (body.mapping) {
+        const { rows, ...analysis } = parseOcrTableRows(
+          ocrTokens,
+          body.mapping as OcrMapping,
+        );
+        const projected = rows.map((row) => ({
+          ...row,
+          productName: "productName" in row ? String(row.productName) : "",
+          brand: "brand" in row ? String(row.brand) : "",
+          option: "option" in row ? String(row.option) : "",
+          quantity: "quantity" in row ? String(row.quantity) : "",
+        }));
+        if (body.preview)
+          return respond(route, {
+            preview: {
+              jobId: ocrJob.jobId,
+              version: ocrJob.version,
+              rows: projected,
+              analysis,
+            },
+          });
+        ocrJob = { ...ocrJob, version: ocrJob.version + 1, rows: projected, analysis };
+      } else ocrJob = { ...ocrJob, version: ocrJob.version + 1, rows: body.rows };
       return respond(route, { job: ocrJob });
     }
     if (path === "admin/catalog/products" && method === "POST") {
       const body = request.postDataJSON();
       return respond(route, {
-        product: { ...catalog[0], inventoryQuantity: 6, version: 4 },
+        product: {
+          ...catalog[0],
+          inventoryQuantity: catalog[0].inventoryQuantity + body.quantity,
+          version: catalog[0].version + 1,
+        },
         receipt: {
           operationId: body.operationId,
           kind: body.kind,
           quantity: body.quantity,
-          beforeStock: 2,
-          afterStock: 6,
+          beforeStock: catalog[0].inventoryQuantity,
+          afterStock: catalog[0].inventoryQuantity + body.quantity,
           replayed: false,
         },
       });
@@ -379,7 +448,8 @@ async function hangul(page: Page) {
     for (const details of document.querySelectorAll("details")) details.open = true;
   });
   const found = await page.evaluate(() => {
-    const re = /[가-힣ㄱ-ㅎㅏ-ㅣ]/u;
+    // 완성형·호환 자모뿐 아니라 NFD 조합형·확장 자모까지 Hangul 문자 체계 전체를 잡음.
+    const re = /\p{Script=Hangul}/u;
     const out: string[] = [];
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
@@ -430,6 +500,16 @@ test("all nine menus and the overview order panels show no Korean in English", a
   test.setTimeout(120_000);
   await setup(page, "/admin?section=overview");
   const found = new Map<string, string[]>();
+  // 검사기 자기 확인: NFD 조합형·확장 자모 한글도 수집해야 함.
+  const decomposed = `${"한글".normalize("NFD")}\uA960\uD7B0`;
+  await page.evaluate((text) => {
+    const probe = document.createElement("p");
+    probe.id = "hangul-probe";
+    probe.textContent = text;
+    document.body.append(probe);
+  }, decomposed);
+  expect(await hangul(page)).toContain(decomposed);
+  await page.evaluate(() => document.getElementById("hangul-probe")?.remove());
   for (const name of [
     "Home (Operations Overview)",
     "Product registration",
@@ -601,10 +681,49 @@ test("member detail, coupon and campaign steps show no Korean in English", async
   expectClean(found);
 });
 
+async function imagePoint(page: Page, x: number, y: number) {
+  const image = page.getByRole("img", {
+    name: "Receiving sheet image for area mapping",
+    exact: true,
+  });
+  await page
+    .getByRole("group", { name: "Image area selection", exact: true })
+    .scrollIntoViewIfNeeded();
+  await image.evaluate(
+    (node, point) => {
+      const frame = node.closest("[data-pan]")!.parentElement!;
+      frame.scrollLeft = point.x * node.clientWidth - frame.clientWidth / 2;
+      frame.scrollTop = point.y * node.clientHeight - frame.clientHeight / 2;
+    },
+    { x, y },
+  );
+  const bounds = await image.boundingBox();
+  if (!bounds) throw new Error("Image not visible");
+  return bounds;
+}
+async function dragArea(page: Page, label: string, rect: readonly number[]) {
+  const button = page.getByRole("button", { name: `${label} area`, exact: true });
+  await button.click();
+  const [left, top, right, bottom] = rect;
+  const bounds = await imagePoint(page, (left + right) / 3200, (top + bottom) / 1640);
+  await page.mouse.move(
+    bounds.x + (left / 1600) * bounds.width,
+    bounds.y + (top / 820) * bounds.height,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    bounds.x + (right / 1600) * bounds.width,
+    bounds.y + (bottom / 820) * bounds.height,
+    { steps: 4 },
+  );
+  await page.mouse.up();
+  await expect(button).toContainText("Set · Select again");
+}
+
 test("OCR intake, area mapping and stock receipt show no Korean in English", async ({
   page,
 }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(120_000);
   await setup(page, "/admin?section=ocr");
   const found = new Map<string, string[]>();
   await page
@@ -617,16 +736,57 @@ test("OCR intake, area mapping and stock receipt show no Korean in English", asy
     page.getByRole("button", { name: "Save review", exact: true }),
   ).toBeEnabled();
   await scan(page, "OCR review and area mapping", found);
+
+  await expect(
+    page.getByRole("img", {
+      name: "Receiving sheet image for area mapping",
+      exact: true,
+    }),
+  ).toHaveJSProperty("naturalWidth", 1600);
+  await dragArea(page, "Product name", [90, 190, 450, 240]);
+  await dragArea(page, "Brand", [490, 190, 680, 240]);
+  await dragArea(page, "Option", [790, 190, 1000, 240]);
+  await dragArea(page, "Quantity", [1270, 190, 1370, 240]);
+  const tableEnd = page.getByRole("button", { name: "Set table end", exact: true });
+  await tableEnd.click();
+  const end = await imagePoint(page, 0.5, 370 / 820);
+  await page.mouse.click(end.x + end.width / 2, end.y + (370 / 820) * end.height);
+  await expect(tableEnd).toContainText("Set");
+  await page
+    .getByLabel("The selected quantity area is the actual quantity, not a price", {
+      exact: true,
+    })
+    .check();
+  await page.getByRole("button", { name: "Preview areas", exact: true }).click();
+  await expect(
+    page.getByRole("region", { name: "Area mapping preview table", exact: true }),
+  ).toContainText("Synthetic wheels");
+  await expect(page.getByText(/^2 products · Total quantity 5/u)).toBeVisible();
+  await scan(page, "OCR area mapping preview", found);
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.getByRole("button", { name: "Apply area mapping", exact: true }).click();
+  await expect(
+    page.getByRole("textbox", { name: "Product name", exact: true }).first(),
+  ).toHaveValue("Synthetic deck");
+  await scan(page, "OCR area mapping applied", found);
+
   await page.getByRole("button", { name: "Save review", exact: true }).click();
   const panel = page.getByRole("region", { name: "Apply to stock", exact: true });
   await panel.getByRole("button", { name: "Load stock products", exact: true }).click();
-  await panel
-    .getByRole("combobox", { name: "Stock product 1", exact: true })
-    .selectOption("prd_english_deck");
-  await panel.getByLabel("I checked receiving row 1", { exact: true }).check();
+  for (const row of [1, 2]) {
+    await panel
+      .getByRole("combobox", { name: `Stock product ${row}`, exact: true })
+      .selectOption("prd_english_deck");
+    await panel.getByLabel(`I checked receiving row ${row}`, { exact: true }).check();
+  }
   await panel
     .getByRole("button", { name: "Preview stock changes", exact: true })
     .click();
+  // 미리보기는 상품 목록 재조회 뒤 비동기로 생기므로 표·예정 행·확인 대기 상태를 기다림.
+  const preview = panel.getByRole("table");
+  await expect(preview).toContainText("[TEST] English deck");
+  await expect(preview.getByRole("row")).toHaveCount(2);
+  await expect(preview).toContainText("Awaiting confirmation");
   await scan(page, "OCR stock receipt preview", found);
   await panel
     .getByLabel("I checked the actual product registration and stock changes", {
