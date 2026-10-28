@@ -17,6 +17,7 @@ import {
   type OcrIntakeNewProduct,
   type OcrIntakeReference,
 } from "@/lib/admin-ui/ocr-intake-matching";
+import type { Locale } from "@/types/store";
 
 export type OcrInventoryMode = "add" | "replace";
 export type OcrInventorySelection = Readonly<Record<string, string>>;
@@ -396,7 +397,9 @@ export function buildOcrIntakePlan(
     selection: OcrIntakeSelection;
     references?: Readonly<Record<string, OcrIntakeReference>>;
   }>,
+  locale: Locale = "ko",
 ): OcrIntakePlan {
+  const t = localize(locale);
   if (
     !isRecord(input) ||
     !isRecord(input.job) ||
@@ -408,7 +411,12 @@ export function buildOcrIntakePlan(
     !Array.isArray(input.products) ||
     !isRecord(input.selection)
   )
-    fail("저장된 OCR 검토본과 현재 상품 목록을 다시 확인해 주세요.");
+    fail(
+      t(
+        "저장된 OCR 검토본과 현재 상품 목록을 다시 확인해 주세요.",
+        "Check the saved OCR review and the current product list again.",
+      ),
+    );
   const products = new Map<string, AdminCatalogListItem>();
   for (const product of input.products) {
     if (
@@ -422,7 +430,12 @@ export function buildOcrIntakePlan(
       typeof product.sizes !== "string" ||
       (product.sku !== undefined && !isText(product.sku, 80))
     )
-      fail("상품 목록의 ID·버전·재고를 확인하고 다시 불러와 주세요.");
+      fail(
+        t(
+          "상품 목록의 ID·버전·재고를 확인하고 다시 불러와 주세요.",
+          "Check the product list IDs, versions and stock, then reload it.",
+        ),
+      );
     products.set(product.id, product as AdminCatalogListItem);
   }
   const items: OcrIntakePlanItem[] = [];
@@ -431,7 +444,7 @@ export function buildOcrIntakePlan(
   const newSkus = new Set<string>();
   const rows = new Set<string>();
   for (const [index, row] of input.job.rows.entries()) {
-    const prefix = `${index + 1}번째 행`;
+    const prefix = t(`${index + 1}번째 행`, `Row ${index + 1}`);
     if (
       !isRecord(row) ||
       !isText(row.id, 128) ||
@@ -440,31 +453,57 @@ export function buildOcrIntakePlan(
       typeof row.brand !== "string" ||
       typeof row.option !== "string"
     )
-      fail(`${prefix}의 검토 내용을 확인해 주세요.`);
+      fail(
+        t(
+          `${prefix}의 검토 내용을 확인해 주세요.`,
+          `Check the review content of ${prefix}.`,
+        ),
+      );
     rows.add(row.id);
     if (
       typeof row.quantity !== "string" ||
       !/^[0-9]{1,9}$/.test(row.quantity) ||
       !isQuantity(Number(row.quantity), "add")
     )
-      fail(`${prefix}의 입고 수량은 1~1,000,000 정수여야 합니다.`);
+      fail(
+        t(
+          `${prefix}의 입고 수량은 1~1,000,000 정수여야 합니다.`,
+          `The receiving quantity of ${prefix} must be a whole number from 1 to 1,000,000.`,
+        ),
+      );
     const choice = Object.hasOwn(input.selection, row.id)
       ? input.selection[row.id]
       : undefined;
     if (!isRecord(choice) || choice.confirmed !== true)
-      fail(`${prefix}의 상품 연결 또는 신규 등록 내용을 개별 확인해 주세요.`);
+      fail(
+        t(
+          `${prefix}의 상품 연결 또는 신규 등록 내용을 개별 확인해 주세요.`,
+          `Confirm the product link or new product entry of ${prefix} individually.`,
+        ),
+      );
     const quantity = Number(row.quantity);
     if (choice.kind === "existing") {
       const product =
         typeof choice.productId === "string"
           ? products.get(choice.productId)
           : undefined;
-      if (!product) fail(`${prefix}에 반영할 기존 상품을 직접 선택해 주세요.`);
+      if (!product)
+        fail(
+          t(
+            `${prefix}에 반영할 기존 상품을 직접 선택해 주세요.`,
+            `Select the existing product to apply to ${prefix} yourself.`,
+          ),
+        );
       const previousIndex = existingIndexes.get(product.id);
       const previous = previousIndex === undefined ? undefined : items[previousIndex];
       const total = (previous?.quantity ?? 0) + quantity;
       if (!isQuantity(total, "add") || !isStock(product.stock + total))
-        fail("동일 상품 입고 합계와 반영 재고는 1,000,000개를 넘을 수 없습니다.");
+        fail(
+          t(
+            "동일 상품 입고 합계와 반영 재고는 1,000,000개를 넘을 수 없습니다.",
+            "The received total and resulting stock for one product cannot exceed 1,000,000.",
+          ),
+        );
       const item: OcrIntakePlanItem = {
         kind: "existing",
         itemId: `existing:${product.id}`,
@@ -482,7 +521,7 @@ export function buildOcrIntakePlan(
         items.push(item);
       } else items[previousIndex] = item;
     } else if (choice.kind === "new" && isRecord(choice.product)) {
-      const product = readIntakeNewProduct(choice.product);
+      const product = readIntakeNewProduct(choice.product, locale);
       const reference = input.references?.[row.id];
       const matches = findOcrIntakeMatches(
         { productName: product.name, brand: product.brandName, option: product.option },
@@ -491,12 +530,18 @@ export function buildOcrIntakePlan(
       );
       if (matches.candidates.length || matches.basis === "unresolved-id")
         fail(
-          `${prefix}: 기존 상품 또는 중복 후보가 있습니다. 상품 목록을 확인해 기존 상품을 선택해 주세요.`,
+          t(
+            `${prefix}: 기존 상품 또는 중복 후보가 있습니다. 상품 목록을 확인해 기존 상품을 선택해 주세요.`,
+            `${prefix}: An existing product or duplicate candidate exists. Check the product list and select the existing product.`,
+          ),
         );
       const identity = ocrIntakeIdentity(product);
       if (newIdentities.has(identity) || (product.sku && newSkus.has(product.sku)))
         fail(
-          "같은 신규 상품 또는 SKU가 여러 행에 있습니다. 검토 행과 수량을 합친 뒤 다시 저장해 주세요.",
+          t(
+            "같은 신규 상품 또는 SKU가 여러 행에 있습니다. 검토 행과 수량을 합친 뒤 다시 저장해 주세요.",
+            "The same new product or SKU appears in several rows. Merge the review rows and quantities, then save again.",
+          ),
         );
       newIdentities.add(identity);
       if (product.sku) newSkus.add(product.sku);
@@ -510,18 +555,29 @@ export function buildOcrIntakePlan(
         nextStock: quantity,
         rowIds: [row.id],
       });
-    } else fail(`${prefix}의 입고 방식을 선택해 주세요.`);
+    } else
+      fail(
+        t(`${prefix}의 입고 방식을 선택해 주세요.`, `Choose how to receive ${prefix}.`),
+      );
   }
   if (
     Object.keys(input.selection).some((id) => !rows.has(id)) ||
     (input.references && Object.keys(input.references).some((id) => !rows.has(id)))
   )
-    fail("현재 검토본과 선택한 행이 다릅니다. 입고 계획을 다시 확인해 주세요.");
-  return snapshotIntakePlan({
-    jobId: input.job.jobId,
-    reviewVersion: input.job.version,
-    items,
-  });
+    fail(
+      t(
+        "현재 검토본과 선택한 행이 다릅니다. 입고 계획을 다시 확인해 주세요.",
+        "The selected rows differ from the current review. Check the receiving plan again.",
+      ),
+    );
+  return snapshotIntakePlan(
+    {
+      jobId: input.job.jobId,
+      reviewVersion: input.job.version,
+      items,
+    },
+    locale,
+  );
 }
 
 /** Hash all immutable row identities before any write. Retries never invent a new operation key. */
@@ -531,17 +587,29 @@ export async function executeOcrIntakePlan(
     applyOcrIntake: (input: AdminOcrIntakeInput) => Promise<AdminOcrIntakeResult>;
     onProductUpdated?: (product: AdminCatalogListItem) => void | Promise<void>;
   }>,
+  locale: Locale = "ko",
 ): Promise<OcrIntakeCommitResult> {
-  const snapshot = snapshotIntakePlan(plan);
+  const t = localize(locale);
+  const snapshot = snapshotIntakePlan(plan, locale);
   if (
     !isRecord(dependencies) ||
     typeof dependencies.applyOcrIntake !== "function" ||
     (dependencies.onProductUpdated !== undefined &&
       typeof dependencies.onProductUpdated !== "function")
   )
-    fail("입고 저장 API가 연결되지 않았습니다.");
+    fail(
+      t(
+        "입고 저장 API가 연결되지 않았습니다.",
+        "The receiving save API is not connected.",
+      ),
+    );
   if (!globalThis.crypto?.subtle)
-    fail("중복 반영 방지 기능을 사용할 수 없습니다. HTTPS 연결을 확인해 주세요.");
+    fail(
+      t(
+        "중복 반영 방지 기능을 사용할 수 없습니다. HTTPS 연결을 확인해 주세요.",
+        "Duplicate protection is unavailable. Check the HTTPS connection.",
+      ),
+    );
   const operations = await Promise.all(
     snapshot.items.map(async (item): Promise<AdminOcrIntakeInput> => {
       const digest = await globalThis.crypto.subtle.digest(
@@ -585,9 +653,18 @@ export async function executeOcrIntakePlan(
         status: known ? "failed" : "uncertain",
         message: known
           ? error.status === 409
-            ? "다른 관리자가 등록했거나 기존 상품·버전과 충돌했습니다. 상품 목록을 다시 확인해 주세요. 자동 재시도하지 않습니다."
-            : "입고 저장이 거절됐습니다. 입력값과 관리자 권한을 확인해 주세요."
-          : "저장 결과가 불명확합니다. 실제 상품·재고를 먼저 확인하세요. 중복 입고를 막기 위해 자동 재시도하지 않습니다.",
+            ? t(
+                "다른 관리자가 등록했거나 기존 상품·버전과 충돌했습니다. 상품 목록을 다시 확인해 주세요. 자동 재시도하지 않습니다.",
+                "Another admin registered it or it conflicted with an existing product or version. Check the product list again. It is not retried automatically.",
+              )
+            : t(
+                "입고 저장이 거절됐습니다. 입력값과 관리자 권한을 확인해 주세요.",
+                "Saving the receipt was rejected. Check the input and admin permissions.",
+              )
+          : t(
+              "저장 결과가 불명확합니다. 실제 상품·재고를 먼저 확인하세요. 중복 입고를 막기 위해 자동 재시도하지 않습니다.",
+              "The save result is unclear. Check the actual products and stock first. It is not retried automatically to avoid duplicate receipts.",
+            ),
       };
       return freezeIntakeResult("stopped", results);
     }
@@ -595,8 +672,10 @@ export async function executeOcrIntakePlan(
       results[index] = {
         itemId: item.itemId,
         status: "uncertain",
-        message:
+        message: t(
           "입고 저장 응답이 확인한 계획과 다릅니다. 실제 상품·재고를 먼저 확인해 주세요.",
+          "The save response differs from the confirmed plan. Check the actual products and stock first.",
+        ),
       };
       return freezeIntakeResult("stopped", results);
     }
@@ -613,8 +692,10 @@ export async function executeOcrIntakePlan(
       } catch {
         results[index] = {
           ...results[index],
-          message:
+          message: t(
             "입고는 저장됐지만 화면 갱신에 실패했습니다. 상품 목록을 다시 불러와 주세요.",
+            "The receipt was saved but the screen failed to refresh. Reload the product list.",
+          ),
         };
         return freezeIntakeResult("stopped", results);
       }
@@ -669,7 +750,8 @@ function matchesIntakeResponse(
   );
 }
 
-function snapshotIntakePlan(plan: OcrIntakePlan): OcrIntakePlan {
+function snapshotIntakePlan(plan: OcrIntakePlan, locale: Locale): OcrIntakePlan {
+  const t = localize(locale);
   if (
     !isRecord(plan) ||
     !isJobId(plan.jobId) ||
@@ -678,7 +760,7 @@ function snapshotIntakePlan(plan: OcrIntakePlan): OcrIntakePlan {
     plan.items.length < 1 ||
     plan.items.length > MAX_ROWS
   )
-    fail("입고 계획을 다시 생성해 주세요.");
+    fail(t("입고 계획을 다시 생성해 주세요.", "Create the receiving plan again."));
   const itemIds = new Set<string>();
   const rowIds = new Set<string>();
   const productIds = new Set<string>();
@@ -697,15 +779,28 @@ function snapshotIntakePlan(plan: OcrIntakePlan): OcrIntakePlan {
       !Array.isArray(item.rowIds) ||
       item.rowIds.length < 1
     )
-      fail("입고 계획의 상품·수량을 다시 확인해 주세요.");
+      fail(
+        t(
+          "입고 계획의 상품·수량을 다시 확인해 주세요.",
+          "Check the products and quantities in the receiving plan again.",
+        ),
+      );
     if (item.rowIds.length > 96)
       fail(
-        "동일 상품에 연결한 입고 행은 한 번에 최대 96개입니다. 검토 행과 수량을 합친 뒤 다시 저장해 주세요.",
+        t(
+          "동일 상품에 연결한 입고 행은 한 번에 최대 96개입니다. 검토 행과 수량을 합친 뒤 다시 저장해 주세요.",
+          "Up to 96 receiving rows can link to one product at a time. Merge the review rows and quantities, then save again.",
+        ),
       );
     itemIds.add(item.itemId);
     for (const rowId of item.rowIds) {
       if (!isText(rowId, 128) || rowIds.has(rowId) || rowIds.size >= MAX_ROWS)
-        fail("입고 계획에 중복된 검토 행이 있습니다.");
+        fail(
+          t(
+            "입고 계획에 중복된 검토 행이 있습니다.",
+            "The receiving plan has duplicate review rows.",
+          ),
+        );
       rowIds.add(rowId);
     }
     const common = {
@@ -724,7 +819,12 @@ function snapshotIntakePlan(plan: OcrIntakePlan): OcrIntakePlan {
         item.expectedVersion >= MAX_STOCK ||
         (item.sku !== undefined && !isText(item.sku, 80))
       )
-        fail("입고 계획의 상품 ID·버전을 확인해 주세요.");
+        fail(
+          t(
+            "입고 계획의 상품 ID·버전을 확인해 주세요.",
+            "Check the product IDs and versions in the receiving plan.",
+          ),
+        );
       productIds.add(item.productId);
       return Object.freeze({
         ...common,
@@ -734,18 +834,28 @@ function snapshotIntakePlan(plan: OcrIntakePlan): OcrIntakePlan {
         ...(item.sku ? { sku: item.sku } : {}),
       });
     }
-    if (item.kind !== "new") fail("신규 상품 입력을 다시 확인해 주세요.");
-    const product = readIntakeNewProduct(item.product);
+    if (item.kind !== "new")
+      fail(
+        t("신규 상품 입력을 다시 확인해 주세요.", "Check the new product input again."),
+      );
+    const product = readIntakeNewProduct(item.product, locale);
     if (
       item.beforeStock !== 0 ||
       item.productName.normalize("NFC").trim() !== product.name ||
       item.rowIds.length !== 1
     )
-      fail("신규 상품 입력을 다시 확인해 주세요.");
+      fail(
+        t("신규 상품 입력을 다시 확인해 주세요.", "Check the new product input again."),
+      );
     const key = ocrIntakeIdentity(product);
     const sku = normalizeOcrIntakeSku(product.sku ?? "");
     if (newKeys.has(key) || (sku && skus.has(sku)))
-      fail("중복 신규 상품을 하나의 검토 행으로 합쳐 주세요.");
+      fail(
+        t(
+          "중복 신규 상품을 하나의 검토 행으로 합쳐 주세요.",
+          "Merge duplicate new products into one review row.",
+        ),
+      );
     newKeys.add(key);
     if (sku) skus.add(sku);
     return Object.freeze({
@@ -763,6 +873,10 @@ function snapshotIntakePlan(plan: OcrIntakePlan): OcrIntakePlan {
     items: Object.freeze(items),
   });
 }
+function localize(locale: Locale) {
+  return (ko: string, en: string) => (locale === "ko" ? ko : en);
+}
+
 function freezeIntakeResult(
   status: OcrIntakeCommitResult["status"],
   items: OcrIntakeCommitResult["items"],
@@ -773,7 +887,8 @@ function freezeIntakeResult(
   });
 }
 
-function readIntakeNewProduct(value: unknown): OcrIntakeNewProduct {
+function readIntakeNewProduct(value: unknown, locale: Locale): OcrIntakeNewProduct {
+  const t = localize(locale);
   if (
     !isRecord(value) ||
     typeof value.name !== "string" ||
@@ -783,7 +898,9 @@ function readIntakeNewProduct(value: unknown): OcrIntakeNewProduct {
     typeof value.category !== "string" ||
     (value.sku !== undefined && typeof value.sku !== "string")
   )
-    fail("신규 상품 입력을 다시 확인해 주세요.");
+    fail(
+      t("신규 상품 입력을 다시 확인해 주세요.", "Check the new product input again."),
+    );
   const product: OcrIntakeNewProduct = {
     name: value.name.normalize("NFC").trim(),
     brandName: value.brandName.normalize("NFC").trim(),
@@ -792,7 +909,7 @@ function readIntakeNewProduct(value: unknown): OcrIntakeNewProduct {
     category: value.category,
     ...(value.sku !== undefined ? { sku: normalizeOcrIntakeSku(value.sku) } : {}),
   };
-  const message = getOcrIntakeNewProductValidationMessage(product);
+  const message = getOcrIntakeNewProductValidationMessage(product, locale);
   if (message) fail(message);
   return product;
 }
