@@ -1,4 +1,6 @@
 /** Synthetic browser-memory teaching model. It has no production data adapters. */
+import type { Locale } from "@/types/store";
+
 export const TEST_SALES_PRODUCTS = [
   {
     id: "TEST_PRODUCT_DECK",
@@ -71,9 +73,18 @@ export type TestStockPreview = Readonly<{
     after: number;
   }>[];
 }>;
-export class TestSalesError extends Error {}
-function reject(message: string): never {
-  throw new TestSalesError(message);
+/** message는 기존 한국어 그대로 두고, 화면은 localized에서 언어를 고름. */
+export class TestSalesError extends Error {
+  readonly localized: Readonly<Record<Locale, string>>;
+  constructor(message: string | Readonly<Record<Locale, string>>) {
+    const localized =
+      typeof message === "string" ? { ko: message, en: message } : message;
+    super(localized.ko);
+    this.localized = localized;
+  }
+}
+function reject(ko: string, en: string): never {
+  throw new TestSalesError({ ko, en });
 }
 const integer = (n: number, min: number, max = 100_000_000) =>
   Number.isSafeInteger(n) && n >= min && n <= max;
@@ -83,15 +94,25 @@ function checkState(state: TestSalesState) {
     !state.sessionId.startsWith("TEST_") ||
     state.businessDay !== "TEST_DAY_001"
   )
-    reject("합성 TEST 장부만 체험할 수 있습니다.");
+    reject(
+      "합성 TEST 장부만 체험할 수 있습니다.",
+      "Only the synthetic TEST ledger can be used.",
+    );
 }
 function requireOpen(state: TestSalesState) {
   checkState(state);
   if (state.status !== "OPEN")
-    reject("모의 마감된 영업일입니다. 먼저 재개방해 주세요.");
+    reject(
+      "모의 마감된 영업일입니다. 먼저 재개방해 주세요.",
+      "This mock business day is closed. Reopen it first.",
+    );
 }
 export function createTestSales(id: string): TestSalesState {
-  if (!/^[A-Za-z0-9_-]{1,48}$/.test(id)) reject("모의 세션 번호가 올바르지 않습니다.");
+  if (!/^[A-Za-z0-9_-]{1,48}$/.test(id))
+    reject(
+      "모의 세션 번호가 올바르지 않습니다.",
+      "The mock session number is invalid.",
+    );
   return {
     kind: "LOCAL_SALES_SIMULATION",
     sessionId: `TEST_${id}`,
@@ -108,23 +129,46 @@ export const testLineTotal = (lines: readonly TestSaleLine[]) =>
   lines.reduce((sum, line) => sum + line.quantity * line.unitAmount, 0);
 function validateInput(input: TestSaleInput): TestSaleInput {
   if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(input.time))
-    reject("가상 판매시각은 00:00~23:59로 입력해 주세요.");
+    reject(
+      "가상 판매시각은 00:00~23:59로 입력해 주세요.",
+      "Enter a virtual sale time from 00:00 to 23:59.",
+    );
   if (input.method !== "CARD" && input.method !== "CASH" && input.method !== "TRANSFER")
-    reject("모의 카드·현금·이체 중 하나를 선택해 주세요.");
+    reject(
+      "모의 카드·현금·이체 중 하나를 선택해 주세요.",
+      "Choose mock card, cash or transfer.",
+    );
   const reference = input.reference.trim().toUpperCase();
   if (!/^TEST_[A-Z0-9_-]{1,40}$/.test(reference))
-    reject("전표 참조번호는 TEST_로 시작하는 영문·숫자·하이픈만 입력해 주세요.");
-  if (!integer(input.amount, 1)) reject("가상 전표 금액은 1~100,000,000원 정수입니다.");
-  if (input.lines.length > 20) reject("모의 상품은 최대 20줄까지 입력할 수 있습니다.");
+    reject(
+      "전표 참조번호는 TEST_로 시작하는 영문·숫자·하이픈만 입력해 주세요.",
+      "The slip reference must start with TEST_ and use only English letters, digits and hyphens.",
+    );
+  if (!integer(input.amount, 1))
+    reject(
+      "가상 전표 금액은 1~100,000,000원 정수입니다.",
+      "The virtual slip amount must be a whole KRW amount from 1 to 100,000,000.",
+    );
+  if (input.lines.length > 20)
+    reject(
+      "모의 상품은 최대 20줄까지 입력할 수 있습니다.",
+      "You can enter up to 20 mock product lines.",
+    );
   for (const line of input.lines) {
     const product = TEST_SALES_PRODUCTS.find((p) => p.id === line.productId);
     if (!product || !(product.options as readonly string[]).includes(line.option))
-      reject("목록의 합성 TEST 상품·옵션만 선택해 주세요.");
+      reject(
+        "목록의 합성 TEST 상품·옵션만 선택해 주세요.",
+        "Select only synthetic TEST products and options from the list.",
+      );
     if (!integer(line.quantity, 1, 10_000) || !integer(line.unitAmount, 0))
-      reject("수량은 1~10,000개, 단가는 0~100,000,000원 정수입니다.");
+      reject(
+        "수량은 1~10,000개, 단가는 0~100,000,000원 정수입니다.",
+        "Quantity must be a whole number from 1 to 10,000 and unit price a whole KRW amount from 0 to 100,000,000.",
+      );
   }
   if (!integer(testLineTotal(input.lines), 0))
-    reject("상품 줄 합계 한도를 초과했습니다.");
+    reject("상품 줄 합계 한도를 초과했습니다.", "The line total exceeds the limit.");
   return { ...input, reference, lines: input.lines.map((line) => ({ ...line })) };
 }
 export function saveTestSale(
@@ -136,10 +180,17 @@ export function saveTestSale(
   const value = validateInput(input);
   const previous = editing ? state.entries.find((e) => e.id === editing.id) : undefined;
   if (editing && (!previous || previous.version !== editing.version))
-    reject("초안이 바뀌었습니다. 전표를 다시 선택해 주세요.");
-  if (previous?.status === "POSTED") reject("확정 전표는 수정할 수 없습니다.");
+    reject(
+      "초안이 바뀌었습니다. 전표를 다시 선택해 주세요.",
+      "The draft changed. Select the slip again.",
+    );
+  if (previous?.status === "POSTED")
+    reject("확정 전표는 수정할 수 없습니다.", "A posted slip cannot be edited.");
   if (!previous && state.entries.length >= 30)
-    reject("모의 전표 30건 한도입니다. 초기화 후 다시 체험해 주세요.");
+    reject(
+      "모의 전표 30건 한도입니다. 초기화 후 다시 체험해 주세요.",
+      "The limit is 30 mock slips. Reset and try again.",
+    );
   if (
     state.entries.some(
       (e) =>
@@ -148,7 +199,10 @@ export function saveTestSale(
         e.reference === value.reference,
     )
   )
-    reject("같은 결제수단의 TEST 참조번호가 이미 있습니다.");
+    reject(
+      "같은 결제수단의 TEST 참조번호가 이미 있습니다.",
+      "A TEST reference with the same payment method already exists.",
+    );
   const entry: TestSaleEntry = {
     ...value,
     id:
@@ -170,10 +224,14 @@ export function previewTestStock(
 ): TestStockPreview {
   requireOpen(state);
   const entry = state.entries.find((e) => e.id === entryId);
-  if (!entry || entry.status !== "DRAFT") reject("저장된 모의 초안을 선택해 주세요.");
+  if (!entry || entry.status !== "DRAFT")
+    reject("저장된 모의 초안을 선택해 주세요.", "Select a saved mock draft.");
   validateInput(entry);
   if (!entry.lines.length || testLineTotal(entry.lines) !== entry.amount)
-    reject("상품을 연결하고 줄 합계를 가상 전표 금액과 맞춰 주세요.");
+    reject(
+      "상품을 연결하고 줄 합계를 가상 전표 금액과 맞춰 주세요.",
+      "Link products and match the line total to the virtual slip amount.",
+    );
   const rows = TEST_SALES_PRODUCTS.flatMap((product) => {
     const quantity = entry.lines
       .filter((line) => line.productId === product.id)
@@ -181,7 +239,10 @@ export function previewTestStock(
     if (!quantity) return [];
     const before = state.stock[product.id];
     if (!integer(before, quantity, product.initialStock))
-      reject(`${product.name}의 가상 재고가 부족합니다.`);
+      reject(
+        `${product.name}의 가상 재고가 부족합니다.`,
+        `Not enough virtual stock for ${product.name}.`,
+      );
     return [
       {
         productId: product.id,
@@ -211,7 +272,10 @@ export function postTestSale(
     preview.sessionId !== state.sessionId ||
     confirmed !== true
   )
-    reject("가상 재고 예정표의 명시적 확인이 필요합니다.");
+    reject(
+      "가상 재고 예정표의 명시적 확인이 필요합니다.",
+      "Explicit confirmation of the virtual stock plan is required.",
+    );
   const entry = state.entries.find((e) => e.id === preview.entryId);
   if (entry?.status === "POSTED") return state;
   const current = previewTestStock(state, preview.entryId);
@@ -219,7 +283,10 @@ export function postTestSale(
     current.fingerprint !== preview.fingerprint ||
     JSON.stringify(current.rows) !== JSON.stringify(preview.rows)
   )
-    reject("초안 또는 가상 재고가 바뀌었습니다. 예정표를 다시 확인해 주세요.");
+    reject(
+      "초안 또는 가상 재고가 바뀌었습니다. 예정표를 다시 확인해 주세요.",
+      "The draft or virtual stock changed. Check the plan again.",
+    );
   const stock = { ...state.stock };
   for (const row of current.rows) stock[row.productId] = row.after;
   return {
@@ -249,15 +316,25 @@ export function closeTestSales(
   confirmed: boolean,
 ): TestSalesState {
   checkState(state);
-  if (confirmed !== true) reject("모의 마감 확인란을 선택해 주세요.");
+  if (confirmed !== true)
+    reject("모의 마감 확인란을 선택해 주세요.", "Tick the mock close confirmation.");
   const totals = testSalesTotals(state);
   if (!integer(cashCompared, 0) || cashCompared !== totals.cash)
-    reject("현금 수기 대조액을 가상 현금 매출과 맞춰 주세요.");
+    reject(
+      "현금 수기 대조액을 가상 현금 매출과 맞춰 주세요.",
+      "Match the handwritten cash amount to the virtual cash sales.",
+    );
   if (state.status === "CLOSED") return state;
   if (state.entries.some((e) => e.status === "DRAFT"))
-    reject("모의 작성 중 전표가 남아 있어 마감할 수 없습니다.");
+    reject(
+      "모의 작성 중 전표가 남아 있어 마감할 수 없습니다.",
+      "Mock draft slips remain, so the day cannot be closed.",
+    );
   if (state.snapshots.length >= 30)
-    reject("모의 마감본 30건 한도입니다. 초기화해 주세요.");
+    reject(
+      "모의 마감본 30건 한도입니다. 초기화해 주세요.",
+      "The limit is 30 mock closing sheets. Reset.",
+    );
   return {
     ...state,
     status: "CLOSED",
@@ -276,9 +353,16 @@ export function closeTestSales(
 }
 export function reopenTestSales(state: TestSalesState, reason: string): TestSalesState {
   checkState(state);
-  if (state.status !== "CLOSED") reject("모의 마감된 영업일만 재개방할 수 있습니다.");
+  if (state.status !== "CLOSED")
+    reject(
+      "모의 마감된 영업일만 재개방할 수 있습니다.",
+      "Only a closed mock business day can be reopened.",
+    );
   if (!/^TEST_[A-Za-z0-9 _-]{1,80}$/.test(reason.trim()))
-    reject("재개방 사유는 TEST_로 시작하는 가상 사유로 입력해 주세요.");
+    reject(
+      "재개방 사유는 TEST_로 시작하는 가상 사유로 입력해 주세요.",
+      "Enter a virtual reopen reason that starts with TEST_.",
+    );
   return {
     ...state,
     status: "OPEN",

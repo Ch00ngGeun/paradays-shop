@@ -7,6 +7,7 @@ import {
   reopenTestSales,
   saveTestSale,
   testSalesTotals,
+  TestSalesError,
   type TestSaleInput,
   type TestSalesState,
 } from "@/lib/admin-ui/sales-ledger-simulation";
@@ -218,5 +219,22 @@ describe("synthetic sales, inventory and close teaching flow", () => {
         method: "BANK" as TestSaleInput["method"],
       }),
     ).toThrow("카드·현금·이체");
+  });
+  it("keeps the Korean message and carries an English message for the screen", () => {
+    const open = createTestSales("locale");
+    let error: unknown;
+    try {
+      reopenTestSales(open, "TEST_REASON");
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(TestSalesError);
+    expect((error as TestSalesError).message).toBe(
+      "모의 마감된 영업일만 재개방할 수 있습니다.",
+    );
+    expect((error as TestSalesError).localized).toEqual({
+      ko: "모의 마감된 영업일만 재개방할 수 있습니다.",
+      en: "Only a closed mock business day can be reopened.",
+    });
   });
 });
