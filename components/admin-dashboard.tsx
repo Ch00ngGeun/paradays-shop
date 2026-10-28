@@ -1425,14 +1425,20 @@ function AdminWorkspace({
     const normalizedBrand = brandName.trim();
 
     if (!normalizedBrand) {
-      setBrandNotice({ kind: "error", message: "브랜드명을 입력해 주세요." });
+      setBrandNotice({
+        kind: "error",
+        message: { ko: "브랜드명을 입력해 주세요.", en: "Enter a brand name." },
+      });
       return;
     }
 
     if (normalizedBrand.length > 100 || brandMemo.trim().length > 1_000) {
       setBrandNotice({
         kind: "error",
-        message: "브랜드명은 100자, 운영 메모는 1,000자까지 입력해 주세요.",
+        message: {
+          ko: "브랜드명은 100자, 운영 메모는 1,000자까지 입력해 주세요.",
+          en: "Keep the brand name to 100 characters and the note to 1,000.",
+        },
       });
       return;
     }
@@ -1444,7 +1450,10 @@ function AdminWorkspace({
     ) {
       setBrandNotice({
         kind: "error",
-        message: "이미 이 화면의 목록에 있는 브랜드명입니다. 목록에서 확인해 주세요.",
+        message: {
+          ko: "이미 이 화면의 목록에 있는 브랜드명입니다. 목록에서 확인해 주세요.",
+          en: "This brand name is already in the list on this screen. Check the list.",
+        },
       });
       return;
     }
@@ -1465,14 +1474,26 @@ function AdminWorkspace({
         section: "brands",
         status: saveToServer ? "complete" : "draft",
         detail: saveToServer
-          ? "서버가 브랜드 등록을 확인했습니다."
-          : "브랜드를 이 화면에만 추가했습니다. 서버 미저장",
+          ? {
+              ko: "서버가 브랜드 등록을 확인했습니다.",
+              en: "The server confirmed the brand registration.",
+            }
+          : {
+              ko: "브랜드를 이 화면에만 추가했습니다. 서버 미저장",
+              en: "Added the brand on this screen only. Not saved to the server",
+            },
       });
       setBrandNotice({
         kind: "success",
         message: saveToServer
-          ? `“${normalizedBrand}” 브랜드를 서버에 등록했습니다.`
-          : `“${normalizedBrand}” 브랜드명을 이 화면에만 임시 추가했습니다. 서버에는 저장되지 않습니다.`,
+          ? {
+              ko: `“${normalizedBrand}” 브랜드를 서버에 등록했습니다.`,
+              en: `Registered the brand “${normalizedBrand}” on the server.`,
+            }
+          : {
+              ko: `“${normalizedBrand}” 브랜드명을 이 화면에만 임시 추가했습니다. 서버에는 저장되지 않습니다.`,
+              en: `Temporarily added the brand “${normalizedBrand}” on this screen only. It is not saved to the server.`,
+            },
       });
       setBrandName("");
       setBrandMemo("");
@@ -1481,12 +1502,17 @@ function AdminWorkspace({
         key: "brands",
         section: "brands",
         status: "attention",
-        detail: "브랜드 등록 결과를 확인해야 합니다. 입력은 유지됩니다.",
+        detail: {
+          ko: "브랜드 등록 결과를 확인해야 합니다. 입력은 유지됩니다.",
+          en: "Check the brand registration result. Your input is kept.",
+        },
       });
       setBrandNotice({
         kind: "error",
-        message:
-          "브랜드 등록 결과를 확인하지 못했습니다. 입력은 유지했습니다. 중복 등록하지 않도록 관리자 권한·연결과 서버의 처리 결과를 확인해 주세요.",
+        message: {
+          ko: "브랜드 등록 결과를 확인하지 못했습니다. 입력은 유지했습니다. 중복 등록하지 않도록 관리자 권한·연결과 서버의 처리 결과를 확인해 주세요.",
+          en: "Could not confirm the brand registration. Your input is kept. To avoid a duplicate, check admin access, the connection and the server result.",
+        },
       });
     } finally {
       brandBusyRef.current = false;
@@ -1514,8 +1540,11 @@ function AdminWorkspace({
 
     const formattedBenefit =
       couponType === "percent"
-        ? `${Number(couponValue)}% 할인`
-        : `${moneyFormatter.format(Number(couponValue))} 할인`;
+        ? { ko: `${Number(couponValue)}% 할인`, en: `${Number(couponValue)}% off` }
+        : {
+            ko: `${moneyFormatter.format(Number(couponValue))} 할인`,
+            en: `${moneyFormatter.format(Number(couponValue))} off`,
+          };
     const expiresAt = couponExpiryIso(couponExpiresAt);
     const draft: AdminCouponDraft = {
       name: couponName.trim(),
@@ -1536,26 +1565,43 @@ function AdminWorkspace({
         section: "coupons",
         status: "draft",
         detail: saveToServer
-          ? "쿠폰 초안을 서버에 저장했습니다. 고객 미발급"
-          : "쿠폰 초안을 이 화면에만 준비했습니다. 서버 미저장 · 고객 미발급",
+          ? {
+              ko: "쿠폰 초안을 서버에 저장했습니다. 고객 미발급",
+              en: "Saved the coupon draft to the server. Not issued to customers",
+            }
+          : {
+              ko: "쿠폰 초안을 이 화면에만 준비했습니다. 서버 미저장 · 고객 미발급",
+              en: "Prepared the coupon draft on this screen only. Not saved to the server · Not issued to customers",
+            },
       });
       setCouponNotice({
         kind: "success",
         message: saveToServer
-          ? `${draft.code} · ${formattedBenefit} 초안을 서버에 저장했습니다. 아직 고객에게 발급되지 않았습니다.`
-          : `${draft.code} · ${formattedBenefit} 초안을 이 화면에만 준비했습니다. 서버 저장·고객 발급은 하지 않았습니다.`,
+          ? {
+              ko: `${draft.code} · ${formattedBenefit.ko} 초안을 서버에 저장했습니다. 아직 고객에게 발급되지 않았습니다.`,
+              en: `Saved the ${draft.code} · ${formattedBenefit.en} draft to the server. It has not been issued to customers yet.`,
+            }
+          : {
+              ko: `${draft.code} · ${formattedBenefit.ko} 초안을 이 화면에만 준비했습니다. 서버 저장·고객 발급은 하지 않았습니다.`,
+              en: `Prepared the ${draft.code} · ${formattedBenefit.en} draft on this screen only. It was not saved to the server or issued to customers.`,
+            },
       });
     } catch {
       recordActivity({
         key: "coupons",
         section: "coupons",
         status: "attention",
-        detail: "쿠폰 초안 저장 결과를 확인해야 합니다. 고객 발급 완료가 아닙니다.",
+        detail: {
+          ko: "쿠폰 초안 저장 결과를 확인해야 합니다. 고객 발급 완료가 아닙니다.",
+          en: "Check the coupon draft save result. It has not been issued to customers.",
+        },
       });
       setCouponNotice({
         kind: "error",
-        message:
-          "쿠폰 초안 저장 결과를 확인하지 못했습니다. 입력은 유지했습니다. 중복 저장하지 않도록 서버 처리 결과와 연결을 확인해 주세요.",
+        message: {
+          ko: "쿠폰 초안 저장 결과를 확인하지 못했습니다. 입력은 유지했습니다. 중복 저장하지 않도록 서버 처리 결과와 연결을 확인해 주세요.",
+          en: "Could not confirm the coupon draft save. Your input is kept. To avoid a duplicate, check the server result and the connection.",
+        },
       });
     } finally {
       couponBusyRef.current = false;
@@ -1600,26 +1646,43 @@ function AdminWorkspace({
         section: "marketing",
         status: "draft",
         detail: saveToServer
-          ? "캠페인 초안을 서버에 저장했습니다. 고객 미발송"
-          : "캠페인 초안을 이 화면에만 준비했습니다. 서버 미저장 · 고객 미발송",
+          ? {
+              ko: "캠페인 초안을 서버에 저장했습니다. 고객 미발송",
+              en: "Saved the campaign draft to the server. Not sent to customers",
+            }
+          : {
+              ko: "캠페인 초안을 이 화면에만 준비했습니다. 서버 미저장 · 고객 미발송",
+              en: "Prepared the campaign draft on this screen only. Not saved to the server · Not sent to customers",
+            },
       });
       setCampaignNotice({
         kind: "success",
         message: saveToServer
-          ? `${selectedChannelLabels.join(" · ")} 캠페인 초안을 서버에 저장했습니다. 고객에게 발송하지 않았습니다.`
-          : `${selectedChannelLabels.join(" · ")} 캠페인 초안을 이 화면에만 준비했습니다. 서버 저장·고객 발송은 하지 않았습니다.`,
+          ? {
+              ko: `${selectedChannelLabels.join(" · ")} 캠페인 초안을 서버에 저장했습니다. 고객에게 발송하지 않았습니다.`,
+              en: `Saved the ${selectedChannelLabels.join(" · ")} campaign draft to the server. It was not sent to customers.`,
+            }
+          : {
+              ko: `${selectedChannelLabels.join(" · ")} 캠페인 초안을 이 화면에만 준비했습니다. 서버 저장·고객 발송은 하지 않았습니다.`,
+              en: `Prepared the ${selectedChannelLabels.join(" · ")} campaign draft on this screen only. It was not saved to the server or sent to customers.`,
+            },
       });
     } catch {
       recordActivity({
         key: "marketing",
         section: "marketing",
         status: "attention",
-        detail: "캠페인 초안 저장 결과를 확인해야 합니다. 고객 발송 완료가 아닙니다.",
+        detail: {
+          ko: "캠페인 초안 저장 결과를 확인해야 합니다. 고객 발송 완료가 아닙니다.",
+          en: "Check the campaign draft save result. It has not been sent to customers.",
+        },
       });
       setCampaignNotice({
         kind: "error",
-        message:
-          "캠페인 초안 저장 결과를 확인하지 못했습니다. 입력은 유지했습니다. 중복 저장하지 않도록 서버 처리 결과와 연결을 확인해 주세요.",
+        message: {
+          ko: "캠페인 초안 저장 결과를 확인하지 못했습니다. 입력은 유지했습니다. 중복 저장하지 않도록 서버 처리 결과와 연결을 확인해 주세요.",
+          en: "Could not confirm the campaign draft save. Your input is kept. To avoid a duplicate, check the server result and the connection.",
+        },
       });
     } finally {
       campaignBusyRef.current = false;
@@ -1634,7 +1697,10 @@ function AdminWorkspace({
       setMemberLoadFailed(true);
       setMemberNotice({
         kind: "error",
-        message: "회원 목록 API가 아직 연결되지 않았습니다.",
+        message: {
+          ko: "회원 목록 API가 아직 연결되지 않았습니다.",
+          en: "The member list API is not connected yet.",
+        },
       });
       return;
     }
@@ -1651,14 +1717,19 @@ function AdminWorkspace({
       setMemberRevision((current) => current + 1);
       setMemberNotice({
         kind: "success",
-        message: `이번 조회에서 회원 ${nextMembers.length}명을 불러왔습니다. 전체 회원 수가 아닌 이번 API 응답 범위입니다.`,
+        message: {
+          ko: `이번 조회에서 회원 ${nextMembers.length}명을 불러왔습니다. 전체 회원 수가 아닌 이번 API 응답 범위입니다.`,
+          en: `Loaded ${nextMembers.length} members in this query. This is the range of this API response, not the total member count.`,
+        },
       });
     } catch {
       setMemberLoadFailed(true);
       setMemberNotice({
         kind: "error",
-        message:
-          "회원 목록을 불러오지 못했습니다. 기존 목록이 있다면 이전 조회 결과이며 최신 상태가 아닐 수 있습니다. 관리자 권한·연결을 확인한 뒤 다시 조회해 주세요.",
+        message: {
+          ko: "회원 목록을 불러오지 못했습니다. 기존 목록이 있다면 이전 조회 결과이며 최신 상태가 아닐 수 있습니다. 관리자 권한·연결을 확인한 뒤 다시 조회해 주세요.",
+          en: "Could not load the member list. Any list shown is from an earlier query and may be out of date. Check admin access and the connection, then load it again.",
+        },
       });
     } finally {
       memberBusyRef.current = false;
@@ -1683,8 +1754,10 @@ function AdminWorkspace({
       setMemberNeedsRefresh(true);
       setMemberNotice({
         kind: "error",
-        message:
-          "확인한 회원 권한과 현재 목록이 다릅니다. 회원 목록을 다시 조회하고 변경 내용을 검토해 주세요.",
+        message: {
+          ko: "확인한 회원 권한과 현재 목록이 다릅니다. 회원 목록을 다시 조회하고 변경 내용을 검토해 주세요.",
+          en: "The confirmed member permissions differ from the current list. Load the member list again and review the change.",
+        },
       });
       return;
     }
@@ -1696,19 +1769,28 @@ function AdminWorkspace({
     ) {
       setMemberNotice({
         kind: "error",
-        message: "자기 자신의 admin 권한은 해제할 수 없습니다.",
+        message: {
+          ko: "자기 자신의 admin 권한은 해제할 수 없습니다.",
+          en: "You cannot remove your own admin permission.",
+        },
       });
       return;
     }
     if (!actions?.updateMemberGroup) {
       setMemberNotice({
         kind: "error",
-        message: "회원 그룹 API가 아직 연결되지 않았습니다.",
+        message: {
+          ko: "회원 그룹 API가 아직 연결되지 않았습니다.",
+          en: "The member group API is not connected yet.",
+        },
       });
       return;
     }
 
-    const changeLabel = `${username} 계정의 ${group} 그룹 ${add ? "부여" : "해제"}`;
+    const changeLabel = {
+      ko: `${username} 계정의 ${group} 그룹 ${add ? "부여" : "해제"}`,
+      en: `${add ? "Granting" : "Removing"} the ${group} group ${add ? "to" : "from"} ${username}`,
+    };
     memberBusyRef.current = true;
     setIsSavingMemberGroup(true);
     setMemberNotice(null);
@@ -1728,19 +1810,28 @@ function AdminWorkspace({
         setMemberNeedsRefresh(true);
         setMemberNotice({
           kind: "error",
-          message: `${changeLabel} 요청은 성공했습니다. 최신 회원 목록을 확인하지 못했으므로 이전 권한 표시를 신뢰하지 말고 다시 조회해 주세요. 재조회 전에는 권한을 다시 변경할 수 없습니다.`,
+          message: {
+            ko: `${changeLabel.ko} 요청은 성공했습니다. 최신 회원 목록을 확인하지 못했으므로 이전 권한 표시를 신뢰하지 말고 다시 조회해 주세요. 재조회 전에는 권한을 다시 변경할 수 없습니다.`,
+            en: `${changeLabel.en} succeeded. The latest member list could not be confirmed, so do not trust the earlier permissions shown; load the list again. You cannot change permissions again until you do.`,
+          },
         });
         return;
       }
       setMemberNotice({
         kind: "success",
-        message: `${changeLabel} 요청이 성공했고 목록을 다시 불러왔습니다. 새 권한은 다음 로그인부터 적용됩니다.`,
+        message: {
+          ko: `${changeLabel.ko} 요청이 성공했고 목록을 다시 불러왔습니다. 새 권한은 다음 로그인부터 적용됩니다.`,
+          en: `${changeLabel.en} succeeded and the list was reloaded. The new permission applies from the next sign-in.`,
+        },
       });
     } catch {
       setMemberNeedsRefresh(true);
       setMemberNotice({
         kind: "error",
-        message: `${changeLabel} 결과를 확인하지 못했습니다. 실제로 반영됐을 수 있으므로 재전송하지 말고 회원 목록을 다시 조회해 주세요. 자기 자신의 admin 해제는 서버에서 금지합니다.`,
+        message: {
+          ko: `${changeLabel.ko} 결과를 확인하지 못했습니다. 실제로 반영됐을 수 있으므로 재전송하지 말고 회원 목록을 다시 조회해 주세요. 자기 자신의 admin 해제는 서버에서 금지합니다.`,
+          en: `Could not confirm the result of ${changeLabel.en}. It may have been applied, so do not resend; load the member list again. The server blocks removing your own admin permission.`,
+        },
       });
     } finally {
       memberBusyRef.current = false;
@@ -1779,8 +1870,10 @@ function AdminWorkspace({
       key: "ocr",
       section: "ocr",
       status: "working",
-      detail:
-        "입고 검토 내용을 수정했습니다. 초안 저장·재고 반영은 별도 확인이 필요합니다.",
+      detail: {
+        ko: "입고 검토 내용을 수정했습니다. 초안 저장·재고 반영은 별도 확인이 필요합니다.",
+        en: "Edited the stock-in review. Saving the draft and applying stock need separate confirmation.",
+      },
     });
     // Draft edits and file/job changes supersede every earlier response, including
     // a PATCH conflict's subsequent GET. An old finally must not clear a new save.
