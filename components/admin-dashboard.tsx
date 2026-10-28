@@ -72,6 +72,7 @@ import {
   validateOcrImageFile,
 } from "@/lib/admin-ui/ocr-input-validation";
 import {
+  AdminApiRequestError,
   getOcrRequestErrorMessage,
   isLocalOcrDevelopmentMode,
   isRemoteOcrDemoMode,
@@ -1195,14 +1196,13 @@ function AdminWorkspace({
 
   /**
    * 상세사이즈 모달 저장: 상품 저장과 별도로 즉시 서버에 반영합니다.
-   * deckSpec만 바꾸는 PATCH라 목록의 최신 version으로 보내고, 폼이 같은 version이었을 때만 폼 version도 올려 409를 막습니다.
+   * 폼이 기준으로 삼은 version으로만 보내므로, 그 사이 다른 곳에서 바뀌었으면 409로 멈추고 덮어쓰지 않습니다.
+   * 직접 받은 성공 응답일 때만 폼 version을 올려 이후 상품 저장이 409가 나지 않게 합니다.
    */
   const saveProductDeckSpec = async (deckSpec: DeckSpec | null) => {
     const editor = productEditor;
     const productId = editor?.draft.productId;
-    const version =
-      localProducts.find((item) => item.id === productId)?.version ??
-      editor?.draft.version;
+    const version = editor?.draft.version;
 
     if (!actions?.updateProductDeckSpec || !editor || !productId || !version) {
       throw new Error("DECK_SPEC_UNAVAILABLE");
@@ -1216,18 +1216,17 @@ function AdminWorkspace({
         deckSpec,
       });
     } catch (error) {
-      // A lost response may hide a committed write; the refreshed list also gives a retry the latest version.
-      const latest = (await refreshCatalogProducts())?.find(
-        (item) => item.id === productId,
-      );
-      if (
-        !latest ||
-        latest.version !== version + 1 ||
-        JSON.stringify(latest.deckSpec ?? null) !== JSON.stringify(deckSpec)
-      ) {
-        throw error;
+      // Success is never guessed from a re-read; a conflict only refreshes the list and asks to reopen.
+      if (error instanceof AdminApiRequestError && error.status === 409) {
+        void refreshCatalogProducts();
+        if (getAdminProductEditorId() === editor.id)
+          setProductNotice({
+            kind: "error",
+            message:
+              "다른 곳에서 이 상품이 바뀌었거나 이전 상세사이즈 저장이 이미 반영됐습니다. 편집을 닫고 다시 열어 최신 값을 확인한 뒤 저장해 주세요.",
+          });
       }
-      updated = latest;
+      throw error;
     }
     catalogMutationGenerationRef.current += 1;
     setLocalProducts((current) =>
@@ -1235,17 +1234,12 @@ function AdminWorkspace({
         item.id === updated.id && item.version <= updated.version ? updated : item,
       ),
     );
+    // 버튼 옆 요약이 바뀌는 것으로 저장을 알립니다. 상품 저장 완료 알림(productSaved)과 섞지 않습니다.
     productEditors.updateDraft(editor.id, (current) =>
       current.productId === updated.id && current.version === version
         ? { ...current, version: updated.version }
         : current,
     );
-    setProductNotice({
-      kind: "success",
-      message: deckSpec
-        ? `${updated.name} 상세사이즈를 저장했습니다. 스토어 상세 페이지에 바로 반영됩니다.`
-        : `${updated.name} 상세사이즈를 삭제했습니다.`,
-    });
   };
 
   const resetProductDraft = () => {
