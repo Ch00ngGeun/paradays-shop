@@ -187,4 +187,25 @@ describe("isolated synthetic order calculator", () => {
     expect(reset.receipts.size).toBe(0);
     expect(first.stock).toBe(8);
   });
+  it("keeps Korean messages by default and returns English on request", () => {
+    expect(createSimulation("ko-session").history).toEqual([
+      "모의 주문 생성: 합성 상품 2개 · 가상금액 20,000원 · 테스트 재고 10개",
+    ]);
+    const english = createSimulation("en-session", "en");
+    expect(english.productName).toBe("[테스트] 합성 데크");
+    const approval = applySimulation(
+      english,
+      { type: "approve", operationId: "approve" },
+      "en",
+    );
+    expect(approval.message).toBe("Mock approval done: Test stock 10 → 8 (2 deducted)");
+    expect(approval.state.history.at(-1)).toBe(approval.message);
+    expect(() =>
+      applySimulation(
+        english,
+        { type: "compensate", amount: 1, operationId: "early" },
+        "en",
+      ),
+    ).toThrow("Run the mock approval first.");
+  });
 });
