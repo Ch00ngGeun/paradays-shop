@@ -3821,7 +3821,14 @@ function ProductSection({
     );
   }
 
-  const editorTitle = view === "edit" ? "상품 수정" : "새 상품";
+  const editorTitle =
+    view === "edit"
+      ? isKorean
+        ? "상품 수정"
+        : "Edit product"
+      : isKorean
+        ? "새 상품"
+        : "New product";
 
   return (
     <div className={`${styles.sectionStack} ${styles.productScreen}`}>
@@ -3832,7 +3839,7 @@ function ProductSection({
           onClick={onCloseEditor}
           type="button"
         >
-          ← 목록으로
+          {isKorean ? "← 목록으로" : "← Back to list"}
         </button>
       </div>
       <div className={`${styles.productPageHeading} ${styles.productCompactHeading}`}>
@@ -3842,21 +3849,45 @@ function ProductSection({
             <span className={styles.productSaveState}>
               {canSaveToServer
                 ? draft.isVisible
-                  ? "공개 설정 · 저장 전"
-                  : "비공개 · 저장 전"
-                : "로컬 초안 · 서버 미연결"}
+                  ? isKorean
+                    ? "공개 설정 · 저장 전"
+                    : "Public · Not saved"
+                  : isKorean
+                    ? "비공개 · 저장 전"
+                    : "Private · Not saved"
+                : isKorean
+                  ? "로컬 초안 · 서버 미연결"
+                  : "Local draft · No server"}
             </span>
           </div>
           {view === "edit" && currentProduct?.version ? (
             <p>
-              현재 {isCurrentlyPublic ? "공개" : "비공개"} → 저장 후{" "}
-              {draft.isVisible ? "공개" : "비공개"}
+              {isKorean ? "현재" : "Now"}{" "}
+              {isCurrentlyPublic
+                ? isKorean
+                  ? "공개"
+                  : "Public"
+                : isKorean
+                  ? "비공개"
+                  : "Private"}{" "}
+              → {isKorean ? "저장 후" : "after saving"}{" "}
+              {draft.isVisible
+                ? isKorean
+                  ? "공개"
+                  : "Public"
+                : isKorean
+                  ? "비공개"
+                  : "Private"}
             </p>
           ) : null}
         </div>
         <label className={styles.productManagementCode}>
-          <span>SKU / 관리 코드</span>
-          <input readOnly value={draft.sku} placeholder="기존 관리 코드 없음" />
+          <span>{isKorean ? "SKU / 관리 코드" : "SKU / code"}</span>
+          <input
+            readOnly
+            value={draft.sku}
+            placeholder={isKorean ? "기존 관리 코드 없음" : "No existing code"}
+          />
         </label>
       </div>
       <div className={styles.productEditor}>
@@ -3870,14 +3901,16 @@ function ProductSection({
             className={`${styles.formGroup} ${styles.productFormGrid}`}
             disabled={lockInputs}
           >
-            <legend>기본 정보</legend>
+            <legend>{isKorean ? "기본 정보" : "Basics"}</legend>
             <label>
               <span>
-                상품명 <em>*</em>
+                {isKorean ? "상품명" : "Product name"} <em>*</em>
               </span>
               <input
                 onChange={(event) => onTextChange("name", event.target.value)}
-                placeholder="예: O'Dwyer Deck [8.25”]"
+                placeholder={
+                  isKorean ? "예: O'Dwyer Deck [8.25”]" : "e.g. O'Dwyer Deck [8.25”]"
+                }
                 required
                 value={draft.name}
               />
@@ -3885,7 +3918,7 @@ function ProductSection({
             <div className={styles.productBrandField}>
               <label htmlFor={`product-brand-${editorId}`}>
                 <span>
-                  브랜드 <em>*</em>
+                  {isKorean ? "브랜드" : "Brand"} <em>*</em>
                 </span>
               </label>
               <div className={styles.productBrandControls}>
@@ -3893,13 +3926,13 @@ function ProductSection({
                   id={`product-brand-${editorId}`}
                   maxLength={100}
                   onChange={(event) => onTextChange("brand", event.target.value)}
-                  placeholder="직접 입력"
+                  placeholder={isKorean ? "직접 입력" : "Enter manually"}
                   ref={brandInputRef}
                   required
                   value={draft.brand}
                 />
                 <select
-                  aria-label="브랜드 선택"
+                  aria-label={isKorean ? "브랜드 선택" : "Choose brand"}
                   onChange={(event) => {
                     if (event.target.value === "manual") {
                       setManualBrandEditor(editorId);
@@ -3920,30 +3953,32 @@ function ProductSection({
                           : ""
                   }
                 >
-                  <option value="">선택</option>
+                  <option value="">{isKorean ? "선택" : "Choose"}</option>
                   {brandChoices.map((brand, index) => (
                     <option key={brand} value={index}>
                       {brand}
                     </option>
                   ))}
-                  <option value="manual">기타</option>
+                  <option value="manual">{isKorean ? "기타" : "Other"}</option>
                 </select>
               </div>
             </div>
             <label>
-              <span>카테고리</span>
+              <span>{isKorean ? "카테고리" : "Category"}</span>
               <select
                 onChange={(event) => onTextChange("category", event.target.value)}
                 value={draft.category}
               >
-                <option value="Deck">데크</option>
-                <option value="Complete">컴플리트</option>
-                <option value="Trucks">트럭</option>
-                <option value="Wheels">휠</option>
-                <option value="Bearings">베어링</option>
-                <option value="Top">상의</option>
-                <option value="Bottom">하의</option>
-                <option value="Accessories">액세서리</option>
+                <option value="Deck">{isKorean ? "데크" : "Deck"}</option>
+                <option value="Complete">{isKorean ? "컴플리트" : "Complete"}</option>
+                <option value="Trucks">{isKorean ? "트럭" : "Trucks"}</option>
+                <option value="Wheels">{isKorean ? "휠" : "Wheels"}</option>
+                <option value="Bearings">{isKorean ? "베어링" : "Bearings"}</option>
+                <option value="Top">{isKorean ? "상의" : "Tops"}</option>
+                <option value="Bottom">{isKorean ? "하의" : "Bottoms"}</option>
+                <option value="Accessories">
+                  {isKorean ? "액세서리" : "Accessories"}
+                </option>
               </select>
             </label>
           </fieldset>
@@ -3952,10 +3987,10 @@ function ProductSection({
             className={`${styles.formGroup} ${styles.productFormGrid}`}
             disabled={lockInputs}
           >
-            <legend>판매 정보</legend>
+            <legend>{isKorean ? "판매 정보" : "Pricing"}</legend>
             <label>
               <span>
-                판매가 <em>*</em>
+                {isKorean ? "판매가" : "Price"} <em>*</em>
               </span>
               <input
                 inputMode="numeric"
@@ -3968,7 +4003,15 @@ function ProductSection({
               />
             </label>
             <label>
-              <span>{view === "edit" ? "재고 수량" : "최초 재고"}</span>
+              <span>
+                {view === "edit"
+                  ? isKorean
+                    ? "재고 수량"
+                    : "Stock"
+                  : isKorean
+                    ? "최초 재고"
+                    : "Initial stock"}
+              </span>
               <input
                 inputMode="numeric"
                 min="0"
@@ -3988,11 +4031,13 @@ function ProductSection({
             {draft.category === "Deck" ? (
               <div className={styles.productLegacyPrice}>
                 <span>
-                  상세사이즈
+                  {isKorean ? "상세사이즈" : "Size chart"}
                   <strong>
                     {deckSpec
                       ? `${formatDeckInches(deckSpec.width)} × ${formatDeckInches(deckSpec.length)} · WB ${formatDeckInches(deckSpec.wheelbase)}`
-                      : "미등록"}
+                      : isKorean
+                        ? "미등록"
+                        : "Not set"}
                   </strong>
                 </span>
                 <button
@@ -4006,7 +4051,13 @@ function ProductSection({
                   }
                   type="button"
                 >
-                  {deckSpec ? "상세사이즈 수정" : "+ 상세사이즈 등록"}
+                  {deckSpec
+                    ? isKorean
+                      ? "상세사이즈 수정"
+                      : "Edit size chart"
+                    : isKorean
+                      ? "+ 상세사이즈 등록"
+                      : "+ Add size chart"}
                 </button>
                 {onSaveDeckSpec && deckSpecModal?.editorKey === editorKey ? (
                   <AdminDeckSpecModal
@@ -4025,12 +4076,20 @@ function ProductSection({
                   />
                 ) : null}
                 {canEditDeckSpec ? (
-                  <small>모달의 저장 버튼을 누르면 바로 반영됩니다.</small>
+                  <small>
+                    {isKorean
+                      ? "모달의 저장 버튼을 누르면 바로 반영됩니다."
+                      : "Saving in the dialog applies it right away."}
+                  </small>
                 ) : (
                   <small>
                     {onSaveDeckSpec
-                      ? "상품을 먼저 저장하면 등록할 수 있습니다."
-                      : "서버에 연결된 관리자 화면에서만 등록할 수 있습니다."}
+                      ? isKorean
+                        ? "상품을 먼저 저장하면 등록할 수 있습니다."
+                        : "Save the product first to add it."
+                      : isKorean
+                        ? "서버에 연결된 관리자 화면에서만 등록할 수 있습니다."
+                        : "Available only on an admin screen connected to the server."}
                   </small>
                 )}
               </div>
@@ -4038,7 +4097,7 @@ function ProductSection({
             {view === "edit" && draft.compareAtPrice ? (
               <div className={styles.productLegacyPrice}>
                 <span>
-                  기존 정가{" "}
+                  {isKorean ? "기존 정가" : "Original price"}{" "}
                   <strong>{moneyFormatter.format(previewCompareAtPrice)}</strong>
                 </span>
                 <button
@@ -4046,20 +4105,28 @@ function ProductSection({
                   onClick={() => {
                     if (
                       window.confirm(
-                        "기존 정가를 제거할까요? 저장하면 할인 전 가격 표시가 사라집니다.",
+                        isKorean
+                          ? "기존 정가를 제거할까요? 저장하면 할인 전 가격 표시가 사라집니다."
+                          : "Remove the original price? Once saved, the pre-discount price is no longer shown.",
                       )
                     )
                       onTextChange("compareAtPrice", "");
                   }}
                   type="button"
                 >
-                  기존 정가 제거
+                  {isKorean ? "기존 정가 제거" : "Remove original price"}
                 </button>
-                <small>기존 값 유지 중 · 제거는 저장 후 반영</small>
+                <small>
+                  {isKorean
+                    ? "기존 값 유지 중 · 제거는 저장 후 반영"
+                    : "Keeping the current value · Removal applies after saving"}
+                </small>
               </div>
             ) : view === "edit" && currentProduct?.compareAtPrice ? (
               <p className={styles.productLegacyPrice} role="status">
-                기존 정가 제거 예정 · 저장 전
+                {isKorean
+                  ? "기존 정가 제거 예정 · 저장 전"
+                  : "Original price will be removed · Not saved"}
               </p>
             ) : null}
           </fieldset>
@@ -4068,37 +4135,47 @@ function ProductSection({
             className={`${styles.formGroup} ${styles.productImageGroup}`}
             disabled={lockInputs}
           >
-            <legend>대표 이미지</legend>
+            <legend>{isKorean ? "대표 이미지" : "Main image"}</legend>
             <div className={styles.productImageUpload}>
               {/* 선택한 파일의 blob URL은 기존 편집 세션이 해제합니다. 추가 URL을 만들지 않습니다. */}
               <AdminProductImage
-                alt="선택한 대표 이미지"
+                alt={isKorean ? "선택한 대표 이미지" : "Selected main image"}
                 className={styles.productImageThumb}
                 compact
                 src={draft.imageUrl}
               />
               <label className={styles.uploadField}>
-                <span>대표 이미지</span>
+                <span>{isKorean ? "대표 이미지" : "Main image"}</span>
                 <input
                   accept="image/jpeg,image/png,image/webp,image/gif"
                   onChange={onImageChange}
                   type="file"
                 />
                 <small>
-                  JPEG·PNG·WebP·GIF · 최대 6MB
-                  {canUploadImages ? " · 저장할 때 업로드" : " · 업로드 연결 필요"}
+                  {isKorean
+                    ? "JPEG·PNG·WebP·GIF · 최대 6MB"
+                    : "JPEG·PNG·WebP·GIF · Up to 6MB"}
+                  {canUploadImages
+                    ? isKorean
+                      ? " · 저장할 때 업로드"
+                      : " · Uploads on save"
+                    : isKorean
+                      ? " · 업로드 연결 필요"
+                      : " · Upload needs a connection"}
                 </small>
               </label>
             </div>
           </fieldset>
           <fieldset className={styles.formGroup} disabled={lockInputs}>
-            <legend>상품 설명</legend>
+            <legend>{isKorean ? "상품 설명" : "Description"}</legend>
             <label className={styles.fieldWide}>
-              <span>상품 설명</span>
+              <span>{isKorean ? "상품 설명" : "Description"}</span>
               <textarea
                 onChange={(event) => onTextChange("description", event.target.value)}
                 placeholder={
-                  "소재·특징·관리 방법 등을 입력하세요.\n줄바꿈으로 항목을 구분합니다."
+                  isKorean
+                    ? "소재·특징·관리 방법 등을 입력하세요.\n줄바꿈으로 항목을 구분합니다."
+                    : "Enter materials, features, care and so on.\nSeparate items with line breaks."
                 }
                 rows={4}
                 value={draft.description}
@@ -4106,7 +4183,7 @@ function ProductSection({
             </label>
           </fieldset>
           <fieldset className={styles.formGroup} disabled={lockInputs}>
-            <legend>공개 설정</legend>
+            <legend>{isKorean ? "공개 설정" : "Visibility"}</legend>
             <div className={styles.toggleRows}>
               <label className={styles.checkRow}>
                 <input
@@ -4117,7 +4194,9 @@ function ProductSection({
                   }
                   type="checkbox"
                 />
-                <span>저장 후 스토어에 공개</span>
+                <span>
+                  {isKorean ? "저장 후 스토어에 공개" : "Publish to store after saving"}
+                </span>
               </label>
               <label className={styles.checkRow}>
                 <input
@@ -4127,19 +4206,24 @@ function ProductSection({
                   }
                   type="checkbox"
                 />
-                <span>신상품 배지 표시</span>
+                <span>{isKorean ? "신상품 배지 표시" : "Show New badge"}</span>
               </label>
             </div>
             {!canSaveToServer ? (
-              <small>관리자 API 연결 후 공개할 수 있습니다.</small>
+              <small>
+                {isKorean
+                  ? "관리자 API 연결 후 공개할 수 있습니다."
+                  : "You can publish once the admin API is connected."}
+              </small>
             ) : null}
           </fieldset>
 
           {notice ? <NoticeMessage notice={notice} /> : null}
           {!canSaveToServer ? (
             <p className={styles.productStorageNote} role="status">
-              서버 미연결 · 이 브라우저에만 보관되며 새로고침하면 사라집니다. 스토어에는
-              공개되지 않습니다.
+              {isKorean
+                ? "서버 미연결 · 이 브라우저에만 보관되며 새로고침하면 사라집니다. 스토어에는 공개되지 않습니다."
+                : "No server connection · Kept only in this browser and lost on refresh. Not published to the store."}
             </p>
           ) : null}
           <div className={styles.formActions}>
@@ -4153,49 +4237,77 @@ function ProductSection({
               }}
               type="button"
             >
-              {view === "edit" ? "입력 초기화" : "새 초안"}
+              {view === "edit"
+                ? isKorean
+                  ? "입력 초기화"
+                  : "Reset input"
+                : isKorean
+                  ? "새 초안"
+                  : "New draft"}
             </button>
             <button className={styles.primaryButton} disabled={saving} type="submit">
-              {saving ? (lockInputs ? "저장 중…" : "다른 상품 저장 중…") : saveLabel}
+              {saving
+                ? lockInputs
+                  ? isKorean
+                    ? "저장 중…"
+                    : "Saving…"
+                  : isKorean
+                    ? "다른 상품 저장 중…"
+                    : "Saving another product…"
+                : saveLabel}
             </button>
           </div>
           <p className={styles.productSaveHint}>
             {canSaveToServer
               ? draft.isVisible
-                ? "저장 직전에 공개 내용을 한 번 더 확인합니다."
-                : "비공개 상품은 고객에게 표시되지 않습니다."
-              : "서버 저장·공개는 관리자 API 연결 후 가능합니다."}
+                ? isKorean
+                  ? "저장 직전에 공개 내용을 한 번 더 확인합니다."
+                  : "You will confirm the public content once more before saving."
+                : isKorean
+                  ? "비공개 상품은 고객에게 표시되지 않습니다."
+                  : "Private products are not shown to customers."
+              : isKorean
+                ? "서버 저장·공개는 관리자 API 연결 후 가능합니다."
+                : "Saving to the server and publishing need the admin API connection."}
           </p>
         </form>
 
         <aside
           className={`${styles.previewPanel} ${styles.productPreview}`}
-          aria-label="고객 화면 미리보기"
+          aria-label={isKorean ? "고객 화면 미리보기" : "Customer preview"}
         >
           <div className={styles.previewHeader}>
             <div>
-              <h2>고객 화면 미리보기</h2>
+              <h2>{isKorean ? "고객 화면 미리보기" : "Customer preview"}</h2>
             </div>
             <span className={styles.productSaveState}>
               {canSaveToServer
                 ? draft.isVisible
-                  ? "공개 예정"
-                  : "비공개"
-                : "로컬 미리보기"}
+                  ? isKorean
+                    ? "공개 예정"
+                    : "Will be public"
+                  : isKorean
+                    ? "비공개"
+                    : "Private"
+                : isKorean
+                  ? "로컬 미리보기"
+                  : "Local preview"}
             </span>
           </div>
           <article className={styles.storeCardPreview}>
             <div className={styles.storeCardDetail}>
               <div className={styles.storeCardInfo}>
                 <p className={styles.productPreviewBrand}>
-                  {draft.brand.trim() || "브랜드"}
+                  {draft.brand.trim() || (isKorean ? "브랜드" : "Brand")}
                 </p>
                 <h3>{previewName}</h3>
                 <div className={styles.productPreviewPrice}>
                   <span>
                     {previewPrice > 0
                       ? moneyFormatter.format(previewPrice)
-                      : "판매가 입력"}
+                      : isKorean
+                        ? "판매가 입력"
+                        : "Enter price"}
                     {previewCompareAtPrice > previewPrice && previewPrice > 0 ? (
                       <s>{moneyFormatter.format(previewCompareAtPrice)}</s>
                     ) : null}
@@ -4204,11 +4316,11 @@ function ProductSection({
 
                 <div className={styles.storeCardOptions}>
                   <fieldset>
-                    <legend>옵션</legend>
+                    <legend>{isKorean ? "옵션" : "Options"}</legend>
                     {previewSizes.length > 0 ? (
                       <div
                         className={styles.storeCardSizes}
-                        aria-label="선택 가능한 옵션"
+                        aria-label={isKorean ? "선택 가능한 옵션" : "Available options"}
                       >
                         {previewSizes.map((size, index) => (
                           <span
@@ -4222,14 +4334,18 @@ function ProductSection({
                         ))}
                       </div>
                     ) : (
-                      <span className={styles.previewHint}>옵션 미입력</span>
+                      <span className={styles.previewHint}>
+                        {isKorean ? "옵션 미입력" : "No options"}
+                      </span>
                     )}
                   </fieldset>
                 </div>
 
                 {previewDescriptionLines.length > 0 ? (
                   <details className={styles.productPreviewDescription}>
-                    <summary>상품 설명 보기</summary>
+                    <summary>
+                      {isKorean ? "상품 설명 보기" : "View description"}
+                    </summary>
                     <ul className={styles.storeCardDescription}>
                       {previewDescriptionLines.map((line, index) => (
                         <li key={`${index}:${line}`}>{line}</li>
@@ -4243,7 +4359,11 @@ function ProductSection({
                 {draft.isFeatured ? <span className={styles.newBadge}>NEW</span> : null}
                 {/* 파일 선택으로 생긴 blob URL은 정적 export의 이미지 최적화 경로를 거치지 않습니다. */}
                 <AdminProductImage
-                  alt={`${previewName} 상품 이미지 미리보기`}
+                  alt={
+                    isKorean
+                      ? `${previewName} 상품 이미지 미리보기`
+                      : `${previewName} product image preview`
+                  }
                   src={draft.imageUrl}
                 />
               </div>
@@ -4255,18 +4375,30 @@ function ProductSection({
               >
                 {canSaveToServer
                   ? draft.isVisible
-                    ? "저장 후 공개"
-                    : "비공개 저장 예정"
-                  : "서버 미저장"}
+                    ? isKorean
+                      ? "저장 후 공개"
+                      : "Public after saving"
+                    : isKorean
+                      ? "비공개 저장 예정"
+                      : "Will be saved as private"
+                  : isKorean
+                    ? "서버 미저장"
+                    : "Not saved to server"}
               </span>
             </footer>
           </article>
           <p className={styles.previewNote}>
             {canSaveToServer
               ? view === "edit"
-                ? "입력한 변경 내용은 저장 후 반영됩니다."
-                : "아직 고객에게 보이지 않습니다."
-              : "서버 연결 전에는 실제 저장·공개되지 않습니다."}
+                ? isKorean
+                  ? "입력한 변경 내용은 저장 후 반영됩니다."
+                  : "Your changes apply after saving."
+                : isKorean
+                  ? "아직 고객에게 보이지 않습니다."
+                  : "Not visible to customers yet."
+              : isKorean
+                ? "서버 연결 전에는 실제 저장·공개되지 않습니다."
+                : "Nothing is actually saved or published until the server is connected."}
           </p>
         </aside>
       </div>
