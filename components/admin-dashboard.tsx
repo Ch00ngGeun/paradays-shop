@@ -2526,7 +2526,7 @@ function AdminWorkspace({
           />
         ) : null}
         <div hidden={activeSection !== "sales"}>
-          <AdminSalesLedgerPanel products={localProducts} />
+          <AdminSalesLedgerPanel products={localProducts} locale={locale} />
         </div>
         {activeSection === "inventory" ? (
           <InventorySection

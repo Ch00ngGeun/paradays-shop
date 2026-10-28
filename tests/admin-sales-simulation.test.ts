@@ -37,6 +37,15 @@ describe("sales simulation mode rendering and IO separation", () => {
     expect(html).not.toContain("장부 조회");
     expect(auth.getAccessToken).not.toHaveBeenCalled();
   });
+  it("renders the mode choice in English when the admin locale is English", () => {
+    const html = renderToStaticMarkup(
+      createElement(AdminSalesLedgerPanel, { products: [], locale: "en" }),
+    );
+    expect(html).toContain("Choose sales and daily close mode");
+    expect(html).toContain("Open real operations · Open real sales and daily close");
+    expect(html).toMatch(/<button[^>]+disabled[^>]*>Try mock sales and daily close/);
+    expect(html).not.toMatch(/[가-힣]/);
+  });
   it("renders a synthetic world with permanent warnings, blank editable form and zero online total", () => {
     const html = renderToStaticMarkup(
       createElement(AdminSalesSimulationPanel, { onExit: () => {} }),

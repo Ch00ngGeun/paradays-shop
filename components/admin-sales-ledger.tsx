@@ -2,6 +2,7 @@
 import { useRef, useState, useSyncExternalStore } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import type { AdminCatalogListItem } from "@/lib/admin-ui/types";
+import type { Locale } from "@/types/store";
 import {
   AdminSalesError,
   createAdminSalesApiClient,
@@ -34,6 +35,7 @@ type Draft = {
   lines: Row[];
 };
 type Attempt = { day: string; command: SalesCommand };
+type Notice = string | Readonly<Record<Locale, string>>;
 type Preview = {
   entryId: string;
   version: number;
@@ -74,14 +76,17 @@ function readPending(key: string): Attempt | null {
     return null;
   }
 }
-const money = (n: number) => `${n.toLocaleString("ko-KR")}원`;
+const money = (n: number, locale: Locale = "ko") =>
+  locale === "ko"
+    ? `${n.toLocaleString("ko-KR")}원`
+    : `KRW ${n.toLocaleString("en-US")}`;
 const localTime = (iso: string) =>
   new Date(Date.parse(iso) + 9 * 3_600_000).toISOString().slice(0, 16);
 const today = () => localTime(new Date().toISOString()).slice(0, 10);
 const initialTime = (day: string) =>
   day === today() ? localTime(new Date().toISOString()) : `${day}T12:00`;
-const showTime = (iso: string) =>
-  new Intl.DateTimeFormat("ko-KR", {
+const showTime = (iso: string, locale: Locale = "ko") =>
+  new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en-US", {
     timeZone: "Asia/Seoul",
     year: "numeric",
     month: "2-digit",
@@ -92,8 +97,14 @@ const showTime = (iso: string) =>
     hour12: false,
   }).format(new Date(iso));
 const newId = () => `sale_${crypto.randomUUID()}`;
-const statusLabels = { DRAFT: "작성 중", POSTED: "완료", VOID: "폐기" };
-const methodLabels = { CARD: "카드", CASH: "현금", TRANSFER: "이체" };
+const statusLabels = {
+  ko: { DRAFT: "작성 중", POSTED: "완료", VOID: "폐기" },
+  en: { DRAFT: "Draft", POSTED: "Posted", VOID: "Voided" },
+};
+const methodLabels = {
+  ko: { CARD: "카드", CASH: "현금", TRANSFER: "이체" },
+  en: { CARD: "Card", CASH: "Cash", TRANSFER: "Transfer" },
+};
 const methodOrder = ["CARD", "CASH", "TRANSFER"] as const;
 const methodNet = (totals: DayReport["totals"], method: SaleEntry["method"]) =>
   method === "CARD"
@@ -101,20 +112,37 @@ const methodNet = (totals: DayReport["totals"], method: SaleEntry["method"]) =>
     : method === "CASH"
       ? totals.cash
       : (totals.transfer ?? 0);
-const warnings: Record<string, string> = {
-  UNPOSTED_SALES: "작성 중 전표가 남아 있습니다.",
-  UNMATCHED_OR_AMOUNT_MISMATCH:
-    "상품 미매칭 또는 줄 합계와 전표 금액이 다른 작성 중 전표가 있습니다.",
-  ONLINE_REFUND_HISTORY_UNAVAILABLE:
-    "온라인 환불의 날짜별 근거가 부족합니다. 확인 전 마감할 수 없습니다.",
-  ONLINE_CHANGED_AFTER_CLOSE:
-    "마감 이후 온라인 매출이 바뀌었습니다. 이전 마감표와 현재 합계를 대조해 주세요.",
-  ONLINE_APPROVAL_HISTORY_UNAVAILABLE:
-    "온라인 승인시각의 근거가 부족합니다. 확인 전 마감할 수 없습니다.",
-  ONLINE_REFUND_RESULT_PENDING:
-    "온라인 환불 결과가 확인 대기 중입니다. 확정된 금액만 합계에 포함했습니다.",
-  ONLINE_PAYMENT_RESULT_PENDING:
-    "온라인 결제 결과가 확인 대기 중입니다. 확정된 금액만 합계에 포함했습니다.",
+const warnings: Record<Locale, Record<string, string>> = {
+  ko: {
+    UNPOSTED_SALES: "작성 중 전표가 남아 있습니다.",
+    UNMATCHED_OR_AMOUNT_MISMATCH:
+      "상품 미매칭 또는 줄 합계와 전표 금액이 다른 작성 중 전표가 있습니다.",
+    ONLINE_REFUND_HISTORY_UNAVAILABLE:
+      "온라인 환불의 날짜별 근거가 부족합니다. 확인 전 마감할 수 없습니다.",
+    ONLINE_CHANGED_AFTER_CLOSE:
+      "마감 이후 온라인 매출이 바뀌었습니다. 이전 마감표와 현재 합계를 대조해 주세요.",
+    ONLINE_APPROVAL_HISTORY_UNAVAILABLE:
+      "온라인 승인시각의 근거가 부족합니다. 확인 전 마감할 수 없습니다.",
+    ONLINE_REFUND_RESULT_PENDING:
+      "온라인 환불 결과가 확인 대기 중입니다. 확정된 금액만 합계에 포함했습니다.",
+    ONLINE_PAYMENT_RESULT_PENDING:
+      "온라인 결제 결과가 확인 대기 중입니다. 확정된 금액만 합계에 포함했습니다.",
+  },
+  en: {
+    UNPOSTED_SALES: "Draft sales slips remain.",
+    UNMATCHED_OR_AMOUNT_MISMATCH:
+      "A draft slip has unmatched products or a line total that differs from the slip amount.",
+    ONLINE_REFUND_HISTORY_UNAVAILABLE:
+      "There is not enough per-day evidence for online refunds. You cannot close before checking.",
+    ONLINE_CHANGED_AFTER_CLOSE:
+      "Online sales changed after closing. Compare the previous closing sheet with the current totals.",
+    ONLINE_APPROVAL_HISTORY_UNAVAILABLE:
+      "There is not enough evidence for online approval times. You cannot close before checking.",
+    ONLINE_REFUND_RESULT_PENDING:
+      "Online refund results are pending. Only confirmed amounts are included in the totals.",
+    ONLINE_PAYMENT_RESULT_PENDING:
+      "Online payment results are pending. Only confirmed amounts are included in the totals.",
+  },
 };
 const lineSum = (rows: readonly Row[]) =>
   rows.reduce((s, l) => s + Number(l.quantity) * Number(l.unitAmount), 0);
@@ -141,15 +169,18 @@ const isWhole = (v: string, min = 0, max = 100_000_000) =>
 /** Kept mounted by the dashboard so unresolved commands survive menu changes. */
 export function AdminSalesLedgerPanel({
   products,
-}: Readonly<{ products: readonly AdminCatalogListItem[] }>) {
+  locale = "ko",
+}: Readonly<{ products: readonly AdminCatalogListItem[]; locale?: Locale }>) {
   const { isAuthenticated, status, user } = useAuth();
   if (status !== "authenticated" || !isAuthenticated || !user?.groups.includes("admin"))
     return null;
-  return <SalesModeSession key={user.sub} products={products} />;
+  return <SalesModeSession key={user.sub} products={products} locale={locale} />;
 }
 function SalesModeSession({
   products,
-}: Readonly<{ products: readonly AdminCatalogListItem[] }>) {
+  locale,
+}: Readonly<{ products: readonly AdminCatalogListItem[]; locale: Locale }>) {
+  const isKorean = locale === "ko";
   const [mode, setMode] = useState<"choose" | "real" | "simulation">("choose");
   const [acknowledged, setAcknowledged] = useState(false);
   function chooseMode() {
@@ -158,35 +189,54 @@ function SalesModeSession({
   }
   if (mode === "simulation")
     return (
-      <section className={styles.simulationShell} aria-label="모의 매출·일마감">
+      <section
+        className={styles.simulationShell}
+        aria-label={isKorean ? "모의 매출·일마감" : "Mock sales and daily close"}
+      >
         <div className={styles.simulationModeBadge}>
-          <span aria-hidden="true">◇</span> 연습 중 · 실제 변경 없음
+          <span aria-hidden="true">◇</span>{" "}
+          {isKorean ? "연습 중 · 실제 변경 없음" : "Practicing · No real changes"}
         </div>
         <AdminSalesSimulationPanel onExit={chooseMode} />
       </section>
     );
   if (mode === "real")
-    return <ActualSalesLedgerPanel products={products} onExit={chooseMode} />;
+    return (
+      <ActualSalesLedgerPanel products={products} onExit={chooseMode} locale={locale} />
+    );
   return (
     <section className={styles.panel} aria-labelledby="sales-mode-title">
       <header className={styles.header}>
-        <h2 id="sales-mode-title">매출·일마감 모드 선택</h2>
-        <p>연습과 실제 운영을 구분해 시작하세요.</p>
+        <h2 id="sales-mode-title">
+          {isKorean ? "매출·일마감 모드 선택" : "Choose sales and daily close mode"}
+        </h2>
+        <p>
+          {isKorean
+            ? "연습과 실제 운영을 구분해 시작하세요."
+            : "Start by choosing practice or real operations."}
+        </p>
       </header>
       <div className={styles.modeCards}>
         <section className={`${styles.block} ${styles.modeCard}`}>
           <span className={styles.simulationModeBadge}>
-            <span aria-hidden="true">◇</span> 실제 변경 없음
+            <span aria-hidden="true">◇</span>{" "}
+            {isKorean ? "실제 변경 없음" : "No real changes"}
           </span>
-          <h3>연습하기</h3>
-          <p>가상 상품으로 카드·현금·이체 판매부터 재고 반영·일마감까지 연습합니다.</p>
+          <h3>{isKorean ? "연습하기" : "Practice"}</h3>
+          <p>
+            {isKorean
+              ? "가상 상품으로 카드·현금·이체 판매부터 재고 반영·일마감까지 연습합니다."
+              : "Practice card, cash and transfer sales through stock updates and daily close with virtual products."}
+          </p>
           <label className={styles.check}>
             <input
               type="checkbox"
               checked={acknowledged}
               onChange={(event) => setAcknowledged(event.target.checked)}
             />
-            실제 장부와 재고를 바꾸지 않는 모의 체험임을 확인했습니다
+            {isKorean
+              ? "실제 장부와 재고를 바꾸지 않는 모의 체험임을 확인했습니다"
+              : "I confirm this mock practice does not change the real ledger or stock"}
           </label>
           <button
             className={styles.primary}
@@ -196,33 +246,46 @@ function SalesModeSession({
               if (acknowledged) setMode("simulation");
             }}
           >
-            모의 매출·일마감 체험
+            {isKorean ? "모의 매출·일마감 체험" : "Try mock sales and daily close"}
           </button>
           <details className={styles.inlineHelp}>
-            <summary>연습 데이터 보관 안내</summary>
+            <summary>
+              {isKorean ? "연습 데이터 보관 안내" : "Practice data storage"}
+            </summary>
             <p>
-              브라우저 메모리의 합성 TEST 상품·전표만 사용합니다. 메뉴 이동 시 유지되며
-              초기화·종료·새로고침·로그아웃·계정 교체 시 폐기됩니다. 실제
-              상품·장부·온라인 매출은 조회하거나 변경하지 않습니다.
+              {isKorean
+                ? "브라우저 메모리의 합성 TEST 상품·전표만 사용합니다. 메뉴 이동 시 유지되며 초기화·종료·새로고침·로그아웃·계정 교체 시 폐기됩니다. 실제 상품·장부·온라인 매출은 조회하거나 변경하지 않습니다."
+                : "Uses only synthetic TEST products and slips in browser memory. They persist across menus and are discarded on reset, end, refresh, sign-out or account switch. Real products, ledger and online sales are never read or changed."}
             </p>
           </details>
         </section>
         <section className={`${styles.block} ${styles.modeCard}`}>
           <span className={styles.actualModeBadge}>
-            <span aria-hidden="true">●</span> 실제 장부·재고 변경
+            <span aria-hidden="true">●</span>{" "}
+            {isKorean ? "실제 장부·재고 변경" : "Changes real ledger and stock"}
           </span>
-          <h3>실제 운영</h3>
-          <AdminNotice status="attention">
-            판매를 확정하면 실제 재고가 차감됩니다. 연습하려면 ‘연습하기’를 선택하세요.
+          <h3>{isKorean ? "실제 운영" : "Real operations"}</h3>
+          <AdminNotice status="attention" locale={locale}>
+            {isKorean
+              ? "판매를 확정하면 실제 재고가 차감됩니다. 연습하려면 ‘연습하기’를 선택하세요."
+              : "Posting a sale deducts real stock. To practice, choose ‘Practice’."}
           </AdminNotice>
-          <p className={styles.muted}>기존 미확정 요청은 실제 운영에서 확인합니다.</p>
+          <p className={styles.muted}>
+            {isKorean
+              ? "기존 미확정 요청은 실제 운영에서 확인합니다."
+              : "Check earlier unconfirmed requests in real operations."}
+          </p>
           <button
-            aria-label="실제 운영 열기 · 실제 매출·일마감 열기"
+            aria-label={
+              isKorean
+                ? "실제 운영 열기 · 실제 매출·일마감 열기"
+                : "Open real operations · Open real sales and daily close"
+            }
             className={styles.primary}
             type="button"
             onClick={() => setMode("real")}
           >
-            실제 운영 열기
+            {isKorean ? "실제 운영 열기" : "Open real operations"}
           </button>
         </section>
       </div>
@@ -232,7 +295,13 @@ function SalesModeSession({
 function ActualSalesLedgerPanel({
   products,
   onExit,
-}: Readonly<{ products: readonly AdminCatalogListItem[]; onExit: () => void }>) {
+  locale,
+}: Readonly<{
+  products: readonly AdminCatalogListItem[];
+  onExit: () => void;
+  locale: Locale;
+}>) {
+  const isKorean = locale === "ko";
   const { getAccessToken, user } = useAuth();
   const [day, setDay] = useState(today);
   const [report, setReport] = useState<DayReport | null>(null);
@@ -257,7 +326,7 @@ function ActualSalesLedgerPanel({
   const [busy, setBusy] = useState(false);
   const [observedNow, setObservedNow] = useState(Date.now);
   const busyRef = useRef(false);
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState<Notice>("");
   const [noticeKind, setNoticeKind] = useState<"neutral" | "attention">("neutral");
   const storageKey = `paradays.admin-sales.pending.${user?.sub ?? "admin"}`;
   const storedAttempt = useSyncExternalStore(
@@ -321,16 +390,22 @@ function ActualSalesLedgerPanel({
       clearConfirmation();
       if (pending || resolving) {
         setResolutionRead(true);
-        setNotice(
-          "장부를 다시 조회했습니다. 미확정 요청의 전표·마감 상태를 직접 확인한 뒤 잠금을 해제하거나 같은 요청을 재시도해 주세요.",
-        );
-      } else setNotice("한국 시간 기준 장부를 조회했습니다.");
+        setNotice({
+          ko: "장부를 다시 조회했습니다. 미확정 요청의 전표·마감 상태를 직접 확인한 뒤 잠금을 해제하거나 같은 요청을 재시도해 주세요.",
+          en: "Reloaded the ledger. Check the slip and close status of the unconfirmed request yourself, then release the lock or retry the same request.",
+        });
+      } else
+        setNotice({
+          ko: "한국 시간 기준 장부를 조회했습니다.",
+          en: "Loaded the ledger in Korea time.",
+        });
     } catch {
       setReport(null);
       setNoticeKind("attention");
-      setNotice(
-        "장부를 조회하지 못했습니다. 로그인·권한·연결을 확인하고 다시 조회해 주세요. 미완료 집계로 마감하지 않습니다.",
-      );
+      setNotice({
+        ko: "장부를 조회하지 못했습니다. 로그인·권한·연결을 확인하고 다시 조회해 주세요. 미완료 집계로 마감하지 않습니다.",
+        en: "Could not load the ledger. Check sign-in, permissions and connection, then load again. Incomplete totals are never closed.",
+      });
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -354,7 +429,10 @@ function ActualSalesLedgerPanel({
         setPreview(result);
         setStockConfirmed(false);
         setNoticeKind("attention");
-        setNotice("아래 재고 변동을 확인한 뒤 판매를 확정해 주세요.");
+        setNotice({
+          ko: "아래 재고 변동을 확인한 뒤 판매를 확정해 주세요.",
+          en: "Check the stock changes below, then post the sale.",
+        });
         return;
       }
       remember(null);
@@ -372,17 +450,24 @@ function ActualSalesLedgerPanel({
         } catch {
           setReport(null);
           setNoticeKind("attention");
-          setNotice(
-            "요청 처리 응답은 확인했습니다. 최신 합계 조회가 실패했으므로 장부를 다시 조회해 주세요.",
-          );
+          setNotice({
+            ko: "요청 처리 응답은 확인했습니다. 최신 합계 조회가 실패했으므로 장부를 다시 조회해 주세요.",
+            en: "The request response was confirmed, but loading the latest totals failed. Load the ledger again.",
+          });
           return;
         }
       }
       setDay(targetDay);
       setNotice(
         frozen.action === "save"
-          ? "초안을 보관했습니다. 아직 매출·재고에 반영되지 않았습니다."
-          : "처리 결과를 서버 장부에서 확인했습니다.",
+          ? {
+              ko: "초안을 보관했습니다. 아직 매출·재고에 반영되지 않았습니다.",
+              en: "Saved the draft. It is not yet reflected in sales or stock.",
+            }
+          : {
+              ko: "처리 결과를 서버 장부에서 확인했습니다.",
+              en: "Confirmed the result in the server ledger.",
+            },
       );
     } catch (error) {
       const uncertain =
@@ -391,10 +476,16 @@ function ActualSalesLedgerPanel({
       setNoticeKind("attention");
       setNotice(
         uncertain
-          ? "처리 결과가 확정되지 않았습니다. 다른 쓰기를 잠갔습니다. 같은 요청 재시도 또는 결과 재조회로 확인해 주세요."
+          ? {
+              ko: "처리 결과가 확정되지 않았습니다. 다른 쓰기를 잠갔습니다. 같은 요청 재시도 또는 결과 재조회로 확인해 주세요.",
+              en: "The result is not confirmed. Other writes are locked. Check by retrying the same request or reloading the result.",
+            }
           : error instanceof AdminSalesError && error.status === 401
-            ? "관리자 로그인이 필요합니다."
-            : `요청이 거절되었습니다${error instanceof AdminSalesError ? ` (${error.code})` : ""}. 최신 장부와 입력값을 확인해 주세요.`,
+            ? { ko: "관리자 로그인이 필요합니다.", en: "Admin sign-in is required." }
+            : {
+                ko: `요청이 거절되었습니다${error instanceof AdminSalesError ? ` (${error.code})` : ""}. 최신 장부와 입력값을 확인해 주세요.`,
+                en: `The request was rejected${error instanceof AdminSalesError ? ` (${error.code})` : ""}. Check the latest ledger and your input.`,
+              },
       );
       setPreview(null);
       setStockConfirmed(false);
@@ -452,29 +543,43 @@ function ActualSalesLedgerPanel({
   const hasDrafts = !!report?.entries.some((e) => e.status === "DRAFT");
   const closed = report?.status === "CLOSED";
   const ledgerSteps: AdminStep[] = [
-    { label: "장부 조회", state: report ? "complete" : "current" },
     {
-      label: "판매 전표 정리",
+      label: isKorean ? "장부 조회" : "Load ledger",
+      state: report ? "complete" : "current",
+    },
+    {
+      label: isKorean ? "판매 전표 정리" : "Settle sales slips",
       state: !report ? "upcoming" : hasDrafts ? "current" : "complete",
     },
     {
-      label: "일마감",
+      label: isKorean ? "일마감" : "Daily close",
       state: !report || hasDrafts ? "upcoming" : closed ? "complete" : "current",
     },
   ];
   return (
     <section className={styles.panel} aria-labelledby="sales-ledger-title">
-      <AdminStepper label="실제 매출 작업 흐름" steps={ledgerSteps} />
+      <AdminStepper
+        label={isKorean ? "실제 매출 작업 흐름" : "Real sales workflow"}
+        steps={ledgerSteps}
+        locale={locale}
+      />
       <header className={styles.header}>
         <div>
           <div className={styles.titleRow}>
-            <h2 id="sales-ledger-title">매출·일마감 관리</h2>
+            <h2 id="sales-ledger-title">
+              {isKorean ? "매출·일마감 관리" : "Sales and daily close"}
+            </h2>
             <span className={styles.actualModeBadge}>
-              <span aria-hidden="true">●</span> 실제 운영 · 장부·재고 변경
+              <span aria-hidden="true">●</span>{" "}
+              {isKorean
+                ? "실제 운영 · 장부·재고 변경"
+                : "Real operations · Changes ledger and stock"}
             </span>
           </div>
           <p>
-            카드·현금·이체 전표와 하루 매출을 대조합니다. 날짜·시각은 한국 시간입니다.
+            {isKorean
+              ? "카드·현금·이체 전표와 하루 매출을 대조합니다. 날짜·시각은 한국 시간입니다."
+              : "Reconcile card, cash and transfer slips with the day's sales. Dates and times are in Korea time."}
           </p>
         </div>
         <button
@@ -484,13 +589,14 @@ function ActualSalesLedgerPanel({
             if (!busyRef.current && !attempt) onExit();
           }}
         >
-          모드 선택으로 돌아가기
+          {isKorean ? "모드 선택으로 돌아가기" : "Back to mode selection"}
         </button>
       </header>
       {locked ? (
-        <AdminNotice status="neutral">
-          실제 요청이 진행 중이거나 결과 확인 대기 중입니다. 요청을 정리한 뒤 모드를
-          변경할 수 있습니다.
+        <AdminNotice status="neutral" locale={locale}>
+          {isKorean
+            ? "실제 요청이 진행 중이거나 결과 확인 대기 중입니다. 요청을 정리한 뒤 모드를 변경할 수 있습니다."
+            : "A real request is in progress or awaiting its result. Resolve it before changing modes."}
         </AdminNotice>
       ) : null}
       <form
@@ -501,7 +607,7 @@ function ActualSalesLedgerPanel({
         }}
       >
         <label>
-          영업일 (한국 시간)
+          {isKorean ? "영업일 (한국 시간)" : "Business day (Korea time)"}
           <input
             type="date"
             value={day}
@@ -518,12 +624,14 @@ function ActualSalesLedgerPanel({
           />
         </label>
         <button type="submit" disabled={locked || !validSalesDay(day)}>
-          장부 조회
+          {isKorean ? "장부 조회" : "Load ledger"}
         </button>
       </form>
       {notice ? (
         <div role="status">
-          <AdminNotice status={noticeKind}>{notice}</AdminNotice>
+          <AdminNotice status={noticeKind} locale={locale}>
+            {typeof notice === "string" ? notice : notice[locale]}
+          </AdminNotice>
         </div>
       ) : null}
       {attempt ? (
@@ -632,7 +740,7 @@ function ActualSalesLedgerPanel({
               <AdminNotice status="attention" title="마감 전 확인 필요">
                 <ul>
                   {report.warnings.map((w) => (
-                    <li key={w}>{warnings[w] ?? w}</li>
+                    <li key={w}>{warnings.ko[w] ?? w}</li>
                   ))}
                 </ul>
               </AdminNotice>
@@ -669,7 +777,7 @@ function ActualSalesLedgerPanel({
                         .reduce((s, e) => s + e.amount, 0);
                     return (
                       <tr key={method}>
-                        <th scope="row">오프라인 {methodLabels[method]}</th>
+                        <th scope="row">오프라인 {methodLabels.ko[method]}</th>
                         <td>{money(gross)}</td>
                         <td>{money(refunds)}</td>
                         <td>{money(methodNet(report.totals, method))}</td>
@@ -773,7 +881,7 @@ function ActualSalesLedgerPanel({
                           <td>{showTime(e.soldAt)}</td>
                           <td>
                             <span className={styles.methodChip} data-method={e.method}>
-                              {methodLabels[e.method]}
+                              {methodLabels[locale][e.method]}
                             </span>{" "}
                             {e.kind === "REVERSAL" ? "반대전표" : "판매"}
                           </td>
@@ -793,7 +901,7 @@ function ActualSalesLedgerPanel({
                           <td>{money(e.kind === "REVERSAL" ? -e.amount : e.amount)}</td>
                           <td>
                             <span className={styles.entryStatus} data-state={e.status}>
-                              {statusLabels[e.status]}
+                              {statusLabels[locale][e.status]}
                             </span>
                           </td>
                           <td>
@@ -1235,7 +1343,7 @@ function ActualSalesLedgerPanel({
               {selected && selected.status !== "DRAFT" ? (
                 <section className={styles.block} aria-label="판매 전표 상세">
                   <h3>
-                    {selected.reference} · {statusLabels[selected.status]}
+                    {selected.reference} · {statusLabels[locale][selected.status]}
                   </h3>
                   <p>
                     판매시각 {showTime(selected.soldAt)} · {money(selected.amount)} ·{" "}
