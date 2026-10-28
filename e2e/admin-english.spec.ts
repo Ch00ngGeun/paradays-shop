@@ -30,7 +30,7 @@ const ALLOWED = new Set([
   "현금 재확인",
 ]);
 
-type Audit = { blocked: string[] };
+type Audit = { blocked: string[]; dialogs: string[] };
 const audits = new WeakMap<Page, Audit>();
 
 function respond(route: Route, body: unknown, status = 200) {
@@ -304,8 +304,13 @@ function blankPng(width = 1600, height = 820) {
 const PNG = blankPng();
 
 async function setup(page: Page, path = "/admin") {
-  const audit: Audit = { blocked: [] };
+  const audit: Audit = { blocked: [], dialogs: [] };
   audits.set(page, audit);
+  // 네이티브 confirm·alert 문구는 DOM에 없으므로 모두 기록해 afterEach에서 한글 여부를 검사함.
+  page.on("dialog", (dialog) => {
+    audit.dialogs.push(dialog.message());
+    void dialog.accept();
+  });
   ocrJob = initialOcrJob();
   await page.route("**/*", async (route) => {
     const request = route.request();
@@ -492,6 +497,11 @@ async function openSection(page: Page, name: string) {
 
 test.afterEach(async ({ page }) => {
   expect(audits.get(page)?.blocked ?? []).toEqual([]);
+  expect(
+    (audits.get(page)?.dialogs ?? []).filter((message) =>
+      /\p{Script=Hangul}/u.test(message),
+    ),
+  ).toEqual([]);
 });
 
 test("all nine menus and the overview order panels show no Korean in English", async ({
@@ -763,8 +773,12 @@ test("OCR intake, area mapping and stock receipt show no Korean in English", asy
   ).toContainText("Synthetic wheels");
   await expect(page.getByText(/^2 products · Total quantity 5/u)).toBeVisible();
   await scan(page, "OCR area mapping preview", found);
-  page.once("dialog", (dialog) => void dialog.accept());
+  const confirmation = page.waitForEvent("dialog");
   await page.getByRole("button", { name: "Apply area mapping", exact: true }).click();
+  // 적용 확인창이 실제로 떴고 영어 문구였는지 단언함. 수락은 공통 핸들러가 함.
+  expect((await confirmation).message()).toBe(
+    "Replace the current review rows with this area result? Earlier edits to product name, brand, option and quantity will change.",
+  );
   await expect(
     page.getByRole("textbox", { name: "Product name", exact: true }).first(),
   ).toHaveValue("Synthetic deck");
@@ -800,5 +814,6 @@ test("OCR intake, area mapping and stock receipt show no Korean in English", asy
     "The receipt is applied",
   );
   await scan(page, "OCR stock receipt result", found);
+  expect(audits.get(page)?.dialogs).toHaveLength(1);
   expectClean(found);
 });
