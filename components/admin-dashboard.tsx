@@ -6019,6 +6019,8 @@ function CouponSection({
   onValueChange: (value: string) => void;
   saving: boolean;
 }>) {
+  const { locale } = useLocale();
+  const isKorean = locale === "ko";
   const validationMessage = couponDraftValidation(
     couponName,
     couponCode,
@@ -6028,7 +6030,9 @@ function CouponSection({
   );
   const hasInput = Boolean(couponName || couponCode || couponValue || couponExpiresAt);
   const benefitPreview = validationMessage
-    ? "혜택 설정 필요"
+    ? isKorean
+      ? "혜택 설정 필요"
+      : "Set the benefit"
     : couponType === "percent"
       ? `${Number(couponValue)}%`
       : moneyFormatter.format(Number(couponValue));
@@ -6038,58 +6042,75 @@ function CouponSection({
     <div className={`${styles.sectionStack} ${styles.couponScreen}`}>
       <header className={styles.couponHeader}>
         <div>
-          <p>고객 / 쿠폰 / 새 초안</p>
+          <p>
+            {isKorean ? "고객 / 쿠폰 / 새 초안" : "Customers / Coupons / New draft"}
+          </p>
           <div>
-            <h2>쿠폰 만들기</h2>
+            <h2>{isKorean ? "쿠폰 만들기" : "Create coupon"}</h2>
             <span>
               {saved
                 ? canSaveToServer
-                  ? "초안 저장 · 미발급"
-                  : "로컬 초안 · 미발급"
-                : "초안 · 미발급"}
+                  ? isKorean
+                    ? "초안 저장 · 미발급"
+                    : "Draft saved · Not issued"
+                  : isKorean
+                    ? "로컬 초안 · 미발급"
+                    : "Local draft · Not issued"
+                : isKorean
+                  ? "초안 · 미발급"
+                  : "Draft · Not issued"}
             </span>
           </div>
         </div>
         <details className={styles.couponHelp}>
-          <summary>도움말</summary>
+          <summary>{isKorean ? "도움말" : "Help"}</summary>
           <p>
-            이 화면은 쿠폰 초안만 저장합니다. 고객에게 발급하거나 결제에 적용하지
-            않습니다.
+            {isKorean
+              ? "이 화면은 쿠폰 초안만 저장합니다. 고객에게 발급하거나 결제에 적용하지 않습니다."
+              : "This screen saves coupon drafts only. It does not issue coupons to customers or apply them at checkout."}
           </p>
           <p>
-            대상 선택·최소 주문 금액·최대 할인·시작일 설정은 현재 지원하지 않습니다.
-            만료 시각은 한국 시간으로 입력하며 해당 시각에 만료하는 초안입니다.
+            {isKorean
+              ? "대상 선택·최소 주문 금액·최대 할인·시작일 설정은 현재 지원하지 않습니다. 만료 시각은 한국 시간으로 입력하며 해당 시각에 만료하는 초안입니다."
+              : "Target selection, minimum order, maximum discount and start date are not supported yet. Enter the expiry in Korea time; the draft expires at that time."}
           </p>
         </details>
       </header>
       <AdminStepper
-        label="쿠폰 작업 흐름"
+        label={isKorean ? "쿠폰 작업 흐름" : "Coupon workflow"}
+        locale={locale}
         steps={[
-          { label: "혜택 설정", state: validationMessage ? "current" : "complete" },
           {
-            label: "미리보기 확인",
+            label: isKorean ? "혜택 설정" : "Set benefit",
+            state: validationMessage ? "current" : "complete",
+          },
+          {
+            label: isKorean ? "미리보기 확인" : "Check preview",
             state: validationMessage ? "upcoming" : "complete",
           },
           {
-            label: "초안 저장",
+            label: isKorean ? "초안 저장" : "Save draft",
             state: saved ? "complete" : validationMessage ? "upcoming" : "current",
           },
           // 고객 발급은 연결되지 않아 완료로 표시하지 않습니다.
-          { label: "고객 발급", state: "unavailable" },
+          {
+            label: isKorean ? "고객 발급" : "Issue to customers",
+            state: "unavailable",
+          },
         ]}
       />
       <div className={styles.couponWorkspace}>
         <form
-          aria-label="쿠폰 초안 설정"
+          aria-label={isKorean ? "쿠폰 초안 설정" : "Coupon draft settings"}
           className={styles.couponForm}
           noValidate
           onSubmit={onSubmit}
         >
-          <h3>혜택 설정</h3>
+          <h3>{isKorean ? "혜택 설정" : "Set benefit"}</h3>
           <fieldset disabled={saving} className={styles.couponFields}>
             <label>
               <span>
-                쿠폰명 (필수)
+                {isKorean ? "쿠폰명 (필수)" : "Coupon name (required)"}
                 <span aria-hidden="true" className={requiredStyles.requiredMark}>
                   *
                 </span>
@@ -6098,13 +6119,15 @@ function CouponSection({
                 maxLength={120}
                 required
                 onChange={(event) => onNameChange(event.target.value)}
-                placeholder="첫 구매 웰컴 쿠폰"
+                placeholder={
+                  isKorean ? "첫 구매 웰컴 쿠폰" : "First purchase welcome coupon"
+                }
                 value={couponName}
               />
             </label>
             <label>
               <span>
-                쿠폰 코드 (필수)
+                {isKorean ? "쿠폰 코드 (필수)" : "Coupon code (required)"}
                 <span aria-hidden="true" className={requiredStyles.requiredMark}>
                   *
                 </span>
@@ -6118,25 +6141,38 @@ function CouponSection({
                 value={couponCode}
               />
               <small id="coupon-code-help">
-                영문·숫자로 시작하는 3–32자 · 영문 대문자·숫자·_·- 사용
+                {isKorean
+                  ? "영문·숫자로 시작하는 3–32자 · 영문 대문자·숫자·_·- 사용"
+                  : "3–32 characters starting with a letter or number · Uppercase letters, numbers, _ and -"}
               </small>
             </label>
             <div className={styles.couponInlineFields}>
               <label>
-                <span>혜택 유형</span>
+                <span>{isKorean ? "혜택 유형" : "Benefit type"}</span>
                 <select
                   onChange={(event) =>
                     onTypeChange(event.target.value as "percent" | "amount")
                   }
                   value={couponType}
                 >
-                  <option value="percent">정률 할인 (%)</option>
-                  <option value="amount">정액 할인 (원)</option>
+                  <option value="percent">
+                    {isKorean ? "정률 할인 (%)" : "Percent off (%)"}
+                  </option>
+                  <option value="amount">
+                    {isKorean ? "정액 할인 (원)" : "Amount off (KRW)"}
+                  </option>
                 </select>
               </label>
               <label>
                 <span>
-                  {couponType === "percent" ? "할인율 (%)" : "할인 금액 (원)"} (필수)
+                  {couponType === "percent"
+                    ? isKorean
+                      ? "할인율 (%)"
+                      : "Discount rate (%)"
+                    : isKorean
+                      ? "할인 금액 (원)"
+                      : "Discount amount (KRW)"}{" "}
+                  {isKorean ? "(필수)" : "(required)"}
                   <span aria-hidden="true" className={requiredStyles.requiredMark}>
                     *
                   </span>
@@ -6152,31 +6188,48 @@ function CouponSection({
                 />
                 <small>
                   {couponType === "percent"
-                    ? "1–100 사이 정수"
-                    : "1–100,000,000원 사이 정수"}{" "}
-                  · 쉼표·소수·지수 표기 제외
+                    ? isKorean
+                      ? "1–100 사이 정수"
+                      : "Whole number from 1 to 100"
+                    : isKorean
+                      ? "1–100,000,000원 사이 정수"
+                      : "Whole number from 1 to 100,000,000 KRW"}{" "}
+                  {isKorean
+                    ? "· 쉼표·소수·지수 표기 제외"
+                    : "· No commas, decimals or exponents"}
                 </small>
               </label>
             </div>
             <label>
-              <span>만료 시각 (한국 시간·선택)</span>
+              <span>
+                {isKorean
+                  ? "만료 시각 (한국 시간·선택)"
+                  : "Expiry (Korea time · optional)"}
+              </span>
               <input
                 onChange={(event) => onExpiresAtChange(event.target.value)}
                 type="datetime-local"
                 value={couponExpiresAt}
               />
               <small>
-                입력한 한국 시간의 해당 시각에 만료합니다. 비우면 초안에 만료 시각을
-                넣지 않습니다.
+                {isKorean
+                  ? "입력한 한국 시간의 해당 시각에 만료합니다. 비우면 초안에 만료 시각을 넣지 않습니다."
+                  : "Expires at the entered Korea time. Leave it empty to save the draft without an expiry."}
               </small>
             </label>
             {hasInput && validationMessage ? (
-              <p className={styles.couponValidation}>{validationMessage}</p>
+              <p className={styles.couponValidation}>
+                {localizedText(validationMessage, locale)}
+              </p>
             ) : null}
             <p className={styles.couponSaveNote}>
               {canSaveToServer
-                ? "서버에 초안만 저장합니다. 고객 발급·할인 적용은 하지 않습니다."
-                : "서버 미연결 · 이 화면에만 준비하며 발급하지 않습니다."}
+                ? isKorean
+                  ? "서버에 초안만 저장합니다. 고객 발급·할인 적용은 하지 않습니다."
+                  : "Saves only a draft to the server. It is not issued to customers or applied as a discount."
+                : isKorean
+                  ? "서버 미연결 · 이 화면에만 준비하며 발급하지 않습니다."
+                  : "No server · Prepared on this screen only and not issued."}
             </p>
             <button
               className={styles.primaryButton}
@@ -6184,44 +6237,64 @@ function CouponSection({
               type="submit"
             >
               {saving
-                ? "저장 중…"
+                ? isKorean
+                  ? "저장 중…"
+                  : "Saving…"
                 : canSaveToServer
-                  ? "쿠폰 초안 저장"
-                  : "이 화면에 초안 준비"}
+                  ? isKorean
+                    ? "쿠폰 초안 저장"
+                    : "Save coupon draft"
+                  : isKorean
+                    ? "이 화면에 초안 준비"
+                    : "Prepare draft here"}
             </button>
           </fieldset>
           {notice ? <NoticeMessage notice={notice} /> : null}
         </form>
         <aside
           className={styles.couponDraftPreview}
-          aria-label="쿠폰 고객 노출 미리보기"
+          aria-label={isKorean ? "쿠폰 고객 노출 미리보기" : "Coupon customer preview"}
         >
           <div className={styles.couponPreviewHeading}>
-            <h3>쿠폰 미리보기</h3>
-            <span>초안 예시 · 사용 불가</span>
+            <h3>{isKorean ? "쿠폰 미리보기" : "Coupon preview"}</h3>
+            <span>
+              {isKorean ? "초안 예시 · 사용 불가" : "Draft example · Not usable"}
+            </span>
           </div>
           <div className={styles.couponDraftTicket} data-valid={!validationMessage}>
             <span>PARADAYS</span>
             <strong>{benefitPreview}</strong>
-            <p>{couponName.trim() || "쿠폰명을 입력하세요"}</p>
+            <p>
+              {couponName.trim() ||
+                (isKorean ? "쿠폰명을 입력하세요" : "Enter a coupon name")}
+            </p>
             <code>
               {/^[A-Z0-9][A-Z0-9_-]{2,31}$/.test(couponCode.trim().toUpperCase())
                 ? couponCode.trim().toUpperCase()
-                : "쿠폰 코드 확인 필요"}
+                : isKorean
+                  ? "쿠폰 코드 확인 필요"
+                  : "Check the coupon code"}
             </code>
             <small>
               {couponExpiresAt
                 ? couponExpiryIso(couponExpiresAt)
-                  ? `만료 기준 ${couponExpiresAt.replace("T", " ")} (한국 시간)`
-                  : "만료 시각 확인 필요"
-                : "만료 시각 미설정"}
+                  ? isKorean
+                    ? `만료 기준 ${couponExpiresAt.replace("T", " ")} (한국 시간)`
+                    : `Expires ${couponExpiresAt.replace("T", " ")} (Korea time)`
+                  : isKorean
+                    ? "만료 시각 확인 필요"
+                    : "Check the expiry"
+                : isKorean
+                  ? "만료 시각 미설정"
+                  : "No expiry set"}
             </small>
           </div>
           <div className={styles.couponUnissued}>
-            <strong>아직 발급되지 않았습니다</strong>
+            <strong>{isKorean ? "아직 발급되지 않았습니다" : "Not issued yet"}</strong>
             <p>
-              입력한 혜택을 확인하는 예시입니다. 초안을 저장해도 고객이 사용할 수 있는
-              쿠폰이 되지 않습니다.
+              {isKorean
+                ? "입력한 혜택을 확인하는 예시입니다. 초안을 저장해도 고객이 사용할 수 있는 쿠폰이 되지 않습니다."
+                : "An example to check the benefit you entered. Saving the draft does not make a coupon customers can use."}
             </p>
           </div>
         </aside>
@@ -7177,11 +7250,17 @@ function couponDraftValidation(
   type: "percent" | "amount",
   value: string,
   expiresAt: string,
-): string | null {
+): LocalizedText | null {
   if (!name.trim() || name.trim().length > 120)
-    return "쿠폰명은 1–120자로 입력해 주세요.";
+    return {
+      ko: "쿠폰명은 1–120자로 입력해 주세요.",
+      en: "Enter a coupon name of 1–120 characters.",
+    };
   if (!/^[A-Z0-9][A-Z0-9_-]{2,31}$/.test(code.trim().toUpperCase()))
-    return "쿠폰 코드는 영문·숫자로 시작하는 3–32자의 영문·숫자·_·-만 사용할 수 있습니다.";
+    return {
+      ko: "쿠폰 코드는 영문·숫자로 시작하는 3–32자의 영문·숫자·_·-만 사용할 수 있습니다.",
+      en: "A coupon code is 3–32 characters of letters, numbers, _ or -, starting with a letter or number.",
+    };
   const amount = Number(value.trim());
   if (
     !/^\d+$/.test(value.trim()) ||
@@ -7190,9 +7269,18 @@ function couponDraftValidation(
     amount > (type === "percent" ? 100 : 100_000_000)
   )
     return type === "percent"
-      ? "할인율은 1–100 사이의 정수만 입력해 주세요."
-      : "할인 금액은 1–100,000,000원 사이의 정수만 입력해 주세요.";
+      ? {
+          ko: "할인율은 1–100 사이의 정수만 입력해 주세요.",
+          en: "Enter the discount rate as a whole number from 1 to 100.",
+        }
+      : {
+          ko: "할인 금액은 1–100,000,000원 사이의 정수만 입력해 주세요.",
+          en: "Enter the discount amount as a whole number from 1 to 100,000,000 KRW.",
+        };
   if (couponExpiryIso(expiresAt) === null)
-    return "만료 시각을 실제 존재하는 날짜와 한국 시간으로 입력해 주세요.";
+    return {
+      ko: "만료 시각을 실제 존재하는 날짜와 한국 시간으로 입력해 주세요.",
+      en: "Enter the expiry as a real date and time in Korea time.",
+    };
   return null;
 }
