@@ -1,0 +1,29 @@
+.diagram {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  color: var(--color-ink, #111);
+}
+
+.outline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.label {
+  fill: currentColor;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+
+/* 배경 대비 4.5:1 이상을 지키는 가장 옅은 회색 (흰 배경 #767676, 다크 배경 #8a8a8a) */
+.cm {
+  fill: #767676;
+  font-size: 12px;
+}
+
+:global(:root[data-theme="dark"]) .cm {
+  fill: #8a8a8a;
+}
