@@ -430,6 +430,13 @@ function AdminWorkspace({
   adminName: string;
 }>) {
   const { copy, locale, setLocale } = useLocale();
+  const isKorean = locale === "ko";
+  // 비동기 결과 문구는 화면 시작 직후 저장 언어를 읽기 전 값이 아니라 문구를 만드는 시점의 언어를 씁니다.
+  const localeRef = useRef(locale);
+  useEffect(() => {
+    localeRef.current = locale;
+  }, [locale]);
+  const isKoreanNow = () => localeRef.current === "ko";
   const { user: currentAdmin } = useAuth();
   const storeReturnPath = useSyncExternalStore(
     subscribeToAdminSection,
@@ -597,7 +604,9 @@ function AdminWorkspace({
       setCatalogLoadFailed(true);
       setProductNotice({
         kind: "error",
-        message: "상품 목록을 불러오지 못했습니다. 관리자 권한과 API를 확인해 주세요.",
+        message: isKoreanNow()
+          ? "상품 목록을 불러오지 못했습니다. 관리자 권한과 API를 확인해 주세요."
+          : "Could not load the product list. Check admin access and the API.",
       });
       return null;
     } finally {
@@ -658,7 +667,9 @@ function AdminWorkspace({
     .split(",")
     .map((size) => size.trim())
     .filter(Boolean);
-  const previewName = productDraft.name.trim() || "상품명을 입력하세요";
+  const previewName =
+    productDraft.name.trim() ||
+    (isKorean ? "상품명을 입력하세요" : "Enter a product name");
 
   const selectedChannelLabels = useMemo(
     () =>
@@ -842,7 +853,9 @@ function AdminWorkspace({
     recordProductActivity(productEditor.id, "working");
     setProductNotice({
       kind: "success",
-      message: "이미지가 미리보기에 반영되었습니다. 아직 저장되지 않았습니다.",
+      message: isKoreanNow()
+        ? "이미지가 미리보기에 반영되었습니다. 아직 저장되지 않았습니다."
+        : "The image is shown in the preview. It is not saved yet.",
     });
   };
 
@@ -859,7 +872,9 @@ function AdminWorkspace({
         recordProductActivity(
           savingEditor.id,
           "attention",
-          "저장 결과 또는 입력 내용을 확인해야 합니다. 완료로 처리하지 않았습니다.",
+          isKoreanNow()
+            ? "저장 결과 또는 입력 내용을 확인해야 합니다. 완료로 처리하지 않았습니다."
+            : "Check the save result or your input. This was not marked as done.",
         );
       if (
         productWorkspaceActiveRef.current &&
@@ -880,7 +895,9 @@ function AdminWorkspace({
     if (!name || !productDraft.brand.trim() || previewPrice <= 0) {
       setEditorNotice({
         kind: "error",
-        message: "상품명, 브랜드, 판매가를 입력한 뒤 저장해 주세요.",
+        message: isKoreanNow()
+          ? "상품명, 브랜드, 판매가를 입력한 뒤 저장해 주세요."
+          : "Enter the product name, brand and price, then save.",
       });
       return;
     }
@@ -888,7 +905,9 @@ function AdminWorkspace({
     if (productDraft.isVisible && previewSizes.length === 0) {
       setEditorNotice({
         kind: "error",
-        message: "스토어 공개 준비 상품은 최소 한 개의 옵션/사이즈가 필요합니다.",
+        message: isKoreanNow()
+          ? "스토어 공개 준비 상품은 최소 한 개의 옵션/사이즈가 필요합니다."
+          : "A product ready for the store needs at least one option or size.",
       });
       return;
     }
@@ -899,8 +918,12 @@ function AdminWorkspace({
         kind: "error",
         message:
           optionError === "too-many-options"
-            ? "옵션은 최대 20개까지 저장할 수 있습니다."
-            : "각 옵션은 50자 이하로 입력해 주세요.",
+            ? isKoreanNow()
+              ? "옵션은 최대 20개까지 저장할 수 있습니다."
+              : "You can save up to 20 options."
+            : isKoreanNow()
+              ? "각 옵션은 50자 이하로 입력해 주세요."
+              : "Keep each option to 50 characters or fewer.",
       });
       return;
     }
@@ -908,8 +931,9 @@ function AdminWorkspace({
     if (previewCompareAtPrice > 0 && previewCompareAtPrice <= previewPrice) {
       setEditorNotice({
         kind: "error",
-        message:
-          "기존 정가는 판매가보다 커야 합니다. 판매가를 낮추거나 ‘기존 정가 제거’로 삭제를 확인한 뒤 저장해 주세요.",
+        message: isKoreanNow()
+          ? "기존 정가는 판매가보다 커야 합니다. 판매가를 낮추거나 ‘기존 정가 제거’로 삭제를 확인한 뒤 저장해 주세요."
+          : "The original price must be higher than the sale price. Lower the sale price, or confirm removal with ‘Remove original price’, then save.",
       });
       return;
     }
@@ -918,8 +942,9 @@ function AdminWorkspace({
       if (!actions?.uploadProductImage || !savingEditor.imageFile) {
         setEditorNotice({
           kind: "error",
-          message:
-            "상품 이미지 저장소 API가 아직 연결되지 않았습니다. CDK 배포 후 다시 시도해 주세요.",
+          message: isKoreanNow()
+            ? "상품 이미지 저장소 API가 아직 연결되지 않았습니다. CDK 배포 후 다시 시도해 주세요."
+            : "The product image storage API is not connected yet. Try again after the CDK deploy.",
         });
         return;
       }
@@ -929,7 +954,9 @@ function AdminWorkspace({
       productDraft.isVisible &&
       actions?.saveProductDraft &&
       !window.confirm(
-        `“${name}”을 공개 상태로 저장할까요? 저장하면 상품 정보가 스토어에 표시됩니다.`,
+        isKoreanNow()
+          ? `“${name}”을 공개 상태로 저장할까요? 저장하면 상품 정보가 스토어에 표시됩니다.`
+          : `Save “${name}” as public? Once saved, the product appears in the store.`,
       )
     ) {
       return;
@@ -954,8 +981,9 @@ function AdminWorkspace({
       setIsSavingProduct(false);
       setEditorNotice({
         kind: "error",
-        message:
-          "상품 이미지를 저장소에 올리지 못했습니다. 파일 형식(JPEG/PNG/WebP/GIF)과 6MB 이하인지 확인해 주세요.",
+        message: isKoreanNow()
+          ? "상품 이미지를 저장소에 올리지 못했습니다. 파일 형식(JPEG/PNG/WebP/GIF)과 6MB 이하인지 확인해 주세요."
+          : "Could not upload the product image. Check that it is JPEG/PNG/WebP/GIF and 6MB or smaller.",
       });
       return;
     }
@@ -988,9 +1016,13 @@ function AdminWorkspace({
       setEditorNotice({
         kind: "error",
         message:
-          error instanceof TranslateError
+          error instanceof TranslateError && isKoreanNow()
             ? error.message
-            : "상품명·설명을 자동 번역하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+            : error instanceof TranslateError && error.code === "TRANSLATE_NETWORK"
+              ? "Could not reach the translation server. Try again shortly."
+              : isKoreanNow()
+                ? "상품명·설명을 자동 번역하지 못했습니다. 잠시 후 다시 시도해 주세요."
+                : "Could not auto-translate the product name and description. Try again shortly.",
       });
       return;
     }
@@ -1005,11 +1037,15 @@ function AdminWorkspace({
       recordProductActivity(
         savingEditor.id,
         "draft",
-        "이 화면에만 임시 보관했습니다. 서버 미저장 · 스토어 미공개",
+        isKoreanNow()
+          ? "이 화면에만 임시 보관했습니다. 서버 미저장 · 스토어 미공개"
+          : "Kept on this screen only. Not saved to the server · Not in the store",
       );
       setEditorNotice({
         kind: "success",
-        message: `“${name}”을 이 브라우저의 임시 목록에만 보관했습니다. 서버에 저장하거나 스토어에 공개하지 않았으며 새로고침하면 사라집니다.`,
+        message: isKoreanNow()
+          ? `“${name}”을 이 브라우저의 임시 목록에만 보관했습니다. 서버에 저장하거나 스토어에 공개하지 않았으며 새로고침하면 사라집니다.`
+          : `Kept “${name}” only in this browser’s temporary list. It was not saved to the server or published, and it disappears on refresh.`,
       });
       finishProductEditor(savingEditor.id, productDraft.productId);
       setIsSavingProduct(false);
@@ -1033,20 +1069,30 @@ function AdminWorkspace({
         savingEditor.id,
         productDraft.isVisible ? "complete" : "draft",
         productDraft.isVisible
-          ? "서버가 상품 공개 저장을 확인했습니다."
-          : "상품을 비공개로 서버에 저장했습니다. 스토어 미공개",
+          ? isKoreanNow()
+            ? "서버가 상품 공개 저장을 확인했습니다."
+            : "The server confirmed the public product save."
+          : isKoreanNow()
+            ? "상품을 비공개로 서버에 저장했습니다. 스토어 미공개"
+            : "Saved the product to the server as private. Not in the store",
       );
       setEditorNotice({
         kind: "success",
         message: productDraft.isVisible
-          ? "상품을 공개 상태로 저장했습니다. 이미지와 한/영 문구가 함께 반영되었습니다."
-          : "상품을 비공개로 저장했습니다. 고객에게는 표시되지 않습니다.",
+          ? isKoreanNow()
+            ? "상품을 공개 상태로 저장했습니다. 이미지와 한/영 문구가 함께 반영되었습니다."
+            : "Saved the product as public. The image and Korean/English text were applied."
+          : isKoreanNow()
+            ? "상품을 비공개로 저장했습니다. 고객에게는 표시되지 않습니다."
+            : "Saved the product as private. Customers will not see it.",
       });
       finishProductEditor(savingEditor.id, productDraft.productId);
     } catch {
       setEditorNotice({
         kind: "error",
-        message: "상품을 저장하지 못했습니다. 네트워크와 관리자 권한을 확인해 주세요.",
+        message: isKoreanNow()
+          ? "상품을 저장하지 못했습니다. 네트워크와 관리자 권한을 확인해 주세요."
+          : "Could not save the product. Check the network and admin access.",
       });
     } finally {
       setIsSavingProduct(false);
@@ -1062,8 +1108,12 @@ function AdminWorkspace({
 
     const confirmed = window.confirm(
       items.length === 1
-        ? "선택한 상품을 삭제할까요? 이 작업은 되돌릴 수 없습니다."
-        : `선택한 ${items.length}개 상품을 삭제할까요? 이 작업은 되돌릴 수 없습니다.`,
+        ? isKoreanNow()
+          ? "선택한 상품을 삭제할까요? 이 작업은 되돌릴 수 없습니다."
+          : "Delete the selected product? This cannot be undone."
+        : isKoreanNow()
+          ? `선택한 ${items.length}개 상품을 삭제할까요? 이 작업은 되돌릴 수 없습니다.`
+          : `Delete the ${items.length} selected products? This cannot be undone.`,
     );
 
     if (!confirmed) {
@@ -1082,7 +1132,9 @@ function AdminWorkspace({
         if (!actions?.deleteCatalogProducts) {
           setProductNotice({
             kind: "error",
-            message: "상품 삭제 API가 아직 연결되지 않았습니다.",
+            message: isKoreanNow()
+              ? "상품 삭제 API가 아직 연결되지 않았습니다."
+              : "The product delete API is not connected yet.",
           });
           return;
         }
@@ -1106,13 +1158,19 @@ function AdminWorkspace({
         kind: "success",
         message:
           items.length === 1
-            ? "상품을 삭제했습니다."
-            : `${items.length}개 상품을 삭제했습니다.`,
+            ? isKoreanNow()
+              ? "상품을 삭제했습니다."
+              : "Deleted the product."
+            : isKoreanNow()
+              ? `${items.length}개 상품을 삭제했습니다.`
+              : `Deleted ${items.length} products.`,
       });
     } catch {
       setProductNotice({
         kind: "error",
-        message: "상품을 삭제하지 못했습니다. 관리자 권한과 API를 확인해 주세요.",
+        message: isKoreanNow()
+          ? "상품을 삭제하지 못했습니다. 관리자 권한과 API를 확인해 주세요."
+          : "Could not delete the products. Check admin access and the API.",
       });
     } finally {
       setIsDeletingProducts(false);
@@ -1125,7 +1183,9 @@ function AdminWorkspace({
     if (!products) {
       setInventoryNotice({
         kind: "error",
-        message: "최신 재고를 불러오지 못했습니다. 연결을 확인하고 다시 조회해 주세요.",
+        message: isKoreanNow()
+          ? "최신 재고를 불러오지 못했습니다. 연결을 확인하고 다시 조회해 주세요."
+          : "Could not load the latest stock. Check the connection and load it again.",
       });
     }
     return products;
@@ -1144,14 +1204,18 @@ function AdminWorkspace({
     if (product.version !== expected.version || product.stock !== expected.stock) {
       setInventoryNotice({
         kind: "error",
-        message: "상품 재고가 변경되었습니다. 최신 수량을 다시 확인해 주세요.",
+        message: isKoreanNow()
+          ? "상품 재고가 변경되었습니다. 최신 수량을 다시 확인해 주세요."
+          : "The product stock has changed. Check the latest quantity again.",
       });
       return null;
     }
     if (!Number.isInteger(nextStock) || nextStock < 0 || nextStock > 1_000_000) {
       setInventoryNotice({
         kind: "error",
-        message: "재고는 0~1,000,000 사이의 정수로 입력해 주세요.",
+        message: isKoreanNow()
+          ? "재고는 0~1,000,000 사이의 정수로 입력해 주세요."
+          : "Enter stock as a whole number from 0 to 1,000,000.",
       });
       return null;
     }
@@ -1170,13 +1234,17 @@ function AdminWorkspace({
       );
       setInventoryNotice({
         kind: "success",
-        message: `${product.name} 수량을 이 화면에서만 ${clamped}개로 변경했습니다. 서버 재고에는 반영되지 않았습니다.`,
+        message: isKoreanNow()
+          ? `${product.name} 수량을 이 화면에서만 ${clamped}개로 변경했습니다. 서버 재고에는 반영되지 않았습니다.`
+          : `Changed ${product.name} to ${clamped} on this screen only. Server stock was not updated.`,
       });
       recordActivity({
         key: `inventory:${productId}`,
         section: "inventory",
         status: "draft",
-        detail: "이 화면의 수량만 변경했습니다. 서버 재고 미반영",
+        detail: isKoreanNow()
+          ? "이 화면의 수량만 변경했습니다. 서버 재고 미반영"
+          : "Changed the quantity on this screen only. Server stock not updated",
       });
       return updated;
     }
@@ -1200,13 +1268,17 @@ function AdminWorkspace({
       );
       setInventoryNotice({
         kind: "success",
-        message: `${updated.name} 재고를 ${updated.stock}개로 저장했습니다.`,
+        message: isKoreanNow()
+          ? `${updated.name} 재고를 ${updated.stock}개로 저장했습니다.`
+          : `Saved ${updated.name} stock as ${updated.stock}.`,
       });
       recordActivity({
         key: `inventory:${productId}`,
         section: "inventory",
         status: "complete",
-        detail: "서버가 재고 수량 변경을 확인했습니다.",
+        detail: isKoreanNow()
+          ? "서버가 재고 수량 변경을 확인했습니다."
+          : "The server confirmed the stock change.",
       });
       return updated;
     } catch {
@@ -1215,13 +1287,19 @@ function AdminWorkspace({
         key: `inventory:${productId}`,
         section: "inventory",
         status: "attention",
-        detail: "재고 변경 결과를 확인해야 합니다. 중복 반영하지 마세요.",
+        detail: isKoreanNow()
+          ? "재고 변경 결과를 확인해야 합니다. 중복 반영하지 마세요."
+          : "Check the stock change result. Do not apply it twice.",
       });
       setInventoryNotice({
         kind: "error",
         message: products
-          ? "재고 변경 결과를 다시 확인해야 합니다. 최신 목록을 불러왔으니 수량을 검토한 뒤 다시 시작해 주세요."
-          : "재고 변경 결과와 최신 수량을 확인하지 못했습니다. 중복 저장하지 말고 새로고침으로 결과를 확인해 주세요.",
+          ? isKoreanNow()
+            ? "재고 변경 결과를 다시 확인해야 합니다. 최신 목록을 불러왔으니 수량을 검토한 뒤 다시 시작해 주세요."
+            : "Check the stock change result again. The latest list is loaded, so review the quantity and start again."
+          : isKoreanNow()
+            ? "재고 변경 결과와 최신 수량을 확인하지 못했습니다. 중복 저장하지 말고 새로고침으로 결과를 확인해 주세요."
+            : "Could not confirm the stock change or the latest quantity. Do not save again; refresh to check the result.",
       });
       return null;
     } finally {
@@ -1262,8 +1340,9 @@ function AdminWorkspace({
         if (getAdminProductEditorId() === editor.id)
           setProductNotice({
             kind: "error",
-            message:
-              "다른 곳에서 이 상품이 바뀌었거나 이전 상세사이즈 저장이 이미 반영됐습니다. 편집을 닫고 다시 열어 최신 값을 확인한 뒤 저장해 주세요.",
+            message: isKoreanNow()
+              ? "다른 곳에서 이 상품이 바뀌었거나 이전 상세사이즈 저장이 이미 반영됐습니다. 편집을 닫고 다시 열어 최신 값을 확인한 뒤 저장해 주세요."
+              : "This product changed elsewhere, or an earlier size spec save was already applied. Close and reopen the editor, check the latest values, then save.",
           });
       }
       throw error;
