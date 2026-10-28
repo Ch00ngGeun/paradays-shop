@@ -221,7 +221,7 @@ function SalesModeSession({
           <span aria-hidden="true">◇</span>{" "}
           {isKorean ? "연습 중 · 실제 변경 없음" : "Practicing · No real changes"}
         </div>
-        <AdminSalesSimulationPanel onExit={chooseMode} />
+        <AdminSalesSimulationPanel onExit={chooseMode} locale={locale} />
       </section>
     );
   if (mode === "real")

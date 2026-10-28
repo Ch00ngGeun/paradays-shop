@@ -57,6 +57,14 @@ describe("sales simulation mode rendering and IO separation", () => {
       "현금 재확인",
     );
   });
+  it("renders the mock sales panel in English when the admin locale is English", () => {
+    const html = renderToStaticMarkup(
+      createElement(AdminSalesSimulationPanel, { onExit: () => {}, locale: "en" }),
+    );
+    expect(html).toContain("Mock sales and daily close practice");
+    expect(html).toContain("KRW 0");
+    expect(html).not.toMatch(/[가-힣]/);
+  });
   it("renders a synthetic world with permanent warnings, blank editable form and zero online total", () => {
     const html = renderToStaticMarkup(
       createElement(AdminSalesSimulationPanel, { onExit: () => {} }),
