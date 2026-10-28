@@ -475,10 +475,12 @@ export function createAdminApiClient(
       }
 
       const product = parseCatalogListItem(body.product);
+      // Compare the raw response: the list parser drops a malformed spec, which would look like a delete.
+      const savedDeckSpec = isRecord(body.product) ? body.product.deckSpec : undefined;
       if (
         product.id !== productId ||
         product.version !== input.version + 1 ||
-        JSON.stringify(product.deckSpec ?? null) !== JSON.stringify(deckSpec)
+        JSON.stringify(savedDeckSpec ?? null) !== JSON.stringify(deckSpec)
       ) {
         throw new AdminApiResponseError();
       }

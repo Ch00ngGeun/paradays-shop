@@ -1351,6 +1351,22 @@ describe("createAdminApiClient", () => {
       ).rejects.toBeInstanceOf(AdminApiResponseError);
     });
 
+    it("rejects a delete response that carries a malformed spec", async () => {
+      const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({ product: { ...savedProduct(4), deckSpec: {} } }),
+          {
+            status: 200,
+          },
+        ),
+      );
+      const { client } = createClient(fetchImplementation);
+
+      await expect(
+        client.updateProductDeckSpec({ id: "prd_deck", version: 3, deckSpec: null }),
+      ).rejects.toBeInstanceOf(AdminApiResponseError);
+    });
+
     it("rejects invalid inches before authentication or fetch", async () => {
       const fetchImplementation = vi.fn<typeof fetch>();
       const { client, getAccessToken } = createClient(fetchImplementation);
