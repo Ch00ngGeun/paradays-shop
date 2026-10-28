@@ -1193,21 +1193,42 @@ function AdminWorkspace({
     }
   };
 
-  /** 상세사이즈 모달 저장: 상품 저장과 별도로 즉시 서버에 반영하고, 열린 폼의 version을 따라 올려 409를 막습니다. */
+  /**
+   * 상세사이즈 모달 저장: 상품 저장과 별도로 즉시 서버에 반영합니다.
+   * deckSpec만 바꾸는 PATCH라 목록의 최신 version으로 보내고, 폼이 같은 version이었을 때만 폼 version도 올려 409를 막습니다.
+   */
   const saveProductDeckSpec = async (deckSpec: DeckSpec | null) => {
     const editor = productEditor;
     const productId = editor?.draft.productId;
-    const version = editor?.draft.version;
+    const version =
+      localProducts.find((item) => item.id === productId)?.version ??
+      editor?.draft.version;
 
     if (!actions?.updateProductDeckSpec || !editor || !productId || !version) {
       throw new Error("DECK_SPEC_UNAVAILABLE");
     }
 
-    const updated = await actions.updateProductDeckSpec({
-      id: productId,
-      version,
-      deckSpec,
-    });
+    let updated: AdminCatalogListItem;
+    try {
+      updated = await actions.updateProductDeckSpec({
+        id: productId,
+        version,
+        deckSpec,
+      });
+    } catch (error) {
+      // A lost response may hide a committed write; the refreshed list also gives a retry the latest version.
+      const latest = (await refreshCatalogProducts())?.find(
+        (item) => item.id === productId,
+      );
+      if (
+        !latest ||
+        latest.version !== version + 1 ||
+        JSON.stringify(latest.deckSpec ?? null) !== JSON.stringify(deckSpec)
+      ) {
+        throw error;
+      }
+      updated = latest;
+    }
     catalogMutationGenerationRef.current += 1;
     setLocalProducts((current) =>
       current.map((item) =>
@@ -1215,7 +1236,7 @@ function AdminWorkspace({
       ),
     );
     productEditors.updateDraft(editor.id, (current) =>
-      current.productId === updated.id
+      current.productId === updated.id && current.version === version
         ? { ...current, version: updated.version }
         : current,
     );
@@ -2985,7 +3006,8 @@ function ProductSection({
     .filter(Boolean);
   const currentProduct = products.find((product) => product.id === draft.productId);
   const deckSpec = currentProduct?.deckSpec;
-  const [isDeckSpecOpen, setIsDeckSpecOpen] = useState(false);
+  // 모달은 연 편집기에만 묶어, 늦게 끝난 저장이 다른 상품의 모달을 닫지 않게 합니다.
+  const [deckSpecEditorId, setDeckSpecEditorId] = useState<string | null>(null);
   const canEditDeckSpec = Boolean(onSaveDeckSpec && draft.productId && draft.version);
   const isCurrentlyPublic = Boolean(
     currentProduct?.version && currentProduct.isVisible,
@@ -3535,19 +3557,21 @@ function ProductSection({
                 <button
                   className={styles.secondaryButton}
                   disabled={!canEditDeckSpec}
-                  onClick={() => setIsDeckSpecOpen(true)}
+                  onClick={() => setDeckSpecEditorId(editorId)}
                   type="button"
                 >
                   {deckSpec ? "상세사이즈 수정" : "+ 상세사이즈 등록"}
                 </button>
-                {onSaveDeckSpec && isDeckSpecOpen ? (
+                {onSaveDeckSpec && deckSpecEditorId === editorId ? (
                   <AdminDeckSpecModal
                     initialSpec={deckSpec}
                     isOpen
-                    onCancel={() => setIsDeckSpecOpen(false)}
+                    onCancel={() => setDeckSpecEditorId(null)}
                     onSave={async (next) => {
                       await onSaveDeckSpec(next);
-                      setIsDeckSpecOpen(false);
+                      setDeckSpecEditorId((current) =>
+                        current === editorId ? null : current,
+                      );
                     }}
                     productName={previewName}
                   />
