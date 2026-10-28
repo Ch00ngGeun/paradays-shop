@@ -5,6 +5,7 @@ import {
   isOcrMappingTemplateLayoutReusable,
   isOcrRegionTemplateReusable,
   loadOcrMappingTemplates,
+  ocrMappingTemplateErrorMessage,
   resetOcrMappingTemplates,
   saveOcrMappingTemplate,
   type OcrMappingTemplate,
@@ -393,6 +394,19 @@ describe("explicit browser OCR mapping templates", () => {
       ok: false,
       error: { code: "storage-unavailable" },
     });
+  });
+
+  it("keeps Korean error messages by default and returns English on request", () => {
+    expect(loadOcrMappingTemplates(storageFixture("{"))).toMatchObject({
+      ok: false,
+      error: {
+        code: "invalid-data",
+        message: "저장된 열 템플릿을 읽을 수 없습니다. 초기화 후 다시 저장해 주세요.",
+      },
+    });
+    expect(ocrMappingTemplateErrorMessage("limit-reached", "en")).toBe(
+      "You can save up to 20 column templates.",
+    );
   });
 
   it("saves and reloads both mapping versions without migrating the v1 envelope", () => {

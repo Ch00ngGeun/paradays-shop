@@ -28,6 +28,7 @@ import {
   deleteOcrMappingTemplate,
   isOcrRegionTemplateReusable,
   loadOcrMappingTemplates,
+  ocrMappingTemplateErrorMessage,
   resetOcrMappingTemplates,
   saveOcrMappingTemplate,
   type OcrMappingTemplate,
@@ -531,7 +532,10 @@ export function OcrRegionMappingPanel({
     message: Notice,
   ) {
     if (!result.ok) {
-      setNotice(result.error.message);
+      setNotice({
+        ko: result.error.message,
+        en: ocrMappingTemplateErrorMessage(result.error.code, "en"),
+      });
       return false;
     }
     const regionTemplates = result.value.filter(
@@ -561,7 +565,10 @@ export function OcrRegionMappingPanel({
     if (!target) return;
     const loadedTemplates = loadOcrMappingTemplates(target);
     if (!loadedTemplates.ok) {
-      setNotice(loadedTemplates.error.message);
+      setNotice({
+        ko: loadedTemplates.error.message,
+        en: ocrMappingTemplateErrorMessage(loadedTemplates.error.code, "en"),
+      });
       return;
     }
     const number = Array.from({ length: 99 }, (_, index) => index + 1).find(
@@ -655,23 +662,37 @@ export function OcrRegionMappingPanel({
     }
   }
 
+  const previewRows = preview?.result.rows ?? [];
+  const previewTotal = previewRows.reduce(
+    (total, row) => total + Number(row.quantity || 0),
+    0,
+  );
+  const previewUnknown = previewRows.filter((row) => row.quantity === "").length;
+
   return (
     <section className={styles.panel} aria-labelledby={`${id}-heading`}>
       <div className={styles.heading}>
-        <h3 id={`${id}-heading`}>이미지에서 영역 지정</h3>
+        <h3 id={`${id}-heading`}>
+          {isKorean ? "이미지에서 영역 지정" : "Mark areas on the image"}
+        </h3>
         <p>
-          첫 번째 상품의 글자를 항목별로 드래그하세요. 없는 항목은 없음으로 지정하고,
-          마지막 상품 아래에서 표 끝을 정하세요.
+          {isKorean
+            ? "첫 번째 상품의 글자를 항목별로 드래그하세요. 없는 항목은 없음으로 지정하고, 마지막 상품 아래에서 표 끝을 정하세요."
+            : "Drag over the first product's text for each field. Mark missing fields as none, and set the table end below the last product."}
         </p>
       </div>
       {!file ? (
         <p className={styles.warning}>
-          영역을 지정하려면 인식에 사용한 이미지를 선택해 주세요.
+          {isKorean
+            ? "영역을 지정하려면 인식에 사용한 이미지를 선택해 주세요."
+            : "Select the image used for recognition to mark areas."}
         </p>
       ) : (
         <>
           <fieldset className={styles.steps} disabled={locked || !ready}>
-            <legend className={styles.srOnly}>첫 상품 영역 지정 순서</legend>
+            <legend className={styles.srOnly}>
+              {isKorean ? "첫 상품 영역 지정 순서" : "First product area steps"}
+            </legend>
             {FIELDS.map((field, index) => (
               <div className={styles.step} key={field}>
                 <button
@@ -687,10 +708,16 @@ export function OcrRegionMappingPanel({
                   </span>
                   <small>
                     {draft.firstRow[field] === null
-                      ? "없음"
+                      ? isKorean
+                        ? "없음"
+                        : "None"
                       : draft.firstRow[field]
-                        ? "지정됨 · 다시 선택"
-                        : "선택 필요"}
+                        ? isKorean
+                          ? "지정됨 · 다시 선택"
+                          : "Set · Select again"
+                        : isKorean
+                          ? "선택 필요"
+                          : "Needs selection"}
                   </small>
                 </button>
                 {field !== "productName" && (
@@ -709,22 +736,24 @@ export function OcrRegionMappingPanel({
             <button
               type="button"
               className={styles.secondary}
-              aria-label="표 끝 지정"
+              aria-label={isKorean ? "표 끝 지정" : "Set table end"}
               aria-pressed={mode === "tableBottom"}
               disabled={locked || !ready || !draft.firstRow.productName}
               onClick={() => chooseMode("tableBottom")}
             >
-              표 끝 지정{draft.tableBottom !== null ? " · 지정됨" : ""}
+              {isKorean ? "표 끝 지정" : "Set table end"}
+              {draft.tableBottom !== null ? (isKorean ? " · 지정됨" : " · Set") : ""}
             </button>
             <button
               type="button"
               className={styles.secondary}
-              aria-label="두 번째 상품 위치"
+              aria-label={isKorean ? "두 번째 상품 위치" : "Second product position"}
               aria-pressed={mode === "secondRow"}
               disabled={locked || !ready || !draft.firstRow.productName}
               onClick={() => chooseMode("secondRow")}
             >
-              두 번째 상품 위치{draft.secondRowY !== null ? " · 지정됨" : ""}
+              {isKorean ? "두 번째 상품 위치" : "Second product position"}
+              {draft.secondRowY !== null ? (isKorean ? " · 지정됨" : " · Set") : ""}
             </button>
             {draft.secondRowY !== null && (
               <button
@@ -733,7 +762,9 @@ export function OcrRegionMappingPanel({
                 disabled={locked}
                 onClick={() => updateDraft({ ...draft, secondRowY: null })}
               >
-                두 번째 상품 위치 지우기
+                {isKorean
+                  ? "두 번째 상품 위치 지우기"
+                  : "Clear second product position"}
               </button>
             )}
             <button
@@ -747,25 +778,32 @@ export function OcrRegionMappingPanel({
                 setPan(false);
               }}
             >
-              전체 영역 지우기
+              {isKorean ? "전체 영역 지우기" : "Clear all areas"}
             </button>
           </div>
           <p className={styles.instruction} id={`${id}-instruction`}>
             {isKorean ? "현재 선택:" : "Selected:"}{" "}
             <strong>{MODE_LABELS[locale][mode]}</strong>
             {mode === "tableBottom"
-              ? " · 마지막 상품 바로 아래를 클릭하거나 드래그하세요."
+              ? isKorean
+                ? " · 마지막 상품 바로 아래를 클릭하거나 드래그하세요."
+                : " · Click or drag just below the last product."
               : mode === "secondRow"
-                ? " · 두 번째 상품의 중심을 클릭하거나 드래그하세요."
-                : " · 첫 상품의 해당 글자를 둘러싸도록 드래그하세요."}
+                ? isKorean
+                  ? " · 두 번째 상품의 중심을 클릭하거나 드래그하세요."
+                  : " · Click or drag at the center of the second product."
+                : isKorean
+                  ? " · 첫 상품의 해당 글자를 둘러싸도록 드래그하세요."
+                  : " · Drag around the matching text of the first product."}
           </p>
           <p className={styles.help} id={`${id}-keyboard`}>
-            키보드로는 이미지에 초점을 둔 뒤 방향키로 이동하고 Space로 시작, Enter로
-            끝을 지정합니다. Shift와 방향키를 함께 누르면 더 크게 이동합니다.
+            {isKorean
+              ? "키보드로는 이미지에 초점을 둔 뒤 방향키로 이동하고 Space로 시작, Enter로 끝을 지정합니다. Shift와 방향키를 함께 누르면 더 크게 이동합니다."
+              : "With a keyboard, focus the image, move with the arrow keys, press Space to start and Enter to finish. Hold Shift with the arrow keys to move further."}
           </p>
           <div className={styles.imageToolbar}>
             <label className={styles.field} htmlFor={`${id}-zoom`}>
-              <span>이미지 확대 배율</span>
+              <span>{isKorean ? "이미지 확대 배율" : "Image zoom"}</span>
               <select
                 id={`${id}-zoom`}
                 value={zoom}
@@ -791,12 +829,16 @@ export function OcrRegionMappingPanel({
                 setPan((current) => !current);
               }}
             >
-              이미지 이동
+              {isKorean ? "이미지 이동" : "Move image"}
             </button>
             <p className={styles.help}>
               {pan
-                ? "이동 모드입니다. 확대된 이미지를 스크롤하거나 손가락으로 이동하세요. 영역을 선택하려면 항목 버튼을 누르세요."
-                : "작은 글자는 확대해서 선택하세요. 이미지 이동을 켜면 확대된 이미지를 스크롤할 수 있습니다."}
+                ? isKorean
+                  ? "이동 모드입니다. 확대된 이미지를 스크롤하거나 손가락으로 이동하세요. 영역을 선택하려면 항목 버튼을 누르세요."
+                  : "Move mode. Scroll or swipe the zoomed image. Press a field button to select areas."
+                : isKorean
+                  ? "작은 글자는 확대해서 선택하세요. 이미지 이동을 켜면 확대된 이미지를 스크롤할 수 있습니다."
+                  : "Zoom in to select small text. Turn on Move image to scroll the zoomed image."}
             </p>
           </div>
           <div className={styles.imageFrame}>
@@ -806,7 +848,7 @@ export function OcrRegionMappingPanel({
               data-pan={pan}
               tabIndex={ready && !locked ? 0 : -1}
               role="group"
-              aria-label="이미지 영역 선택"
+              aria-label={isKorean ? "이미지 영역 선택" : "Image area selection"}
               aria-describedby={`${id}-instruction ${id}-keyboard`}
               onPointerDown={pointerDown}
               onPointerMove={pointerMove}
@@ -819,7 +861,11 @@ export function OcrRegionMappingPanel({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 ref={imageRef}
-                alt="입고표 영역 지정 이미지"
+                alt={
+                  isKorean
+                    ? "입고표 영역 지정 이미지"
+                    : "Receiving sheet image for area mapping"
+                }
                 draggable={false}
                 onLoad={(event) => {
                   const image = event.currentTarget;
@@ -835,9 +881,10 @@ export function OcrRegionMappingPanel({
                     nextSize.height > 16384 ||
                     nextSize.width * nextSize.height > 40_000_000
                   ) {
-                    setNotice(
-                      "이 이미지는 영역 지정 크기 제한을 넘습니다. 가로·세로 16,384픽셀 이하, 4천만 픽셀 이하 이미지를 선택해 주세요.",
-                    );
+                    setNotice({
+                      ko: "이 이미지는 영역 지정 크기 제한을 넘습니다. 가로·세로 16,384픽셀 이하, 4천만 픽셀 이하 이미지를 선택해 주세요.",
+                      en: "This image exceeds the area mapping size limit. Select an image up to 16,384 pixels on each side and 40 million pixels in total.",
+                    });
                     return;
                   }
                   setLoaded({ file, size: nextSize });
@@ -852,19 +899,20 @@ export function OcrRegionMappingPanel({
                     const storedAspect = storedImage.width / storedImage.height;
                     const currentAspect = nextSize.width / nextSize.height;
                     if (Math.abs(storedAspect - currentAspect) / storedAspect > 0.03) {
-                      updateDraft(
-                        emptyDraft(),
-                        "이미지 비율이 이전 영역 지정과 맞지 않습니다. 첫 상품과 표 끝을 다시 지정해 주세요.",
-                      );
+                      updateDraft(emptyDraft(), {
+                        ko: "이미지 비율이 이전 영역 지정과 맞지 않습니다. 첫 상품과 표 끝을 다시 지정해 주세요.",
+                        en: "The image ratio does not match the previous area mapping. Mark the first product and table end again.",
+                      });
                       setMode("productName");
                     }
                   }
                 }}
                 onError={() => {
                   setLoaded(null);
-                  setNotice(
-                    "이미지를 표시하지 못했습니다. 다른 이미지를 선택해 주세요.",
-                  );
+                  setNotice({
+                    ko: "이미지를 표시하지 못했습니다. 다른 이미지를 선택해 주세요.",
+                    en: "Could not display the image. Select a different image.",
+                  });
                 }}
               />
               <div className={styles.overlay} aria-hidden="true">
@@ -884,7 +932,7 @@ export function OcrRegionMappingPanel({
                     className={styles.bottomLine}
                     style={{ top: `${draft.tableBottom * 100}%` }}
                   >
-                    <span>표 끝</span>
+                    <span>{isKorean ? "표 끝" : "Table end"}</span>
                   </div>
                 )}
                 {draft.secondRowY !== null && (
@@ -892,7 +940,7 @@ export function OcrRegionMappingPanel({
                     className={styles.secondLine}
                     style={{ top: `${draft.secondRowY * 100}%` }}
                   >
-                    <span>두 번째 상품</span>
+                    <span>{isKorean ? "두 번째 상품" : "Second product"}</span>
                   </div>
                 )}
                 {activeRect && FIELDS.includes(mode as Field) && (
@@ -923,7 +971,9 @@ export function OcrRegionMappingPanel({
             </div>
           </div>
           <fieldset className={styles.confirmation} disabled={locked}>
-            <legend className={styles.srOnly}>수량 영역 확인</legend>
+            <legend className={styles.srOnly}>
+              {isKorean ? "수량 영역 확인" : "Quantity area check"}
+            </legend>
             <label>
               <input
                 type="checkbox"
@@ -933,35 +983,44 @@ export function OcrRegionMappingPanel({
                   updateDraft({ ...draft, quantityConfirmed: event.target.checked })
                 }
               />
-              선택한 수량 영역은 금액이 아닌 실제 수량입니다
+              {isKorean
+                ? "선택한 수량 영역은 금액이 아닌 실제 수량입니다"
+                : "The selected quantity area is the actual quantity, not a price"}
             </label>
           </fieldset>
           {draft.firstRow.quantity === null && (
             <p className={styles.help}>
-              수량 영역이 없으면 두 번째 상품 위치를 지정해 반복 간격을 알려 주세요.
-              미리보기에서 모든 상품이 포함됐는지 확인하세요.
+              {isKorean
+                ? "수량 영역이 없으면 두 번째 상품 위치를 지정해 반복 간격을 알려 주세요. 미리보기에서 모든 상품이 포함됐는지 확인하세요."
+                : "Without a quantity area, set the second product position to show the row spacing. Check in the preview that every product is included."}
             </p>
           )}
           {!allFieldsChosen && (
             <p className={styles.help}>
-              상품명·브랜드·옵션·수량을 모두 선택하거나 없는 항목을 없음으로 지정해
-              주세요.
+              {isKorean
+                ? "상품명·브랜드·옵션·수량을 모두 선택하거나 없는 항목을 없음으로 지정해 주세요."
+                : "Select product name, brand, option and quantity, or mark missing fields as none."}
             </p>
           )}
           {allFieldsChosen && draft.tableBottom === null && (
             <p className={styles.help}>
-              표 끝을 직접 지정해야 미리보기를 만들 수 있습니다.
+              {isKorean
+                ? "표 끝을 직접 지정해야 미리보기를 만들 수 있습니다."
+                : "Set the table end yourself to create a preview."}
             </p>
           )}
           {draft.firstRow.quantity && !draft.quantityConfirmed && (
             <p className={styles.warning}>
-              선택한 영역이 실제 수량인지 확인해 주세요. 가격이나 상품 번호는 수량으로
-              사용할 수 없습니다.
+              {isKorean
+                ? "선택한 영역이 실제 수량인지 확인해 주세요. 가격이나 상품 번호는 수량으로 사용할 수 없습니다."
+                : "Confirm that the selected area is the actual quantity. Prices or product numbers cannot be used as quantities."}
             </p>
           )}
           {sourceUnavailable && (
             <p className={styles.warning}>
-              이전 검토본에 원본 인식 행이 없어 영역을 다시 지정할 수 없습니다.
+              {isKorean
+                ? "이전 검토본에 원본 인식 행이 없어 영역을 다시 지정할 수 없습니다."
+                : "The earlier review has no recognized source rows, so areas cannot be marked again."}
             </p>
           )}
           <div className={styles.actions}>
@@ -971,7 +1030,13 @@ export function OcrRegionMappingPanel({
               disabled={locked || !mappingValid || sourceUnavailable}
               onClick={() => void remap(true)}
             >
-              {busy ? "영역 확인 중…" : "영역 미리보기"}
+              {busy
+                ? isKorean
+                  ? "영역 확인 중…"
+                  : "Checking areas…"
+                : isKorean
+                  ? "영역 미리보기"
+                  : "Preview areas"}
             </button>
             <button
               type="button"
@@ -979,7 +1044,7 @@ export function OcrRegionMappingPanel({
               disabled={locked || !mappingValid || !previewCurrent || sourceUnavailable}
               onClick={() => void remap(false)}
             >
-              영역 지정 적용
+              {isKorean ? "영역 지정 적용" : "Apply area mapping"}
             </button>
           </div>
         </>
@@ -987,23 +1052,21 @@ export function OcrRegionMappingPanel({
       {preview && previewCurrent && (
         <div className={styles.preview}>
           <p className={styles.summary}>
-            상품 {preview.result.rows.length}개 · 수량 합계{" "}
-            {preview.result.rows
-              .reduce((total, row) => total + Number(row.quantity || 0), 0)
-              .toLocaleString("ko-KR")}
-            개 · 수량 미확인{" "}
-            {preview.result.rows.filter((row) => row.quantity === "").length}행
+            {isKorean
+              ? `상품 ${preview.result.rows.length}개 · 수량 합계 ${previewTotal.toLocaleString("ko-KR")}개 · 수량 미확인 ${previewUnknown}행`
+              : `${preview.result.rows.length} products · Total quantity ${previewTotal.toLocaleString("en-US")} · Unknown quantity ${previewUnknown} rows`}
           </p>
           {preview.result.analysis.region && (
             <p className={styles.help}>
-              원본 인식 항목 {preview.result.analysis.region.sourceTokenCount}개 중 포함{" "}
-              {preview.result.analysis.region.includedTokenCount}개 · 제외{" "}
-              {preview.result.analysis.region.excludedTokenCount}개
+              {isKorean
+                ? `원본 인식 항목 ${preview.result.analysis.region.sourceTokenCount}개 중 포함 ${preview.result.analysis.region.includedTokenCount}개 · 제외 ${preview.result.analysis.region.excludedTokenCount}개`
+                : `Included ${preview.result.analysis.region.includedTokenCount} of ${preview.result.analysis.region.sourceTokenCount} recognized items · Excluded ${preview.result.analysis.region.excludedTokenCount}`}
             </p>
           )}
           <p className={styles.warning}>
-            미리보기의 상품 행과 수량을 원본 이미지와 비교해 주세요. 합계·금액·안내
-            문구가 상품으로 들어가지 않았는지 확인해야 합니다.
+            {isKorean
+              ? "미리보기의 상품 행과 수량을 원본 이미지와 비교해 주세요. 합계·금액·안내 문구가 상품으로 들어가지 않았는지 확인해야 합니다."
+              : "Compare the preview's product rows and quantities with the source image. Make sure totals, prices and notes did not become products."}
           </p>
           {preview.result.analysis.region?.warnings.length ? (
             <ul className={styles.warnings}>
@@ -1022,16 +1085,22 @@ export function OcrRegionMappingPanel({
             className={styles.tableScroll}
             tabIndex={0}
             role="region"
-            aria-label="영역 지정 미리보기 표"
+            aria-label={
+              isKorean ? "영역 지정 미리보기 표" : "Area mapping preview table"
+            }
           >
             <table>
-              <caption>영역 지정 미리보기 · 읽기 전용</caption>
+              <caption>
+                {isKorean
+                  ? "영역 지정 미리보기 · 읽기 전용"
+                  : "Area mapping preview · Read only"}
+              </caption>
               <thead>
                 <tr>
-                  <th scope="col">상품명</th>
-                  <th scope="col">브랜드</th>
-                  <th scope="col">옵션</th>
-                  <th scope="col">수량</th>
+                  <th scope="col">{FIELD_LABELS[locale].productName}</th>
+                  <th scope="col">{FIELD_LABELS[locale].brand}</th>
+                  <th scope="col">{FIELD_LABELS[locale].option}</th>
+                  <th scope="col">{FIELD_LABELS[locale].quantity}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1040,7 +1109,7 @@ export function OcrRegionMappingPanel({
                     <td>{row.productName || "—"}</td>
                     <td>{row.brand || "—"}</td>
                     <td>{row.option || "—"}</td>
-                    <td>{row.quantity || "미확인"}</td>
+                    <td>{row.quantity || (isKorean ? "미확인" : "Unknown")}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1049,15 +1118,15 @@ export function OcrRegionMappingPanel({
         </div>
       )}
       <fieldset className={styles.templates} disabled={locked}>
-        <legend>저장 영역 양식</legend>
+        <legend>{isKorean ? "저장 영역 양식" : "Saved area templates"}</legend>
         <p className={styles.help}>
-          이 브라우저를 쓰는 계정들이 공유하는 설정입니다. 영역 좌표·이미지 크기·항목
-          역할만 저장하며 이미지·원문·개인정보·인증 정보는 저장하지 않습니다. 불러온
-          영역은 이미지에 맞게 확인하고 미리보기 후 직접 적용하세요.
+          {isKorean
+            ? "이 브라우저를 쓰는 계정들이 공유하는 설정입니다. 영역 좌표·이미지 크기·항목 역할만 저장하며 이미지·원문·개인정보·인증 정보는 저장하지 않습니다. 불러온 영역은 이미지에 맞게 확인하고 미리보기 후 직접 적용하세요."
+            : "These settings are shared by every account using this browser. Only area coordinates, image size and field roles are saved, never images, source text, personal data or credentials. Check loaded areas against the image, preview them and apply them yourself."}
         </p>
         <div className={styles.actions}>
           <button type="button" className={styles.secondary} onClick={loadTemplates}>
-            영역 양식 불러오기
+            {isKorean ? "영역 양식 불러오기" : "Load area templates"}
           </button>
           <button
             type="button"
@@ -1065,21 +1134,21 @@ export function OcrRegionMappingPanel({
             disabled={!mappingValid || !ready}
             onClick={saveTemplate}
           >
-            현재 영역 양식 저장
+            {isKorean ? "현재 영역 양식 저장" : "Save current area template"}
           </button>
         </div>
         <div className={styles.templateSelection}>
           <label className={styles.field} htmlFor={`${id}-template`}>
-            <span>저장 영역 양식</span>
+            <span>{isKorean ? "저장 영역 양식" : "Saved area templates"}</span>
             <select
               id={`${id}-template`}
               value={selectedTemplateId}
               onChange={(event) => setSelectedTemplateId(event.target.value)}
             >
-              <option value="">양식 선택</option>
+              <option value="">{isKorean ? "양식 선택" : "Select template"}</option>
               {templates.map((template) => (
                 <option key={template.id} value={template.id}>
-                  {template.name}
+                  {templateDisplayName(template.name, locale)}
                 </option>
               ))}
             </select>
@@ -1090,7 +1159,7 @@ export function OcrRegionMappingPanel({
             disabled={!selectedTemplateId || !size}
             onClick={reuseTemplate}
           >
-            영역 양식 재사용
+            {isKorean ? "영역 양식 재사용" : "Reuse area template"}
           </button>
           <button
             type="button"
@@ -1098,10 +1167,10 @@ export function OcrRegionMappingPanel({
             disabled={!selectedTemplateId}
             onClick={deleteTemplate}
           >
-            선택 영역 양식 삭제
+            {isKorean ? "선택 영역 양식 삭제" : "Delete selected area template"}
           </button>
           <button type="button" className={styles.textButton} onClick={resetTemplates}>
-            전체 양식 삭제
+            {isKorean ? "전체 양식 삭제" : "Delete all templates"}
           </button>
         </div>
       </fieldset>

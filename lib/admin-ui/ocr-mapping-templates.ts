@@ -6,6 +6,7 @@ import {
   type OcrRegionMapping,
   type OcrRegionRect,
 } from "../../infra/lambda/ocr-table-parser.js";
+import type { Locale } from "@/types/store";
 
 /** 운영자가 명시적으로 저장한 열 설정만 보관하는 버전별 키임. */
 export const OCR_MAPPING_TEMPLATES_STORAGE_KEY = "paradays.ocr.column-templates.v1";
@@ -60,17 +61,42 @@ export type OcrMappingTemplatesResult<T> =
       error: { code: OcrMappingTemplatesErrorCode; message: string };
     };
 
-const ERROR_MESSAGES: Record<OcrMappingTemplatesErrorCode, string> = {
-  "invalid-data": "저장된 열 템플릿을 읽을 수 없습니다. 초기화 후 다시 저장해 주세요.",
-  "invalid-template": "템플릿 이름과 열 설정을 확인해 주세요.",
-  "unsupported-version": "지원하지 않는 열 템플릿 버전입니다.",
-  "limit-reached": "열 템플릿은 최대 20개까지 저장할 수 있습니다.",
-  "storage-unavailable": "이 브라우저에서 열 템플릿 저장소를 사용할 수 없습니다.",
-  "storage-quota": "브라우저 저장 공간이 부족해 열 템플릿을 저장하지 못했습니다.",
+const ERROR_MESSAGES: Record<OcrMappingTemplatesErrorCode, Record<Locale, string>> = {
+  "invalid-data": {
+    ko: "저장된 열 템플릿을 읽을 수 없습니다. 초기화 후 다시 저장해 주세요.",
+    en: "Cannot read the saved column templates. Reset them and save again.",
+  },
+  "invalid-template": {
+    ko: "템플릿 이름과 열 설정을 확인해 주세요.",
+    en: "Check the template name and column settings.",
+  },
+  "unsupported-version": {
+    ko: "지원하지 않는 열 템플릿 버전입니다.",
+    en: "This column template version is not supported.",
+  },
+  "limit-reached": {
+    ko: "열 템플릿은 최대 20개까지 저장할 수 있습니다.",
+    en: "You can save up to 20 column templates.",
+  },
+  "storage-unavailable": {
+    ko: "이 브라우저에서 열 템플릿 저장소를 사용할 수 없습니다.",
+    en: "Column template storage is not available in this browser.",
+  },
+  "storage-quota": {
+    ko: "브라우저 저장 공간이 부족해 열 템플릿을 저장하지 못했습니다.",
+    en: "Could not save the column template because browser storage is full.",
+  },
 };
 
+export function ocrMappingTemplateErrorMessage(
+  code: OcrMappingTemplatesErrorCode,
+  locale: Locale = "ko",
+): string {
+  return ERROR_MESSAGES[code][locale];
+}
+
 function failure<T>(code: OcrMappingTemplatesErrorCode): OcrMappingTemplatesResult<T> {
-  return { ok: false, error: { code, message: ERROR_MESSAGES[code] } };
+  return { ok: false, error: { code, message: ocrMappingTemplateErrorMessage(code) } };
 }
 
 /** 알 수 없는 필드와 접근자를 거부해 원문·비밀값의 직렬화를 차단함. */
