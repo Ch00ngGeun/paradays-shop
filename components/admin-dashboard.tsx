@@ -105,6 +105,12 @@ function localizedOcrRequestError(error: unknown): LocalizedText | undefined {
   return ko && en ? { ko, en } : undefined;
 }
 
+function localizedOcrInputError(error: unknown): LocalizedText | undefined {
+  const ko = getOcrInputErrorMessage(error, "ko");
+  const en = getOcrInputErrorMessage(error, "en");
+  return ko && en ? { ko, en } : undefined;
+}
+
 type Notice =
   | Readonly<{ kind: "error"; message: LocalizedText }>
   | Readonly<{ kind: "success"; message: LocalizedText }>
@@ -1940,7 +1946,7 @@ function AdminWorkspace({
       event.target.value = "";
       setOcrNotice({
         kind: "error",
-        message: getOcrInputErrorMessage(error) ?? {
+        message: localizedOcrInputError(error) ?? {
           ko: "이미지 파일을 검증하지 못했습니다. 파일을 다시 선택해 주세요.",
           en: "Could not validate the image file. Choose the file again.",
         },
@@ -2042,7 +2048,7 @@ function AdminWorkspace({
       });
       setOcrNotice({
         kind: "error",
-        message: getOcrInputErrorMessage(error) ??
+        message: localizedOcrInputError(error) ??
           localizedOcrRequestError(error) ?? {
             ko: "OCR 요청에 실패했습니다. 이미지 형식과 관리자 API·PaddleOCR 연결을 확인해 주세요.",
             en: "The OCR request failed. Check the image format and the admin API and PaddleOCR connections.",
@@ -2098,7 +2104,13 @@ function AdminWorkspace({
     const validationMessage = getOcrReviewRowValidationMessage(ocrRows);
 
     if (validationMessage) {
-      setOcrNotice({ kind: "error", message: validationMessage });
+      setOcrNotice({
+        kind: "error",
+        message: {
+          ko: validationMessage,
+          en: getOcrReviewRowValidationMessage(ocrRows, "en") ?? validationMessage,
+        },
+      });
       return;
     }
 

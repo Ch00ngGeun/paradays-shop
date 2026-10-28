@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   AdminOcrInputError,
+  getOcrInputErrorMessage,
+  getOcrReviewRowValidationMessage,
   isSafeOcrFileName,
   OCR_INPUT_LIMITS,
   validateOcrImageFile,
@@ -247,5 +249,26 @@ describe("OCR file boundary regression", () => {
     await expect(validateOcrImageFile(inconsistentFile)).rejects.toMatchObject({
       reason: "IMAGE_SIGNATURE_INVALID",
     });
+  });
+});
+
+describe("OCR input messages", () => {
+  const row = { sourceText: "", productName: "", brand: "", option: "", quantity: "x" };
+
+  it("keeps Korean by default and returns English on request", () => {
+    const error = new AdminOcrInputError("FILE_TYPE_INVALID");
+    expect(getOcrInputErrorMessage(error)).toBe(
+      "OCR은 PNG, JPEG, WEBP 파일만 받을 수 있습니다.",
+    );
+    expect(getOcrInputErrorMessage(error, "en")).toBe(
+      "OCR accepts only PNG, JPEG and WEBP files.",
+    );
+    expect(getOcrReviewRowValidationMessage([row])).toBe(
+      "1번째 수량은 비우거나 0~999,999,999 정수로 입력해 주세요.",
+    );
+    expect(getOcrReviewRowValidationMessage([row], "en")).toBe(
+      "Leave row 1 quantity empty or enter a whole number from 0 to 999,999,999.",
+    );
+    expect(getOcrInputErrorMessage(new Error("x"), "en")).toBeUndefined();
   });
 });
