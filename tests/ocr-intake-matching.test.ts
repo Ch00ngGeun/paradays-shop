@@ -156,4 +156,13 @@ describe("new intake product validation", () => {
       getOcrIntakeNewProductValidationMessage({ ...draft, ...patch }),
     ).not.toBeNull();
   });
+  it("keeps Korean by default and returns English on request", () => {
+    expect(getOcrIntakeNewProductValidationMessage({ ...draft, sku: " " })).toBe(
+      "신규 SKU는 1~80자로 입력해 주세요.",
+    );
+    expect(getOcrIntakeNewProductValidationMessage({ ...draft, sku: " " }, "en")).toBe(
+      "Enter the new SKU in 1–80 characters.",
+    );
+    expect(getOcrIntakeNewProductValidationMessage(draft, "en")).toBeNull();
+  });
 });
