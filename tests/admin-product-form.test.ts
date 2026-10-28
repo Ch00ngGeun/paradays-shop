@@ -98,17 +98,17 @@ describe("product brand choices", () => {
 describe("existing comma option contract", () => {
   it("retains legacy options byte-for-byte while appending a new choice", () => {
     const legacy = " 8.25”, 8.375” , XL, Custom / Mixed CASE ";
-    expect(appendProductOption(legacy, "8.5 inch")).toEqual({
+    expect(appendProductOption(legacy, "8.5”")).toEqual({
       ok: true,
-      value: `${legacy}, 8.5 inch`,
+      value: `${legacy}, 8.5”`,
       added: true,
     });
   });
 
   it("adds a first option and trims only the newly supplied option", () => {
-    expect(appendProductOption("", " 8.25 inch ")).toEqual({
+    expect(appendProductOption("", " 8.25” ")).toEqual({
       ok: true,
-      value: "8.25 inch",
+      value: "8.25”",
       added: true,
     });
     expect(appendProductOption("  ", "M")).toEqual({
@@ -219,7 +219,7 @@ describe("new deck and wheel choice formatting", () => {
   it.each(["7.5", "7.75", "8.0", "8.125", "8.25", "8.5"])(
     "formats only an explicitly selected deck width: %s",
     (width) => {
-      expect(formatProductDeckOption(width)).toBe(`${width} inch`);
+      expect(formatProductDeckOption(width)).toBe(`${width}”`);
     },
   );
 
@@ -229,6 +229,21 @@ describe("new deck and wheel choice formatting", () => {
       expect(formatProductDeckOption(width)).toBeNull();
     },
   );
+
+  it("does not add a selected width that already exists in the stored inch mark format", () => {
+    const stored = "8.25”, 8.375”, 8.0”";
+    expect(formatProductDeckOption("8.25")).toBe("8.25”");
+    expect(appendProductOption(stored, formatProductDeckOption("8.25")!)).toEqual({
+      ok: true,
+      value: stored,
+      added: false,
+    });
+    expect(appendProductOption(stored, formatProductDeckOption("8.5")!)).toEqual({
+      ok: true,
+      value: `${stored}, 8.5”`,
+      added: true,
+    });
+  });
 
   it("lists exactly the requested deck, wheel-size and hardness choices", () => {
     expect(PRODUCT_DECK_WIDTHS).toEqual(["7.5", "7.75", "8.0", "8.125", "8.25", "8.5"]);
