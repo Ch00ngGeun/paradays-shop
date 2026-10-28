@@ -106,7 +106,6 @@ function SimulationSession({ locale }: { locale: Locale }) {
     isKorean
       ? `${value.toLocaleString("ko-KR")}원`
       : `KRW ${value.toLocaleString("en-US")}`;
-  const won = isKorean ? "원" : " KRW";
   return (
     <section className={styles.panel} aria-labelledby="order-simulation-title">
       <span className={styles.badge}>
@@ -188,26 +187,36 @@ function SimulationSession({ locale }: { locale: Locale }) {
             <div>
               {isKorean ? "가상 환불 누계" : "Virtual refunds total"}{" "}
               <strong>
+                {isKorean ? "" : "KRW "}
                 <output
                   aria-label={isKorean ? "가상 환불 누계" : "Virtual refunds total"}
                 >
-                  {state.refundedAmount}
+                  {isKorean
+                    ? state.refundedAmount
+                    : state.refundedAmount.toLocaleString("en-US")}
                 </output>
-                {won}
+                {isKorean ? "원" : ""}
               </strong>
               <small>{isKorean ? "실제 송금 없음" : "No real transfer"}</small>
             </div>
             <div>
               {isKorean ? "가상 환불 가능 잔액" : "Virtual refundable balance"}{" "}
               <strong>
+                {isKorean ? "" : "KRW "}
                 <output
                   aria-label={
                     isKorean ? "가상 환불 가능 잔액" : "Virtual refundable balance"
                   }
                 >
-                  {state.paid ? simulationBalance(state) : 0}
+                  {isKorean
+                    ? state.paid
+                      ? simulationBalance(state)
+                      : 0
+                    : (state.paid ? simulationBalance(state) : 0).toLocaleString(
+                        "en-US",
+                      )}
                 </output>
-                {won}
+                {isKorean ? "원" : ""}
               </strong>
               <small>
                 {isKorean ? "모의 승인 후 사용 가능" : "Available after mock approval"}
