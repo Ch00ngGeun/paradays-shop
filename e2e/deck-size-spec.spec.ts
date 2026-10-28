@@ -15,7 +15,12 @@ type Stored = {
   version: number;
   deckSpec?: typeof SPEC;
 };
-type Audit = { blocked: string[]; patches: Record<string, unknown>[]; store: Stored[] };
+type Audit = {
+  blocked: string[];
+  patches: Record<string, unknown>[];
+  patchedIds: string[];
+  store: Stored[];
+};
 
 function respond(route: Route, body: unknown, status = 200) {
   return route.fulfill({
@@ -81,7 +86,7 @@ async function setup(page: Page, path: string, deckSpec?: typeof SPEC) {
     },
     { productId: PLAIN.id, slug: PLAIN.slug, name: "[TEST] Deck size B", version: 1 },
   ];
-  const audit: Audit = { blocked: [], patches: [], store };
+  const audit: Audit = { blocked: [], patches: [], patchedIds: [], store };
   await page.route("**/*", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -101,6 +106,7 @@ async function setup(page: Page, path: string, deckSpec?: typeof SPEC) {
     if (request.method() === "PATCH" && itemMatch) {
       const body = request.postDataJSON() as Record<string, unknown>;
       audit.patches.push(body);
+      audit.patchedIds.push(itemMatch[1]);
       const item = store.find((entry) => entry.productId === itemMatch[1]);
       if (!item) return respond(route, { code: "CATALOG_PRODUCT_NOT_FOUND" }, 404);
       if (body.version !== item.version)
@@ -150,6 +156,32 @@ async function setup(page: Page, path: string, deckSpec?: typeof SPEC) {
     ).toString("base64url"),
     "test-only-signature",
   ].join(".");
+  // Counts PATCH responses the app has parsed, plus a task and two frames so React has committed the result.
+  await page.addInitScript(() => {
+    const state = window as unknown as { __patchSettled: number };
+    state.__patchSettled = 0;
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const response = await originalFetch(input, init);
+      if (init?.method === "PATCH") {
+        const json = response.json.bind(response);
+        response.json = async () => {
+          try {
+            return await json();
+          } finally {
+            setTimeout(() =>
+              requestAnimationFrame(() =>
+                requestAnimationFrame(() => {
+                  state.__patchSettled += 1;
+                }),
+              ),
+            );
+          }
+        };
+      }
+      return response;
+    };
+  });
   await page.addInitScript(
     ({ session }) => {
       sessionStorage.setItem("paradays.auth.session", JSON.stringify(session));
@@ -198,10 +230,10 @@ test("admin saves the deck size spec from its own modal and the product form sav
   // Saving a public product asks for confirmation first.
   page.once("dialog", (prompt) => void prompt.accept());
   await page.getByRole("button", { name: /수정 저장/ }).click();
-  await expect.poll(() => audit.patches.length).toBe(2);
+  await expect(page.getByText("상품을 공개 상태로 저장했습니다")).toBeVisible();
+  expect(audit.patchedIds).toEqual([DECK.id, DECK.id]);
   expect(audit.patches[1]).toMatchObject({ version: 4 });
   expect(audit.patches[1]).not.toHaveProperty("deckSpec");
-  await expect(page.getByText(/409|충돌/)).toHaveCount(0);
   expect(audit.blocked).toEqual([]);
 });
 
@@ -308,7 +340,11 @@ test("a late save response for one product does not close another product's moda
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const second = await openDeckSpecModal(page, "[TEST] Deck size B");
   release();
-  await expect.poll(() => audit.patches.length).toBe(1);
+  // Assert only after the app has parsed and committed A's late success.
+  await page.waitForFunction(
+    () => (window as unknown as { __patchSettled: number }).__patchSettled >= 1,
+  );
+  expect(audit.patchedIds).toEqual([DECK.id]);
   await expect(second).toBeVisible();
   await expect(second.getByRole("textbox", { name: "nose" })).toHaveValue("6.875");
   expect(audit.blocked).toEqual([]);
@@ -338,7 +374,11 @@ test("a late save response does not close a new modal after returning to the sam
   const second = page.getByRole("dialog");
   await second.getByRole("textbox", { name: "nose" }).fill("7");
   release();
-  await expect.poll(() => audit.patches.length).toBe(1);
+  // The summary behind the modal changes only once the app has processed the late success.
+  await expect(page.getByText('8.5" × 31.75" · WB 14.25"')).toBeVisible();
+  await page.waitForFunction(
+    () => (window as unknown as { __patchSettled: number }).__patchSettled >= 1,
+  );
   await expect(second).toBeVisible();
   await expect(second.getByRole("textbox", { name: "nose" })).toHaveValue("7");
   expect(audit.blocked).toEqual([]);
