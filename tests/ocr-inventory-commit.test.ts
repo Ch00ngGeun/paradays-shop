@@ -434,6 +434,25 @@ describe("mixed explicit intake plans", () => {
       ]),
     ).toThrow(OcrInventoryPlanError);
   });
+  it("keeps Korean intake errors by default and returns English on request", async () => {
+    const unconfirmed = {
+      row_A: { kind: "existing" as const, productId: "prd_deck", confirmed: false },
+    };
+    expect(() => intake(unconfirmed, [row()])).toThrow(
+      "1번째 행의 상품 연결 또는 신규 등록 내용을 개별 확인해 주세요.",
+    );
+    expect(() =>
+      buildOcrIntakePlan(
+        { job: job([row()]), products: [product()], selection: unconfirmed },
+        "en",
+      ),
+    ).toThrow("Confirm the product link or new product entry of Row 1 individually.");
+    const applyOcrIntake = vi.fn().mockRejectedValue(new Error("offline"));
+    const result = await executeOcrIntakePlan(intake(), { applyOcrIntake }, "en");
+    expect(result.items[0].message).toBe(
+      "The save result is unclear. Check the actual products and stock first. It is not retried automatically to avoid duplicate receipts.",
+    );
+  });
 });
 
 describe("receipt-verified atomic intake execution", () => {
