@@ -1,4 +1,7 @@
 import type { ReactNode } from "react";
+
+import type { Locale } from "@/types/store";
+
 import styles from "./admin-status.module.css";
 
 export type AdminSeverity = "danger" | "success" | "warning" | "neutral";
@@ -18,6 +21,7 @@ export interface AdminStatusBadgeProps {
   label?: string;
   children?: ReactNode;
   className?: string;
+  locale?: Locale;
 }
 
 export interface AdminNoticeProps {
@@ -27,21 +31,25 @@ export interface AdminNoticeProps {
   /** Opt in only for a notice that changes while the user is on the page. */
   announce?: "off" | "polite" | "assertive";
   className?: string;
+  locale?: Locale;
 }
 
 export interface StockStatusBadgeProps {
   stock: number | undefined;
   className?: string;
+  locale?: Locale;
 }
 
-const statusDetails: Record<AdminStatus, { severity: AdminSeverity; label: string }> = {
-  urgent: { severity: "danger", label: "긴급" },
-  blocking: { severity: "danger", label: "진행 불가" },
-  danger: { severity: "danger", label: "오류" },
-  success: { severity: "success", label: "완료" },
-  attention: { severity: "warning", label: "확인 필요" },
-  warning: { severity: "warning", label: "주의" },
-  neutral: { severity: "neutral", label: "안내" },
+type StatusDetail = { severity: AdminSeverity; label: Record<Locale, string> };
+
+const statusDetails: Record<AdminStatus, StatusDetail> = {
+  urgent: { severity: "danger", label: { ko: "긴급", en: "Urgent" } },
+  blocking: { severity: "danger", label: { ko: "진행 불가", en: "Blocked" } },
+  danger: { severity: "danger", label: { ko: "오류", en: "Error" } },
+  success: { severity: "success", label: { ko: "완료", en: "Done" } },
+  attention: { severity: "warning", label: { ko: "확인 필요", en: "Needs review" } },
+  warning: { severity: "warning", label: { ko: "주의", en: "Warning" } },
+  neutral: { severity: "neutral", label: { ko: "안내", en: "Info" } },
 };
 
 const severityClasses: Record<AdminSeverity, string> = {
@@ -51,11 +59,11 @@ const severityClasses: Record<AdminSeverity, string> = {
   neutral: styles.neutral,
 };
 
-const stockDetails: Record<StockStatus, { severity: AdminSeverity; label: string }> = {
-  normal: { severity: "success", label: "정상" },
-  low: { severity: "warning", label: "주의" },
-  outOfStock: { severity: "neutral", label: "품절" },
-  unknown: { severity: "warning", label: "확인 필요" },
+const stockDetails: Record<StockStatus, StatusDetail> = {
+  normal: { severity: "success", label: { ko: "정상", en: "In stock" } },
+  low: { severity: "warning", label: { ko: "주의", en: "Low" } },
+  outOfStock: { severity: "neutral", label: { ko: "품절", en: "Sold out" } },
+  unknown: { severity: "warning", label: { ko: "확인 필요", en: "Needs review" } },
 };
 
 /** Unknown or invalid quantities must never imply that stock is healthy. */
@@ -112,15 +120,15 @@ export function AdminStatusBadge({
   label,
   children,
   className,
+  locale = "ko",
 }: Readonly<AdminStatusBadgeProps>) {
   const details = statusDetails[status];
+  const name = details.label[locale];
   return (
     <StatusBadge
       status={status}
       severity={details.severity}
-      label={
-        label && label !== details.label ? `${details.label} · ${label}` : details.label
-      }
+      label={label && label !== name ? `${name} · ${label}` : name}
       className={className}
     >
       {children}
@@ -131,6 +139,7 @@ export function AdminStatusBadge({
 export function StockStatusBadge({
   stock,
   className,
+  locale = "ko",
 }: Readonly<StockStatusBadgeProps>) {
   const status = getStockStatus(stock);
   const details = stockDetails[status];
@@ -138,7 +147,7 @@ export function StockStatusBadge({
     <StatusBadge
       stockStatus={status}
       severity={details.severity}
-      label={details.label}
+      label={details.label[locale]}
       className={className}
     />
   );
@@ -184,8 +193,10 @@ export function AdminNotice({
   children,
   announce = "off",
   className,
+  locale = "ko",
 }: Readonly<AdminNoticeProps>) {
   const details = statusDetails[status];
+  const name = details.label[locale];
   // Only explicitly announced urgent or blocking errors interrupt a screen reader.
   const role =
     announce === "off"
@@ -207,8 +218,8 @@ export function AdminNotice({
       <StatusIcon severity={details.severity} />
       <div className={styles.content}>
         <strong className={styles.heading}>
-          {details.label}
-          {title && title !== details.label ? ` · ${title}` : null}
+          {name}
+          {title && title !== name ? ` · ${title}` : null}
         </strong>
         {children !== undefined && children !== null ? (
           <div className={styles.message}>{children}</div>
