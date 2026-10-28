@@ -140,6 +140,87 @@
   font-size: 0.62em;
 }
 
+/* .sizeChartButton — 담기 버튼 아래 상세사이즈 열기 */
+.sizeChartButton {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--color-muted);
+  color: var(--color-muted);
+  cursor: pointer;
+  display: flex;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+  padding: 0.85rem 1.6rem;
+  width: 100%;
+}
+
+.sizeChartButton:hover {
+  background: var(--color-muted);
+  color: var(--color-paper);
+}
+
+.sizeChartButton:focus-visible,
+.sizeChartClose:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+/* .sizeChartOverlay — 왼쪽 상품 이미지, 오른쪽 치수 도면 */
+.sizeChartOverlay {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  display: grid;
+  gap: clamp(1.5rem, 4vw, 4rem);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  inset: 0;
+  overflow: auto;
+  padding: clamp(4rem, 8vh, 6rem) clamp(1rem, 5vw, 5rem) 2rem;
+  position: fixed;
+  z-index: 1000;
+}
+
+.sizeChartClose {
+  background: transparent;
+  border: 0;
+  color: var(--color-ink);
+  cursor: pointer;
+  font-size: 3rem;
+  line-height: 1;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  position: absolute;
+  right: clamp(0.75rem, 3vw, 2.5rem);
+  top: clamp(0.75rem, 2vh, 1.5rem);
+}
+
+.sizeChartImage {
+  min-height: min(80vh, 48rem);
+  position: relative;
+}
+
+.sizeChartImage img {
+  height: 100%;
+  inset: 0;
+  object-fit: contain;
+  position: absolute;
+  width: 100%;
+}
+
+.sizeChartDiagram {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+}
+
+.sizeChartDiagram svg {
+  height: min(80vh, 48rem);
+  max-width: 100%;
+  width: auto;
+}
+
 /* .productImage — 우측(또는 상단) 대형 상품 이미지 */
 .gallery {
   display: flex;
@@ -319,6 +400,20 @@
 
   .productImage {
     cursor: grab;
+    width: 100%;
+  }
+
+  /* 좁은 화면 — 상세사이즈는 이미지 위·도면 아래로 스택 */
+  .sizeChartOverlay {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sizeChartImage {
+    min-height: 50vh;
+  }
+
+  .sizeChartDiagram svg {
+    height: auto;
     width: 100%;
   }
 

@@ -3,9 +3,12 @@
 
 import Image from "next/image";
 import { useRef, useState, type PointerEvent } from "react";
+import { createPortal } from "react-dom";
 
 import { useCart } from "@/contexts/cart-context";
 import { useLocale } from "@/contexts/locale-context";
+import { useFocusTrap } from "@/hooks/use-focus-trap";
+import { useModalLayer } from "@/hooks/use-modal-layer";
 import {
   getLocalizedProductDescription,
   getLocalizedProductName,
@@ -13,6 +16,7 @@ import {
 import type { Product } from "@/types/store";
 
 import { AddedToCartModal } from "./added-to-cart-modal";
+import { DeckSizeDiagram } from "./deck-size-diagram";
 import styles from "./product-detail.module.css";
 
 type ProductDetailProps = {
@@ -52,6 +56,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState(product.sizes[0]);
   const [isAddedModalOpen, setIsAddedModalOpen] = useState(false);
+  const [isSizeChartOpen, setIsSizeChartOpen] = useState(false);
   const gallery = getGalleryImages(product);
   const [imageIndex, setImageIndex] = useState(0);
   const hasGallery = gallery.length > 1;
@@ -189,6 +194,18 @@ export function ProductDetail({ product }: ProductDetailProps) {
             </>
           )}
         </button>
+
+        {product.deckSpec ? (
+          <button
+            aria-haspopup="dialog"
+            className={styles.sizeChartButton}
+            onClick={() => setIsSizeChartOpen(true)}
+            type="button"
+          >
+            <span>{copy.sizeChart}</span>
+            <span aria-hidden="true">＋</span>
+          </button>
+        ) : null}
       </div>
 
       <div className={styles.gallery}>
@@ -281,7 +298,77 @@ export function ProductDetail({ product }: ProductDetailProps) {
         onClose={() => setIsAddedModalOpen(false)}
         productName={displayName}
       />
+
+      {product.deckSpec && isSizeChartOpen ? (
+        <SizeChartOverlay
+          closeLabel={copy.close}
+          image={product.image}
+          name={displayName}
+          onClose={() => setIsSizeChartOpen(false)}
+          spec={product.deckSpec}
+          title={copy.sizeChart}
+        />
+      ) : null}
     </article>
+  );
+}
+
+type SizeChartOverlayProps = Readonly<{
+  closeLabel: string;
+  image: string;
+  name: string;
+  onClose: () => void;
+  spec: NonNullable<Product["deckSpec"]>;
+  title: string;
+}>;
+
+/** 상세사이즈 전체 화면: 왼쪽 대표 이미지, 오른쪽 치수 도면. ESC·닫기 버튼으로 닫습니다. */
+function SizeChartOverlay({
+  closeLabel,
+  image,
+  name,
+  onClose,
+  spec,
+  title,
+}: SizeChartOverlayProps) {
+  const layer = useModalLayer(true);
+  const dialogRef = useFocusTrap(true, onClose);
+
+  if (!layer) {
+    return null;
+  }
+
+  return createPortal(
+    <section
+      aria-label={`${name} ${title}`}
+      aria-modal="true"
+      className={styles.sizeChartOverlay}
+      ref={dialogRef}
+      role="dialog"
+      tabIndex={-1}
+    >
+      <button
+        aria-label={closeLabel}
+        className={styles.sizeChartClose}
+        data-autofocus
+        onClick={onClose}
+        type="button"
+      >
+        ×
+      </button>
+      <div className={styles.sizeChartImage}>
+        {isExternalImage(image) ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img alt={name} referrerPolicy="no-referrer" src={image} />
+        ) : (
+          <Image alt={name} fill sizes="(max-width: 767px) 100vw, 45vw" src={image} />
+        )}
+      </div>
+      <div className={styles.sizeChartDiagram}>
+        <DeckSizeDiagram spec={spec} />
+      </div>
+    </section>,
+    layer,
   );
 }
 
