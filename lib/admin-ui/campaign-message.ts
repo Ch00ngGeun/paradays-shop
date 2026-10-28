@@ -2,6 +2,8 @@
  * 캠페인 본문 template입니다. 발송 기능은 연결하지 않으며 문구와 첨부 구성만 만듭니다.
  * 이메일 로고는 원격 URL이 아니라 본문 삽입(인라인 이미지, Content-ID)으로 항상 맨 위에 둡니다.
  */
+import type { Locale } from "@/types/store";
+
 export type CampaignChannel = "email" | "sms" | "push";
 
 /** 홈 헤더와 같은 승인 로고 파일입니다. 새 로고를 만들지 않습니다. */
@@ -40,37 +42,57 @@ export type CampaignChannelSupport = Readonly<{
   detail: string;
 }>;
 
-const SUPPORT: Readonly<Record<CampaignChannel, CampaignChannelSupport>> = {
+type LocalizedSupport = Omit<CampaignChannelSupport, "label" | "detail"> &
+  Readonly<{ label: Record<Locale, string>; detail: Record<Locale, string> }>;
+
+const SUPPORT: Readonly<Record<CampaignChannel, LocalizedSupport>> = {
   email: {
     channel: "email",
     inlineLogo: true,
     sendingConnected: false,
-    label: "로고 본문 삽입 · 발송 미연결",
-    detail:
-      "PARADAYS 로고를 본문 맨 위에 인라인 이미지로 넣습니다. 실제 이메일 발송은 연결되지 않았습니다.",
+    label: {
+      ko: "로고 본문 삽입 · 발송 미연결",
+      en: "Logo in body · Sending not connected",
+    },
+    detail: {
+      ko: "PARADAYS 로고를 본문 맨 위에 인라인 이미지로 넣습니다. 실제 이메일 발송은 연결되지 않았습니다.",
+      en: "Places the PARADAYS logo as an inline image at the top of the body. Actual email sending is not connected.",
+    },
   },
   sms: {
     channel: "sms",
     inlineLogo: false,
     sendingConnected: false,
-    label: "이미지 불가 · 발송 미연결",
-    detail:
-      "일반 SMS는 본문에 이미지를 넣을 수 없습니다. 로고를 보내려면 MMS 등 이미지 지원 채널 연결이 필요합니다.",
+    label: {
+      ko: "이미지 불가 · 발송 미연결",
+      en: "No images · Sending not connected",
+    },
+    detail: {
+      ko: "일반 SMS는 본문에 이미지를 넣을 수 없습니다. 로고를 보내려면 MMS 등 이미지 지원 채널 연결이 필요합니다.",
+      en: "Plain SMS cannot include images in the body. Sending the logo needs an image-capable channel such as MMS.",
+    },
   },
   push: {
     channel: "push",
     inlineLogo: false,
     sendingConnected: false,
-    label: "이미지 미연결 · 발송 미연결",
-    detail:
-      "푸시 알림 이미지는 기기·발송 서비스 연결이 필요합니다. 현재는 문구만 미리 봅니다.",
+    label: {
+      ko: "이미지 미연결 · 발송 미연결",
+      en: "Images not connected · Sending not connected",
+    },
+    detail: {
+      ko: "푸시 알림 이미지는 기기·발송 서비스 연결이 필요합니다. 현재는 문구만 미리 봅니다.",
+      en: "Push notification images need a device and sending service connection. For now only the text is previewed.",
+    },
   },
 };
 
 export function campaignChannelSupport(
   channel: CampaignChannel,
+  locale: Locale = "ko",
 ): CampaignChannelSupport {
-  return SUPPORT[channel];
+  const support = SUPPORT[channel];
+  return { ...support, label: support.label[locale], detail: support.detail[locale] };
 }
 
 const escapeHtml = (value: string) =>
