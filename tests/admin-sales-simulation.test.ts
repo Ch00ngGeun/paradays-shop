@@ -14,7 +14,7 @@ const auth = vi.hoisted(() => ({
   }),
 }));
 vi.mock("@/contexts/auth-context", () => ({ useAuth: () => auth }));
-import { AdminSalesLedgerPanel } from "@/components/admin-sales-ledger";
+import { AdminSalesLedgerPanel, historyReason } from "@/components/admin-sales-ledger";
 import { AdminSalesSimulationPanel } from "@/components/admin-sales-simulation";
 
 beforeEach(() => {
@@ -45,6 +45,17 @@ describe("sales simulation mode rendering and IO separation", () => {
     expect(html).toContain("Open real operations · Open real sales and daily close");
     expect(html).toMatch(/<button[^>]+disabled[^>]*>Try mock sales and daily close/);
     expect(html).not.toMatch(/[가-힣]/);
+  });
+  it("translates only the server's fixed close reason in English", () => {
+    const close = { action: "CLOSE", reason: "매출 대조 확인" };
+    expect(historyReason(close, "ko")).toBe("매출 대조 확인");
+    expect(historyReason(close, "en")).toBe("Sales reconciliation confirmed");
+    expect(historyReason({ action: "REOPEN", reason: "매출 대조 확인" }, "en")).toBe(
+      "매출 대조 확인",
+    );
+    expect(historyReason({ action: "CLOSE", reason: "현금 재확인" }, "en")).toBe(
+      "현금 재확인",
+    );
   });
   it("renders a synthetic world with permanent warnings, blank editable form and zero online total", () => {
     const html = renderToStaticMarkup(
