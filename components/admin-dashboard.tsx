@@ -2830,7 +2830,7 @@ function ProductOptionControls({
             setNotice(null);
             onChange(event.target.value);
           }}
-          placeholder={category === "Wheels" ? "54mm / 99a" : "8.25 inch, 8.5 inch"}
+          placeholder={category === "Wheels" ? "54mm / 99a" : "8.25”, 8.5”"}
           ref={inputRef}
           value={value}
         />
@@ -2849,7 +2849,7 @@ function ProductOptionControls({
             <option value="">규격 선택</option>
             {PRODUCT_DECK_WIDTHS.map((width) => (
               <option key={width} value={width}>
-                {width} inch
+                {width}”
               </option>
             ))}
             <option value="manual">직접 입력</option>
