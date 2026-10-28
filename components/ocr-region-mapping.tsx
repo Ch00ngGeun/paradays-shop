@@ -9,6 +9,8 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
+import { useLocale } from "@/contexts/locale-context";
+import type { Locale } from "@/types/store";
 import { isOcrRegionMapping } from "../infra/lambda/ocr-table-parser.js";
 import type {
   AdminOcrRemapPreview,
@@ -62,25 +64,54 @@ type Draft = Readonly<{
   quantityConfirmed: boolean;
 }>;
 const FIELDS = ["productName", "brand", "option", "quantity"] as const;
-const FIELD_LABELS: Record<Field, string> = {
-  productName: "상품명",
-  brand: "브랜드",
-  option: "옵션",
-  quantity: "수량",
+const FIELD_LABELS: Record<Locale, Record<Field, string>> = {
+  ko: { productName: "상품명", brand: "브랜드", option: "옵션", quantity: "수량" },
+  en: {
+    productName: "Product name",
+    brand: "Brand",
+    option: "Option",
+    quantity: "Quantity",
+  },
 };
-const MODE_LABELS: Record<Mode, string> = {
-  ...FIELD_LABELS,
-  tableBottom: "표 끝",
-  secondRow: "두 번째 상품 위치",
+const MODE_LABELS: Record<Locale, Record<Mode, string>> = {
+  ko: { ...FIELD_LABELS.ko, tableBottom: "표 끝", secondRow: "두 번째 상품 위치" },
+  en: {
+    ...FIELD_LABELS.en,
+    tableBottom: "Table end",
+    secondRow: "Second product position",
+  },
 };
-const WARNING_LABELS: Record<string, string> = {
-  "quantity-missing": "수량이 확인되지 않은 행이 있습니다.",
-  "empty-quantity": "수량이 확인되지 않은 행이 있습니다.",
-  "excluded-tokens": "선택한 표 밖의 글자는 상품 행에서 제외했습니다.",
-  "region-excluded-tokens":
-    "헤더·선택하지 않은 정보·표 밖의 글자는 원문에 보존하고 상품 행에서 제외했습니다.",
-  "row-stride-inferred": "상품 간격을 추정했습니다. 모든 행을 확인해 주세요.",
+const WARNING_LABELS: Record<string, Readonly<Record<Locale, string>>> = {
+  "quantity-missing": {
+    ko: "수량이 확인되지 않은 행이 있습니다.",
+    en: "Some rows have no confirmed quantity.",
+  },
+  "empty-quantity": {
+    ko: "수량이 확인되지 않은 행이 있습니다.",
+    en: "Some rows have no confirmed quantity.",
+  },
+  "excluded-tokens": {
+    ko: "선택한 표 밖의 글자는 상품 행에서 제외했습니다.",
+    en: "Text outside the selected table was left out of the product rows.",
+  },
+  "region-excluded-tokens": {
+    ko: "헤더·선택하지 않은 정보·표 밖의 글자는 원문에 보존하고 상품 행에서 제외했습니다.",
+    en: "Headers, unselected information and text outside the table were kept in the source text and left out of the product rows.",
+  },
+  "row-stride-inferred": {
+    ko: "상품 간격을 추정했습니다. 모든 행을 확인해 주세요.",
+    en: "The product spacing was estimated. Check every row.",
+  },
 };
+
+/** 처리 결과 문구는 두 언어를 함께 저장하고 화면에 그릴 때 현재 언어로 고릅니다. */
+type Notice = string | Readonly<Record<Locale, string>>;
+
+/** 저장 이름 `양식 N`은 그대로 두고 영어 화면에서만 `Template N`으로 보여 줍니다. */
+function templateDisplayName(name: string, locale: Locale) {
+  const match = /^양식 ([1-9][0-9]?)$/u.exec(name);
+  return locale === "en" && match ? `Template ${match[1]}` : name;
+}
 
 function emptyDraft(): Draft {
   return {
@@ -126,6 +157,8 @@ export function OcrRegionMappingPanel({
   disabled,
   onRemap,
 }: OcrRegionMappingProps) {
+  const { locale } = useLocale();
+  const isKorean = locale === "ko";
   const id = useId();
   const imageRef = useRef<HTMLImageElement>(null);
   const imageUrlRef = useRef<string | null>(null);
@@ -142,7 +175,7 @@ export function OcrRegionMappingPanel({
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState<Notice>("");
   const [preview, setPreview] = useState<{
     key: string;
     result: AdminOcrRemapPreview;
@@ -204,7 +237,7 @@ export function OcrRegionMappingPanel({
       }
     : null;
 
-  function updateDraft(next: Draft, message = "") {
+  function updateDraft(next: Draft, message: Notice = "") {
     requestSerial.current += 1;
     setDraft(next);
     setPreview(null);
@@ -233,7 +266,10 @@ export function OcrRegionMappingPanel({
         firstRow: { ...draft.firstRow, [field]: null },
         ...(field === "quantity" ? { quantityConfirmed: false } : {}),
       },
-      `${FIELD_LABELS[field]} 없음으로 지정했습니다.`,
+      {
+        ko: `${FIELD_LABELS.ko[field]} 없음으로 지정했습니다.`,
+        en: `Set ${FIELD_LABELS.en[field]} to none.`,
+      },
     );
     advance(field);
   }
@@ -246,12 +282,18 @@ export function OcrRegionMappingPanel({
         ...FIELDS.map((field) => draft.firstRow[field]?.bottom ?? 0),
       );
       if (!draft.firstRow.productName || bottom < firstBottom) {
-        setNotice("표 끝은 첫 상품의 모든 선택 영역 아래에 지정해 주세요.");
+        setNotice({
+          ko: "표 끝은 첫 상품의 모든 선택 영역 아래에 지정해 주세요.",
+          en: "Set the table end below every selected area of the first product.",
+        });
         return;
       }
       updateDraft(
         { ...draft, tableBottom: bottom },
-        "표 끝을 지정했습니다. 합계와 하단 안내 문구가 포함되지 않았는지 확인해 주세요.",
+        {
+          ko: "표 끝을 지정했습니다. 합계와 하단 안내 문구가 포함되지 않았는지 확인해 주세요.",
+          en: "Set the table end. Check that totals and footer notes are not included.",
+        },
       );
       return;
     }
@@ -265,17 +307,27 @@ export function OcrRegionMappingPanel({
         y <= first.bottom ||
         (draft.tableBottom !== null && y > draft.tableBottom)
       ) {
-        setNotice(
-          "두 번째 상품명을 첫 상품명과 같은 열에서, 첫 상품 아래와 표 끝 사이에 지정해 주세요.",
-        );
+        setNotice({
+          ko: "두 번째 상품명을 첫 상품명과 같은 열에서, 첫 상품 아래와 표 끝 사이에 지정해 주세요.",
+          en: "Set the second product name in the same column as the first, between the first product and the table end.",
+        });
         return;
       }
-      updateDraft({ ...draft, secondRowY: y }, "두 번째 상품 위치를 지정했습니다.");
+      updateDraft(
+        { ...draft, secondRowY: y },
+        {
+          ko: "두 번째 상품 위치를 지정했습니다.",
+          en: "Set the second product position.",
+        },
+      );
       return;
     }
     const rect = selectionFromPoints(start, end, size);
     if (!rect) {
-      setNotice("글자를 포함하도록 영역을 조금 더 크게 드래그해 주세요.");
+      setNotice({
+        ko: "글자를 포함하도록 영역을 조금 더 크게 드래그해 주세요.",
+        en: "Drag a slightly larger area so it includes the text.",
+      });
       return;
     }
     if (
@@ -286,9 +338,10 @@ export function OcrRegionMappingPanel({
           rectsOverlap(rect, draft.firstRow[field]!),
       )
     ) {
-      setNotice(
-        "선택 영역이 다른 항목과 겹칩니다. 각각의 글자를 나누어 지정해 주세요.",
-      );
+      setNotice({
+        ko: "선택 영역이 다른 항목과 겹칩니다. 각각의 글자를 나누어 지정해 주세요.",
+        en: "The selection overlaps another field. Set each piece of text separately.",
+      });
       return;
     }
     const tableBottom =
@@ -302,7 +355,10 @@ export function OcrRegionMappingPanel({
         tableBottom,
         ...(mode === "quantity" ? { quantityConfirmed: false } : {}),
       },
-      `${FIELD_LABELS[mode]} 영역을 지정했습니다.`,
+      {
+        ko: `${FIELD_LABELS.ko[mode]} 영역을 지정했습니다.`,
+        en: `Set the ${FIELD_LABELS.en[mode]} area.`,
+      },
     );
     advance(mode);
   }
@@ -401,7 +457,9 @@ export function OcrRegionMappingPanel({
       !previewOnly &&
       (!previewCurrent ||
         !window.confirm(
-          "현재 검토 행을 이 영역 지정 결과로 바꿀까요? 상품명·브랜드·옵션·수량의 기존 수정 내용이 바뀝니다.",
+          isKorean
+            ? "현재 검토 행을 이 영역 지정 결과로 바꿀까요? 상품명·브랜드·옵션·수량의 기존 수정 내용이 바뀝니다."
+            : "Replace the current review rows with this area result? Earlier edits to product name, brand, option and quantity will change.",
         ))
     )
       return;
@@ -420,27 +478,33 @@ export function OcrRegionMappingPanel({
         result.preview.version === version
       ) {
         setPreview({ key: mappingKey, result: result.preview });
-        setNotice("모든 상품 행과 수량, 제외된 글자를 확인한 뒤 적용해 주세요.");
+        setNotice({
+          ko: "모든 상품 행과 수량, 제외된 글자를 확인한 뒤 적용해 주세요.",
+          en: "Check every product row, quantity and excluded text, then apply.",
+        });
       } else if (result?.kind === "saved" && !previewOnly) {
         setPreview(null);
-        setNotice("영역 지정을 적용했습니다.");
+        setNotice({ ko: "영역 지정을 적용했습니다.", en: "Applied the area mapping." });
       } else if (result?.kind === "conflict") {
         setPreview(null);
-        setNotice(
-          "검토본이 변경되었습니다. 새 검토본에서 다시 미리보기를 확인해 주세요.",
-        );
+        setNotice({
+          ko: "검토본이 변경되었습니다. 새 검토본에서 다시 미리보기를 확인해 주세요.",
+          en: "The review changed. Check the preview again on the new review.",
+        });
       } else {
         setPreview(null);
-        setNotice(
-          "이 영역으로 상품 행을 만들지 못했습니다. 첫 상품, 표 끝과 반복 간격을 확인해 주세요.",
-        );
+        setNotice({
+          ko: "이 영역으로 상품 행을 만들지 못했습니다. 첫 상품, 표 끝과 반복 간격을 확인해 주세요.",
+          en: "Could not make product rows from these areas. Check the first product, table end and repeat spacing.",
+        });
       }
     } catch {
       if (serial === requestSerial.current) {
         setPreview(null);
-        setNotice(
-          "이 영역으로 상품 행을 만들지 못했습니다. 첫 상품, 표 끝과 반복 간격을 확인해 주세요.",
-        );
+        setNotice({
+          ko: "이 영역으로 상품 행을 만들지 못했습니다. 첫 상품, 표 끝과 반복 간격을 확인해 주세요.",
+          en: "Could not make product rows from these areas. Check the first product, table end and repeat spacing.",
+        });
       }
     } finally {
       if (serial === requestSerial.current) {
@@ -454,14 +518,17 @@ export function OcrRegionMappingPanel({
     try {
       return window.localStorage;
     } catch {
-      setNotice("이 브라우저에서 영역 양식 저장소를 사용할 수 없습니다.");
+      setNotice({
+        ko: "이 브라우저에서 영역 양식 저장소를 사용할 수 없습니다.",
+        en: "Template storage is not available in this browser.",
+      });
       return undefined;
     }
   }
 
   function updateTemplates(
     result: OcrMappingTemplatesResult<OcrMappingTemplate[]>,
-    message: string,
+    message: Notice,
   ) {
     if (!result.ok) {
       setNotice(result.error.message);
@@ -481,10 +548,10 @@ export function OcrRegionMappingPanel({
   function loadTemplates() {
     const target = storage();
     if (target) {
-      updateTemplates(
-        loadOcrMappingTemplates(target),
-        "저장 영역 양식 목록을 불러왔습니다.",
-      );
+      updateTemplates(loadOcrMappingTemplates(target), {
+        ko: "저장 영역 양식 목록을 불러왔습니다.",
+        en: "Loaded the saved area templates.",
+      });
     }
   }
 
@@ -516,10 +583,10 @@ export function OcrRegionMappingPanel({
       },
     };
     if (
-      updateTemplates(
-        saveOcrMappingTemplate(target, template),
-        `${template.name}의 영역 설정을 저장했습니다.`,
-      )
+      updateTemplates(saveOcrMappingTemplate(target, template), {
+        ko: `${template.name}의 영역 설정을 저장했습니다.`,
+        en: `Saved the area settings of ${templateDisplayName(template.name, "en")}.`,
+      })
     ) {
       setSelectedTemplateId(template.id);
     }
@@ -529,16 +596,18 @@ export function OcrRegionMappingPanel({
     const template = templates.find((item) => item.id === selectedTemplateId);
     if (!template || template.mapping.schemaVersion !== 2 || !size) return;
     if (!isOcrRegionTemplateReusable(template, size)) {
-      setNotice(
-        "이미지 비율이 저장된 영역 양식과 맞지 않아 재사용할 수 없습니다. 현재 영역 지정은 유지됩니다.",
-      );
+      setNotice({
+        ko: "이미지 비율이 저장된 영역 양식과 맞지 않아 재사용할 수 없습니다. 현재 영역 지정은 유지됩니다.",
+        en: "The image ratio does not match the saved template, so it cannot be reused. The current areas are kept.",
+      });
       return;
     }
     const resized = { ...template.mapping, image: size };
     if (!isOcrRegionMapping(resized)) {
-      setNotice(
-        "이 이미지 크기에서는 저장된 영역을 사용할 수 없습니다. 현재 영역 지정은 유지됩니다.",
-      );
+      setNotice({
+        ko: "이 이미지 크기에서는 저장된 영역을 사용할 수 없습니다. 현재 영역 지정은 유지됩니다.",
+        en: "The saved areas cannot be used at this image size. The current areas are kept.",
+      });
       return;
     }
     updateDraft(
@@ -548,7 +617,10 @@ export function OcrRegionMappingPanel({
         secondRowY: resized.secondRowY,
         quantityConfirmed: false,
       },
-      `${template.name}의 영역을 불러왔습니다. 영역과 표 끝을 이미지에 맞게 조정하고 수량을 다시 확인한 뒤 미리보기와 적용을 진행해 주세요.`,
+      {
+        ko: `${template.name}의 영역을 불러왔습니다. 영역과 표 끝을 이미지에 맞게 조정하고 수량을 다시 확인한 뒤 미리보기와 적용을 진행해 주세요.`,
+        en: `Loaded the areas of ${templateDisplayName(template.name, "en")}. Adjust the areas and table end to the image, check the quantity again, then preview and apply.`,
+      },
     );
     cancelPointer();
     setMode("productName");
@@ -558,21 +630,28 @@ export function OcrRegionMappingPanel({
   function deleteTemplate() {
     const target = storage();
     if (target && selectedTemplateId) {
-      updateTemplates(
-        deleteOcrMappingTemplate(target, selectedTemplateId),
-        "선택한 영역 양식을 삭제했습니다.",
-      );
+      updateTemplates(deleteOcrMappingTemplate(target, selectedTemplateId), {
+        ko: "선택한 영역 양식을 삭제했습니다.",
+        en: "Deleted the selected area template.",
+      });
     }
   }
 
   function resetTemplates() {
-    if (!window.confirm("이 브라우저에 저장된 양식을 모두 삭제할까요?")) return;
+    if (
+      !window.confirm(
+        isKorean
+          ? "이 브라우저에 저장된 양식을 모두 삭제할까요?"
+          : "Delete all templates saved in this browser?",
+      )
+    )
+      return;
     const target = storage();
     if (target) {
-      updateTemplates(
-        resetOcrMappingTemplates(target),
-        "이 브라우저의 저장 양식을 모두 삭제했습니다.",
-      );
+      updateTemplates(resetOcrMappingTemplates(target), {
+        ko: "이 브라우저의 저장 양식을 모두 삭제했습니다.",
+        en: "Deleted all templates saved in this browser.",
+      });
     }
   }
 
@@ -598,12 +677,13 @@ export function OcrRegionMappingPanel({
                 <button
                   type="button"
                   className={`${styles.stepButton} ${styles[field]}`}
-                  aria-label={`${FIELD_LABELS[field]} 영역`}
+                  aria-label={`${FIELD_LABELS[locale][field]} ${isKorean ? "영역" : "area"}`}
                   aria-pressed={mode === field}
                   onClick={() => chooseMode(field)}
                 >
                   <span>
-                    {index + 1}. {FIELD_LABELS[field]} 영역
+                    {index + 1}. {FIELD_LABELS[locale][field]}{" "}
+                    {isKorean ? "영역" : "area"}
                   </span>
                   <small>
                     {draft.firstRow[field] === null
@@ -619,7 +699,7 @@ export function OcrRegionMappingPanel({
                     className={styles.noneButton}
                     onClick={() => skipField(field)}
                   >
-                    {FIELD_LABELS[field]} 없음
+                    {FIELD_LABELS[locale][field]} {isKorean ? "없음" : "none"}
                   </button>
                 )}
               </div>
@@ -671,7 +751,8 @@ export function OcrRegionMappingPanel({
             </button>
           </div>
           <p className={styles.instruction} id={`${id}-instruction`}>
-            현재 선택: <strong>{MODE_LABELS[mode]}</strong>
+            {isKorean ? "현재 선택:" : "Selected:"}{" "}
+            <strong>{MODE_LABELS[locale][mode]}</strong>
             {mode === "tableBottom"
               ? " · 마지막 상품 바로 아래를 클릭하거나 드래그하세요."
               : mode === "secondRow"
@@ -794,7 +875,7 @@ export function OcrRegionMappingPanel({
                       style={rectStyle(draft.firstRow[field]!)}
                       key={field}
                     >
-                      <span>{FIELD_LABELS[field]}</span>
+                      <span>{FIELD_LABELS[locale][field]}</span>
                     </div>
                   ) : null,
                 )}
@@ -929,8 +1010,10 @@ export function OcrRegionMappingPanel({
               {preview.result.analysis.region.warnings.map((warning, index) => (
                 <li key={index}>
                   {Object.hasOwn(WARNING_LABELS, warning)
-                    ? WARNING_LABELS[warning]
-                    : "영역 해석에 확인이 필요한 항목이 있습니다. 원본과 미리보기를 비교해 주세요."}
+                    ? WARNING_LABELS[warning][locale]
+                    : isKorean
+                      ? "영역 해석에 확인이 필요한 항목이 있습니다. 원본과 미리보기를 비교해 주세요."
+                      : "Some parts of the area result need checking. Compare the source with the preview."}
                 </li>
               ))}
             </ul>
@@ -1023,7 +1106,7 @@ export function OcrRegionMappingPanel({
         </div>
       </fieldset>
       <p className={styles.notice} role="status" aria-live="polite">
-        {notice}
+        {typeof notice === "string" ? notice : notice[locale]}
       </p>
     </section>
   );
