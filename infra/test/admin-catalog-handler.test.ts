@@ -859,6 +859,72 @@ test("PATCH explicitly clears compareAtPrice without reviving it from the stored
   assert.equal(Object.hasOwn(db.records.get("prd_deck")!, "compareAtPrice"), false);
   assert.equal(db.records.get("prd_deck")!.version, 7);
 });
+test("deckSpec-only PATCH saves, publishes, survives other edits and clears with null", async (t) => {
+  const db = fixture(t, [
+    product({
+      status: "PUBLISHED",
+      publicationStatus: "PUBLISHED",
+      image: "/deck.webp",
+      inventoryQuantity: 10,
+      inventoryReserved: 2,
+    }),
+  ]);
+  const deckSpec = {
+    nose: 6.875,
+    tail: 6.5,
+    width: 8.5,
+    length: 31.75,
+    wheelbase: 14.25,
+  };
+
+  // A reserved product still accepts a size-spec edit because it is not part of its identity.
+  const saved = unpack(
+    await handler(event("PATCH", { version: 3, deckSpec }, "prd_deck")),
+  );
+  assert.equal(saved.status, 200);
+  assert.deepEqual(saved.body.product.deckSpec, deckSpec);
+  assert.equal(saved.body.product.version, 4);
+  assert.deepEqual(
+    toPublicCatalogProduct(db.records.get("prd_deck") as CatalogProductRecord)
+      ?.deckSpec,
+    deckSpec,
+  );
+
+  const otherEdit = unpack(
+    await handler(event("PATCH", { version: 4, featured: true }, "prd_deck")),
+  );
+  assert.equal(otherEdit.status, 200);
+  assert.deepEqual(otherEdit.body.product.deckSpec, deckSpec);
+
+  const successfulWrites = db.transactions.length;
+  for (const invalid of [
+    { ...deckSpec, tail: 0 },
+    { ...deckSpec, width: "8.5" },
+    { ...deckSpec, length: 101 },
+    { nose: 6.875 },
+    "8.5",
+  ]) {
+    const rejected = unpack(
+      await handler(event("PATCH", { version: 5, deckSpec: invalid }, "prd_deck")),
+    );
+    assert.equal(rejected.status, 400);
+  }
+  assert.equal(db.transactions.length, successfulWrites);
+  assert.deepEqual(db.records.get("prd_deck")!.deckSpec, deckSpec);
+
+  const cleared = unpack(
+    await handler(event("PATCH", { version: 5, deckSpec: null }, "prd_deck")),
+  );
+  assert.equal(cleared.status, 200);
+  assert.equal(cleared.body.product.deckSpec, undefined);
+  assert.equal(Object.hasOwn(db.records.get("prd_deck")!, "deckSpec"), false);
+  assert.equal(
+    toPublicCatalogProduct(db.records.get("prd_deck") as CatalogProductRecord)
+      ?.deckSpec,
+    undefined,
+  );
+});
+
 test("internal rows cannot be addressed and are hidden without breaking catalog pagination", async (t) => {
   const db = fixture(t);
   await handler(event("POST", existing()));
