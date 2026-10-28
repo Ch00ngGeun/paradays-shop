@@ -18,7 +18,7 @@ describe("deck size diagram", () => {
     expect(formatDeckInches(14.25)).toBe('14.25"');
   });
 
-  it("draws every measurement as inches with a smaller cm value instead of a word label", () => {
+  it("draws every measurement as inches with a smaller cm value and marks the nose and tail ends", () => {
     const markup = renderToStaticMarkup(
       createElement(DeckSizeDiagram, {
         spec: { nose: 6.875, tail: 6.5, width: 8.5, length: 31.75, wheelbase: 14.25 },
@@ -35,7 +35,9 @@ describe("deck size diagram", () => {
       expect(markup).toContain(`${inches}&quot;<tspan`);
       expect(markup).toContain(`>(${cm}cm)</tspan>`);
     }
-    expect(markup.match(/<text/g)).toHaveLength(5);
+    expect(markup.match(/<text/g)).toHaveLength(7);
+    expect(markup).toMatch(/<text[^>]*y="20"[^>]*>nose<\/text>/);
+    expect(markup).toMatch(/<text[^>]*y="600"[^>]*>tail<\/text>/);
     expect(markup).toContain('role="img"');
     expect(markup).toContain("nose 6.875&quot; (17.5cm)");
   });
