@@ -14,5 +14,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    // Some tests import Lambda modules that build AWS clients; never let them probe instance metadata.
+    env: { AWS_EC2_METADATA_DISABLED: "true" },
   },
 });
