@@ -4429,6 +4429,8 @@ function InventorySection({
   products: readonly AdminCatalogListItem[];
   savingIds: ReadonlySet<string>;
 }>) {
+  const { locale } = useLocale();
+  const isKorean = locale === "ko";
   const [filterQuery, setFilterQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
@@ -4436,21 +4438,39 @@ function InventorySection({
     "all",
   );
   const categoryChoices = useMemo(() => {
-    const labels = new Map([
-      ["Deck", "데크"],
-      ["Complete", "컴플리트"],
-      ["Trucks", "트럭"],
-      ["Wheels", "휠"],
-      ["Bearings", "베어링"],
-      ["Top", "상의"],
-      ["Bottom", "하의"],
-      ["Outerwear", "아우터"],
-      ["Shoes", "신발"],
-      ["Accessories", "액세서리"],
-      ["Hardware", "하드웨어"],
-      ["Protection", "보호장비"],
-      ["Other", "기타"],
-    ]);
+    const labels = new Map(
+      isKorean
+        ? [
+            ["Deck", "데크"],
+            ["Complete", "컴플리트"],
+            ["Trucks", "트럭"],
+            ["Wheels", "휠"],
+            ["Bearings", "베어링"],
+            ["Top", "상의"],
+            ["Bottom", "하의"],
+            ["Outerwear", "아우터"],
+            ["Shoes", "신발"],
+            ["Accessories", "액세서리"],
+            ["Hardware", "하드웨어"],
+            ["Protection", "보호장비"],
+            ["Other", "기타"],
+          ]
+        : [
+            ["Deck", "Deck"],
+            ["Complete", "Complete"],
+            ["Trucks", "Trucks"],
+            ["Wheels", "Wheels"],
+            ["Bearings", "Bearings"],
+            ["Top", "Tops"],
+            ["Bottom", "Bottoms"],
+            ["Outerwear", "Outerwear"],
+            ["Shoes", "Shoes"],
+            ["Accessories", "Accessories"],
+            ["Hardware", "Hardware"],
+            ["Protection", "Protection"],
+            ["Other", "Other"],
+          ],
+    );
     for (const category of [
       ...products.map((product) => product.category),
       categoryFilter,
@@ -4460,7 +4480,7 @@ function InventorySection({
       }
     }
     return [...labels.entries()];
-  }, [categoryFilter, products]);
+  }, [categoryFilter, isKorean, products]);
   const brandChoices = useMemo(
     () =>
       [...new Set([...products.map((product) => product.brand), brandFilter])]
@@ -4536,9 +4556,12 @@ function InventorySection({
   const stockSaved =
     Boolean(selectedProduct) && notice?.kind === "success" && !stockSaving;
   const inventorySteps: AdminStep[] = [
-    { label: "상품 선택", state: selectedProduct ? "complete" : "current" },
     {
-      label: "변경 수량 확인",
+      label: isKorean ? "상품 선택" : "Select product",
+      state: selectedProduct ? "complete" : "current",
+    },
+    {
+      label: isKorean ? "변경 수량 확인" : "Check new quantity",
       state: !selectedProduct
         ? "upcoming"
         : stockSaving || stockSaved
@@ -4546,7 +4569,7 @@ function InventorySection({
           : "current",
     },
     {
-      label: "재고 저장",
+      label: isKorean ? "재고 저장" : "Save stock",
       state: !canUpdateStock
         ? "unavailable"
         : stockSaved
@@ -4560,31 +4583,38 @@ function InventorySection({
     <div className={`${styles.sectionStack} ${styles.inventoryScreen}`}>
       <AdminStepper
         className={styles.screenStepper}
-        label="재고 작업 흐름"
+        label={isKorean ? "재고 작업 흐름" : "Inventory workflow"}
+        locale={locale}
         steps={inventorySteps}
       />
       <div className={styles.productPageHeading}>
-        <h2>재고 관리</h2>
-        <p>상품을 선택하고 변경 전후 수량을 확인하세요.</p>
+        <h2>{isKorean ? "재고 관리" : "Inventory"}</h2>
+        <p>
+          {isKorean
+            ? "상품을 선택하고 변경 전후 수량을 확인하세요."
+            : "Select a product and check the quantity before and after the change."}
+        </p>
       </div>
 
       <div className={styles.inventoryToolbar}>
         <label className={styles.inventorySearch}>
-          <span className="srOnly">상품 검색</span>
+          <span className="srOnly">{isKorean ? "상품 검색" : "Search products"}</span>
           <input
             onChange={(event) => setFilterQuery(event.target.value)}
-            placeholder="상품명·브랜드·SKU 검색"
+            placeholder={
+              isKorean ? "상품명·브랜드·SKU 검색" : "Search name · brand · SKU"
+            }
             type="search"
             value={filterQuery}
           />
         </label>
         <label className={styles.inventoryFilter}>
-          <span>카테고리</span>
+          <span>{isKorean ? "카테고리" : "Category"}</span>
           <select
             onChange={(event) => setCategoryFilter(event.target.value)}
             value={categoryFilter}
           >
-            <option value="">전체 카테고리</option>
+            <option value="">{isKorean ? "전체 카테고리" : "All categories"}</option>
             {categoryChoices.map(([category, label]) => (
               <option key={category} value={category}>
                 {label}
@@ -4593,12 +4623,12 @@ function InventorySection({
           </select>
         </label>
         <label className={styles.inventoryFilter}>
-          <span>브랜드</span>
+          <span>{isKorean ? "브랜드" : "Brand"}</span>
           <select
             onChange={(event) => setBrandFilter(event.target.value)}
             value={brandFilter}
           >
-            <option value="">전체 브랜드</option>
+            <option value="">{isKorean ? "전체 브랜드" : "All brands"}</option>
             {brandChoices.map((brand) => (
               <option key={brand} value={brand}>
                 {brand}
@@ -4607,7 +4637,7 @@ function InventorySection({
           </select>
         </label>
         <label className={styles.inventoryFilter}>
-          <span>재고</span>
+          <span>{isKorean ? "재고" : "Stock"}</span>
           <select
             onChange={(event) =>
               setStockFilter(
@@ -4616,10 +4646,12 @@ function InventorySection({
             }
             value={stockFilter}
           >
-            <option value="all">전체</option>
-            <option value="inStock">재고 있음</option>
-            <option value="low">재고 주의(1~5)</option>
-            <option value="soldOut">품절</option>
+            <option value="all">{isKorean ? "전체" : "All"}</option>
+            <option value="inStock">{isKorean ? "재고 있음" : "In stock"}</option>
+            <option value="low">
+              {isKorean ? "재고 주의(1~5)" : "Low stock (1–5)"}
+            </option>
+            <option value="soldOut">{isKorean ? "품절" : "Sold out"}</option>
           </select>
         </label>
         <button
@@ -4628,32 +4660,42 @@ function InventorySection({
           onClick={() => void onRefresh()}
           type="button"
         >
-          새로고침
+          {isKorean ? "새로고침" : "Refresh"}
         </button>
       </div>
 
       {notice ? <NoticeMessage notice={notice} /> : null}
       {loadFailed && !notice ? (
         <p className={styles.noticeError} role="alert">
-          재고 목록을 불러오지 못했습니다. 새로고침으로 다시 확인해 주세요.
+          {isKorean
+            ? "재고 목록을 불러오지 못했습니다. 새로고침으로 다시 확인해 주세요."
+            : "Could not load the stock list. Refresh to check again."}
         </p>
       ) : null}
 
       <div className={styles.inventoryWorkspace}>
         <div className={styles.inventoryPanel} aria-busy={loading}>
           <div className={styles.listPanelHeading}>
-            <h2>상품 재고 목록</h2>
+            <h2>{isKorean ? "상품 재고 목록" : "Product stock list"}</h2>
             <span>{filteredProducts.length}</span>
           </div>
 
           {loading && products.length === 0 ? (
-            <p className={styles.emptyState}>재고 목록을 불러오는 중…</p>
+            <p className={styles.emptyState}>
+              {isKorean ? "재고 목록을 불러오는 중…" : "Loading stock…"}
+            </p>
           ) : null}
 
           {!loading && !loadFailed && filteredProducts.length === 0 ? (
             <div className={styles.emptyState}>
-              <strong>표시할 상품이 없습니다</strong>
-              <p>상품 등록에서 상품을 추가하거나 검색 조건을 바꿔 보세요.</p>
+              <strong>
+                {isKorean ? "표시할 상품이 없습니다" : "No products to show"}
+              </strong>
+              <p>
+                {isKorean
+                  ? "상품 등록에서 상품을 추가하거나 검색 조건을 바꿔 보세요."
+                  : "Add products in product registration or change the search."}
+              </p>
             </div>
           ) : null}
 
@@ -4663,7 +4705,11 @@ function InventorySection({
                 return (
                   <li className={styles.inventoryRow} key={product.id}>
                     <button
-                      aria-label={`${product.name} 재고 조정`}
+                      aria-label={
+                        isKorean
+                          ? `${product.name} 재고 조정`
+                          : `Adjust stock for ${product.name}`
+                      }
                       aria-pressed={selectedId === product.id}
                       className={styles.inventorySelect}
                       onClick={() => selectInventoryProduct(product.id)}
@@ -4677,17 +4723,25 @@ function InventorySection({
                           {product.sku ? ` · ${product.sku}` : ""}
                         </span>
                         <span>
-                          {product.sizes || "옵션 없음"} ·{" "}
+                          {product.sizes || (isKorean ? "옵션 없음" : "No options")} ·{" "}
                           {product.version < 1
-                            ? "로컬 초안"
+                            ? isKorean
+                              ? "로컬 초안"
+                              : "Local draft"
                             : product.isVisible
-                              ? "공개"
-                              : "비공개"}
+                              ? isKorean
+                                ? "공개"
+                                : "Public"
+                              : isKorean
+                                ? "비공개"
+                                : "Private"}
                         </span>
                       </div>
                       <div className={styles.inventoryQuantity}>
-                        <strong>{product.stock}개</strong>
-                        <StockStatusBadge stock={product.stock} />
+                        <strong>
+                          {isKorean ? `${product.stock}개` : product.stock}
+                        </strong>
+                        <StockStatusBadge locale={locale} stock={product.stock} />
                       </div>
                     </button>
                   </li>
@@ -4708,11 +4762,18 @@ function InventorySection({
             product={selectedProduct}
           />
         ) : (
-          <aside className={styles.inventoryAdjustment} aria-label="재고 조정">
-            <h2>재고 조정</h2>
+          <aside
+            className={styles.inventoryAdjustment}
+            aria-label={isKorean ? "재고 조정" : "Adjust stock"}
+          >
+            <h2>{isKorean ? "재고 조정" : "Adjust stock"}</h2>
             <div className={styles.emptyState}>
-              <strong>상품을 선택하세요</strong>
-              <p>목록에서 상품을 선택하면 변경 수량을 미리 확인할 수 있습니다.</p>
+              <strong>{isKorean ? "상품을 선택하세요" : "Select a product"}</strong>
+              <p>
+                {isKorean
+                  ? "목록에서 상품을 선택하면 변경 수량을 미리 확인할 수 있습니다."
+                  : "Select a product in the list to preview the new quantity."}
+              </p>
             </div>
           </aside>
         )}
@@ -4737,6 +4798,8 @@ function StockStepper({
   onReload: () => Promise<readonly AdminCatalogListItem[] | null>;
   product: AdminCatalogListItem;
 }>) {
+  const { locale } = useLocale();
+  const isKorean = locale === "ko";
   const [snapshot, setSnapshot] = useState({
     stock: product.stock,
     version: product.version,
@@ -4756,14 +4819,24 @@ function StockStepper({
   const locked = disabled || saving || reloading;
   const delta = valid ? parsed - snapshot.stock : null;
   const statusLabel = saving
-    ? "저장 중"
+    ? isKorean
+      ? "저장 중"
+      : "Saving"
     : stale || reviewRequired
-      ? "최신 재고 확인 필요"
+      ? isKorean
+        ? "최신 재고 확인 필요"
+        : "Check latest stock"
       : lastSaved === "remote"
-        ? "저장 완료"
+        ? isKorean
+          ? "저장 완료"
+          : "Saved"
         : lastSaved === "local"
-          ? "임시 변경 · 서버 미저장"
-          : "미리보기 · 아직 미반영";
+          ? isKorean
+            ? "임시 변경 · 서버 미저장"
+            : "Temporary change · Not saved to server"
+          : isKorean
+            ? "미리보기 · 아직 미반영"
+            : "Preview · Not applied yet";
 
   const updateDraft = (value: string) => {
     setDraft(value);
@@ -4790,10 +4863,12 @@ function StockStepper({
   };
   const commitDraft = async () => {
     if (locked || committingRef.current || stale || reviewRequired || !changed) return;
-    const target = remote ? "서버 재고" : "이 화면의 임시 수량";
+    const sign = delta! >= 0 ? "+" : "";
     if (
       !window.confirm(
-        `${product.name}\n현재 ${snapshot.stock}개 → 변경 후 ${parsed}개 (${delta! >= 0 ? "+" : ""}${delta}개)\n${target}을 변경할까요?`,
+        isKorean
+          ? `${product.name}\n현재 ${snapshot.stock}개 → 변경 후 ${parsed}개 (${sign}${delta}개)\n${remote ? "서버 재고" : "이 화면의 임시 수량"}을 변경할까요?`
+          : `${product.name}\nNow ${snapshot.stock} → after change ${parsed} (${sign}${delta})\nChange ${remote ? "the server stock" : "the temporary quantity on this screen"}?`,
       )
     )
       return;
@@ -4818,12 +4893,12 @@ function StockStepper({
   return (
     <aside
       className={styles.inventoryAdjustment}
-      aria-label="재고 조정"
+      aria-label={isKorean ? "재고 조정" : "Adjust stock"}
       aria-busy={locked}
     >
       <div className={styles.inventoryAdjustmentHeader}>
         <h2 id="inventory-adjustment-title" tabIndex={-1} data-product-id={product.id}>
-          재고 조정
+          {isKorean ? "재고 조정" : "Adjust stock"}
         </h2>
         <span className={styles.productSaveState} role="status">
           {statusLabel}
@@ -4834,24 +4909,36 @@ function StockStepper({
         <div>
           <strong>{product.name}</strong>
           <span>
-            {product.brand} · {product.sizes || "옵션 없음"}
+            {product.brand} · {product.sizes || (isKorean ? "옵션 없음" : "No options")}
           </span>
           <span>
-            {product.version < 1 ? "로컬 초안" : product.isVisible ? "공개" : "비공개"}
+            {product.version < 1
+              ? isKorean
+                ? "로컬 초안"
+                : "Local draft"
+              : product.isVisible
+                ? isKorean
+                  ? "공개"
+                  : "Public"
+                : isKorean
+                  ? "비공개"
+                  : "Private"}
           </span>
         </div>
       </div>
       {!remote ? (
         <p className={styles.productStorageNote}>
-          이 화면에서만 수량을 변경합니다. 서버 재고에는 반영되지 않습니다.
+          {isKorean
+            ? "이 화면에서만 수량을 변경합니다. 서버 재고에는 반영되지 않습니다."
+            : "Changes the quantity on this screen only. Server stock is not updated."}
         </p>
       ) : null}
       <label className={styles.inventoryQuantityLabel} htmlFor="inventory-next-stock">
-        변경 후 재고 수량
+        {isKorean ? "변경 후 재고 수량" : "Stock after change"}
       </label>
       <div className={styles.stockStepper}>
         <button
-          aria-label="재고 1개 감소"
+          aria-label={isKorean ? "재고 1개 감소" : "Decrease stock by 1"}
           className={styles.stockStepButton}
           disabled={locked || !valid || parsed <= 0}
           onClick={() => updateDraft(String(parsed - 1))}
@@ -4874,7 +4961,7 @@ function StockStepper({
           value={draft}
         />
         <button
-          aria-label="재고 1개 증가"
+          aria-label={isKorean ? "재고 1개 증가" : "Increase stock by 1"}
           className={styles.stockStepButton}
           disabled={locked || !valid || parsed >= 1_000_000}
           onClick={() => updateDraft(String(parsed + 1))}
@@ -4884,7 +4971,9 @@ function StockStepper({
         </button>
       </div>
       <p className={styles.inventoryInputHint} id="inventory-input-hint">
-        0~1,000,000개 · 확인 전에는 수량이 변경되지 않습니다.
+        {isKorean
+          ? "0~1,000,000개 · 확인 전에는 수량이 변경되지 않습니다."
+          : "0–1,000,000 · The quantity does not change until you confirm."}
       </p>
       <p
         className={styles.inventoryDraftError}
@@ -4892,34 +4981,46 @@ function StockStepper({
         role={!valid ? "alert" : undefined}
       >
         {!valid
-          ? "0~1,000,000 사이의 정수를 입력해 주세요. 입력값은 자동으로 바꾸지 않습니다."
+          ? isKorean
+            ? "0~1,000,000 사이의 정수를 입력해 주세요. 입력값은 자동으로 바꾸지 않습니다."
+            : "Enter a whole number from 0 to 1,000,000. Your input is not changed automatically."
           : ""}
       </p>
       {stale || reviewRequired ? (
         <p className={styles.inventoryDraftError} role="alert">
           {stale
-            ? `최신 재고는 ${product.stock}개입니다. 입력 내용은 보존했습니다.`
-            : "변경 결과를 다시 확인해야 합니다."}{" "}
-          최신 재고를 조회한 뒤 다시 시작해 주세요.
+            ? isKorean
+              ? `최신 재고는 ${product.stock}개입니다. 입력 내용은 보존했습니다.`
+              : `The latest stock is ${product.stock}. Your input is kept.`
+            : isKorean
+              ? "변경 결과를 다시 확인해야 합니다."
+              : "Check the change result again."}{" "}
+          {isKorean
+            ? "최신 재고를 조회한 뒤 다시 시작해 주세요."
+            : "Load the latest stock, then start again."}
         </p>
       ) : null}
       <div
         className={styles.inventoryImpact}
-        aria-label="재고 변경 미리보기"
+        aria-label={isKorean ? "재고 변경 미리보기" : "Stock change preview"}
         role="group"
       >
         <div>
-          <span>현재</span>
-          <strong>{snapshot.stock}개</strong>
+          <span>{isKorean ? "현재" : "Now"}</span>
+          <strong>{isKorean ? `${snapshot.stock}개` : snapshot.stock}</strong>
         </div>
         <div>
-          <span>변경 수량</span>
-          <strong>{delta === null ? "—" : `${delta >= 0 ? "+" : ""}${delta}개`}</strong>
+          <span>{isKorean ? "변경 수량" : "Change"}</span>
+          <strong>
+            {delta === null
+              ? "—"
+              : `${delta >= 0 ? "+" : ""}${delta}${isKorean ? "개" : ""}`}
+          </strong>
           <span aria-hidden="true">→</span>
         </div>
         <div>
-          <span>변경 후</span>
-          <strong>{valid ? `${parsed}개` : "—"}</strong>
+          <span>{isKorean ? "변경 후" : "After"}</span>
+          <strong>{valid ? `${parsed}${isKorean ? "개" : ""}` : "—"}</strong>
         </div>
       </div>
       <button
@@ -4928,7 +5029,13 @@ function StockStepper({
         onClick={() => void commitDraft()}
         type="button"
       >
-        {saving ? "저장 중…" : "재고 변경 내용 확인"}
+        {saving
+          ? isKorean
+            ? "저장 중…"
+            : "Saving…"
+          : isKorean
+            ? "재고 변경 내용 확인"
+            : "Review stock change"}
       </button>
       <button
         className={styles.secondaryButton}
@@ -4936,10 +5043,18 @@ function StockStepper({
         onClick={() => void handleUseLatest()}
         type="button"
       >
-        {reloading ? "최신 재고 확인 중…" : "최신 재고로 다시 시작"}
+        {reloading
+          ? isKorean
+            ? "최신 재고 확인 중…"
+            : "Checking latest stock…"
+          : isKorean
+            ? "최신 재고로 다시 시작"
+            : "Restart with latest stock"}
       </button>
       {!changed && valid && !stale && !reviewRequired ? (
-        <p className={styles.inventoryInputHint}>변경할 수량을 입력해 주세요.</p>
+        <p className={styles.inventoryInputHint}>
+          {isKorean ? "변경할 수량을 입력해 주세요." : "Enter the quantity to change."}
+        </p>
       ) : null}
     </aside>
   );
