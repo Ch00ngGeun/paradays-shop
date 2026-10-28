@@ -5482,6 +5482,8 @@ function MembersSection({
   revision: number;
   saving: boolean;
 }>) {
+  const { locale } = useLocale();
+  const isKorean = locale === "ko";
   const [search, setSearch] = useState("");
   const [selectedUsername, setSelectedUsername] = useState<string | null>(null);
   // 권한 변경 저장이 성공으로 끝난 경우만 마지막 단계를 완료로 봅니다(조회 성공 알림 제외).
@@ -5520,25 +5522,35 @@ function MembersSection({
     }
   }
   const emptyTitle = loading
-    ? "회원 목록을 불러오고 있습니다"
+    ? isKorean
+      ? "회원 목록을 불러오고 있습니다"
+      : "Loading the member list"
     : loadFailed
-      ? "최신 회원 목록을 확인하지 못했습니다"
+      ? isKorean
+        ? "최신 회원 목록을 확인하지 못했습니다"
+        : "Could not confirm the latest member list"
       : !loaded
-        ? "회원 목록을 아직 조회하지 않았습니다"
+        ? isKorean
+          ? "회원 목록을 아직 조회하지 않았습니다"
+          : "The member list has not been loaded yet"
         : members.length === 0
-          ? "이번 조회에서 회원이 반환되지 않았습니다"
-          : "검색 조건에 맞는 회원이 없습니다";
+          ? isKorean
+            ? "이번 조회에서 회원이 반환되지 않았습니다"
+            : "No members were returned in this query"
+          : isKorean
+            ? "검색 조건에 맞는 회원이 없습니다"
+            : "No members match the search";
   const memberSteps: AdminStep[] = [
     {
-      label: "회원 조회",
+      label: isKorean ? "회원 조회" : "Load members",
       state: !canLoad ? "unavailable" : loaded && !loadFailed ? "complete" : "current",
     },
     {
-      label: "회원 선택",
+      label: isKorean ? "회원 선택" : "Select member",
       state: !loaded || loadFailed ? "upcoming" : selected ? "complete" : "current",
     },
     {
-      label: "권한 변경",
+      label: isKorean ? "권한 변경" : "Change permission",
       state: !canUpdate
         ? "unavailable"
         : !selected
@@ -5552,33 +5564,41 @@ function MembersSection({
     <div className={`${styles.sectionStack} ${styles.memberScreen}`}>
       <AdminStepper
         className={styles.screenStepper}
-        label="회원 작업 흐름"
+        label={isKorean ? "회원 작업 흐름" : "Member workflow"}
+        locale={locale}
         steps={memberSteps}
       />
       <header className={styles.memberHeader}>
         <div>
-          <p>고객 / 회원</p>
-          <h2>회원 관리</h2>
+          <p>{isKorean ? "고객 / 회원" : "Customers / Members"}</p>
+          <h2>{isKorean ? "회원 관리" : "Members"}</h2>
         </div>
         <details className={styles.memberHelp}>
-          <summary>도움말</summary>
+          <summary>{isKorean ? "도움말" : "Help"}</summary>
           <p>
-            조회 버튼을 눌러야 회원 정보를 불러옵니다. 검색은 이번 API 응답의 회원만
-            필터링하며 전체 회원 검색이나 전체 회원 수 집계가 아닙니다.
+            {isKorean
+              ? "조회 버튼을 눌러야 회원 정보를 불러옵니다. 검색은 이번 API 응답의 회원만 필터링하며 전체 회원 검색이나 전체 회원 수 집계가 아닙니다."
+              : "Member information loads only when you press the load button. Search filters only the members in this API response; it is not a full member search or total count."}
           </p>
           <p>
-            계정 활성 상태는 읽기 전용이며 수신 동의 정보는 제공되지 않습니다. 이
-            화면에서 변경할 수 있는 항목은 admin·support 운영 권한뿐입니다.
+            {isKorean
+              ? "계정 활성 상태는 읽기 전용이며 수신 동의 정보는 제공되지 않습니다. 이 화면에서 변경할 수 있는 항목은 admin·support 운영 권한뿐입니다."
+              : "Account status is read-only and consent information is not provided. Only the admin and support operating permissions can be changed here."}
           </p>
         </details>
       </header>
-      <section className={styles.memberToolbar} aria-label="회원 조회">
+      <section
+        className={styles.memberToolbar}
+        aria-label={isKorean ? "회원 조회" : "Load members"}
+      >
         <label>
-          <span>불러온 회원 검색</span>
+          <span>{isKorean ? "불러온 회원 검색" : "Search loaded members"}</span>
           <input
             disabled={!loaded || locked}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="이름·이메일·계정 식별자"
+            placeholder={
+              isKorean ? "이름·이메일·계정 식별자" : "Name · email · account ID"
+            }
             type="search"
             value={search}
           />
@@ -5589,13 +5609,25 @@ function MembersSection({
           onClick={onLoad}
           type="button"
         >
-          {loading ? "회원 목록 불러오는 중…" : "회원 목록 불러오기"}
+          {loading
+            ? isKorean
+              ? "회원 목록 불러오는 중…"
+              : "Loading members…"
+            : isKorean
+              ? "회원 목록 불러오기"
+              : "Load member list"}
         </button>
-        <p>필요할 때만 조회 · 검색어와 선택 회원은 URL·저장소에 보관하지 않습니다.</p>
+        <p>
+          {isKorean
+            ? "필요할 때만 조회 · 검색어와 선택 회원은 URL·저장소에 보관하지 않습니다."
+            : "Loaded only when needed · Search terms and the selected member are not kept in the URL or storage."}
+        </p>
       </section>
       {!canLoad ? (
         <p className={styles.memberStateNote}>
-          회원 목록 API가 연결되지 않았습니다. 서버 연결 후 조회할 수 있습니다.
+          {isKorean
+            ? "회원 목록 API가 연결되지 않았습니다. 서버 연결 후 조회할 수 있습니다."
+            : "The member list API is not connected. You can load members once the server is connected."}
         </p>
       ) : null}
       {notice ? <NoticeMessage notice={notice} /> : null}
@@ -5603,12 +5635,22 @@ function MembersSection({
         <section className={styles.memberDirectory} aria-labelledby="member-list-title">
           <div className={styles.memberDirectoryHeading}>
             <h3 id="member-list-title">
-              {loaded ? `이번 조회 회원 ${members.length}명` : "이번 조회 회원 —"}
+              {loaded
+                ? isKorean
+                  ? `이번 조회 회원 ${members.length}명`
+                  : `Members in this query: ${members.length}`
+                : isKorean
+                  ? "이번 조회 회원 —"
+                  : "Members in this query: —"}
             </h3>
             <p>
               {loadFailed
-                ? "최신 조회 실패 · 이전 결과일 수 있음"
-                : "이번 API 응답 범위 · 전체 회원 목록 아님"}
+                ? isKorean
+                  ? "최신 조회 실패 · 이전 결과일 수 있음"
+                  : "Latest load failed · May be an earlier result"
+                : isKorean
+                  ? "이번 API 응답 범위 · 전체 회원 목록 아님"
+                  : "This API response only · Not the full member list"}
             </p>
           </div>
           {matching.length ? (
@@ -5618,7 +5660,9 @@ function MembersSection({
                 return (
                   <li key={member.username}>
                     <button
-                      aria-label={`${label} 회원 상세`}
+                      aria-label={
+                        isKorean ? `${label} 회원 상세` : `${label} member details`
+                      }
                       aria-pressed={selectedUsername === member.username}
                       disabled={locked}
                       onClick={() => selectMember(member.username)}
@@ -5631,10 +5675,18 @@ function MembersSection({
                       <span className={styles.memberGroupSummary}>
                         {member.groups.length
                           ? member.groups.join(" · ")
-                          : "운영 그룹 없음"}
+                          : isKorean
+                            ? "운영 그룹 없음"
+                            : "No operating group"}
                       </span>
                       <span className={styles.memberEnabled}>
-                        {member.enabled ? "활성" : "비활성"}
+                        {member.enabled
+                          ? isKorean
+                            ? "활성"
+                            : "Active"
+                          : isKorean
+                            ? "비활성"
+                            : "Inactive"}
                       </span>
                     </button>
                   </li>
@@ -5646,8 +5698,12 @@ function MembersSection({
               title={emptyTitle}
               description={
                 loaded && members.length > 0
-                  ? "이름·이메일·계정 식별자로 다시 검색해 보세요."
-                  : "조회 버튼을 눌러 이번 응답 범위의 회원 정보를 확인하세요."
+                  ? isKorean
+                    ? "이름·이메일·계정 식별자로 다시 검색해 보세요."
+                    : "Search again by name, email or account ID."
+                  : isKorean
+                    ? "조회 버튼을 눌러 이번 응답 범위의 회원 정보를 확인하세요."
+                    : "Press the load button to see members in this response."
               }
             />
           )}
@@ -5666,11 +5722,15 @@ function MembersSection({
         ) : (
           <aside className={styles.memberDetailEmpty}>
             <span aria-hidden="true">◎</span>
-            <h3>회원 상세</h3>
+            <h3>{isKorean ? "회원 상세" : "Member details"}</h3>
             <p>
               {loaded
-                ? "목록에서 회원을 선택하면 계정 상태와 운영 권한을 확인할 수 있습니다."
-                : "회원 목록을 먼저 불러와 주세요."}
+                ? isKorean
+                  ? "목록에서 회원을 선택하면 계정 상태와 운영 권한을 확인할 수 있습니다."
+                  : "Select a member in the list to see account status and operating permissions."
+                : isKorean
+                  ? "회원 목록을 먼저 불러와 주세요."
+                  : "Load the member list first."}
             </p>
           </aside>
         )}
@@ -5701,12 +5761,16 @@ function MemberDetail({
   ) => void;
   saving: boolean;
 }>) {
+  const { locale } = useLocale();
+  const isKorean = locale === "ko";
   const [group, setGroup] = useState<"admin" | "support" | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const label = member.displayName ?? member.email ?? member.username;
   const currentGroups = member.groups.length
     ? member.groups.join(" · ")
-    : "운영 그룹 없음";
+    : isKorean
+      ? "운영 그룹 없음"
+      : "No operating group";
   const add = group ? !member.groups.includes(group) : false;
   const nextGroups = group
     ? add
@@ -5729,38 +5793,61 @@ function MemberDetail({
           {label}
         </h3>
         <span>
-          {needsRefresh ? "최신 확인 필요" : group ? "변경 전 확인" : "읽기·권한 관리"}
+          {needsRefresh
+            ? isKorean
+              ? "최신 확인 필요"
+              : "Check latest"
+            : group
+              ? isKorean
+                ? "변경 전 확인"
+                : "Review before change"
+              : isKorean
+                ? "읽기·권한 관리"
+                : "View & permissions"}
         </span>
       </div>
       <dl className={styles.memberFacts}>
         <div>
-          <dt>계정 식별자</dt>
+          <dt>{isKorean ? "계정 식별자" : "Account ID"}</dt>
           <dd>{member.username}</dd>
         </div>
         {member.email ? (
           <div>
-            <dt>이메일</dt>
+            <dt>{isKorean ? "이메일" : "Email"}</dt>
             <dd>{member.email}</dd>
           </div>
         ) : null}
         <div>
           <dt>
-            계정 상태 <span>(읽기 전용)</span>
+            {isKorean ? "계정 상태" : "Account status"}{" "}
+            <span>{isKorean ? "(읽기 전용)" : "(read-only)"}</span>
           </dt>
-          <dd>{member.enabled ? "활성" : "비활성"}</dd>
+          <dd>
+            {member.enabled
+              ? isKorean
+                ? "활성"
+                : "Active"
+              : isKorean
+                ? "비활성"
+                : "Inactive"}
+          </dd>
         </div>
         <div>
-          <dt>마케팅 수신 동의</dt>
-          <dd>조회 데이터 없음</dd>
+          <dt>{isKorean ? "마케팅 수신 동의" : "Marketing consent"}</dt>
+          <dd>{isKorean ? "조회 데이터 없음" : "No data loaded"}</dd>
         </div>
         <div>
-          <dt>현재 운영 권한</dt>
+          <dt>{isKorean ? "현재 운영 권한" : "Current permissions"}</dt>
           <dd>{currentGroups}</dd>
         </div>
       </dl>
       <fieldset className={styles.memberPermissionFields} disabled={cannotChange}>
-        <legend>운영 권한 변경</legend>
-        <p>변경할 권한을 선택해 현재 상태와 적용할 내용을 비교하세요.</p>
+        <legend>{isKorean ? "운영 권한 변경" : "Change operating permission"}</legend>
+        <p>
+          {isKorean
+            ? "변경할 권한을 선택해 현재 상태와 적용할 내용을 비교하세요."
+            : "Choose a permission to compare the current state with the change."}
+        </p>
         <div className={styles.memberPermissionChoices}>
           {(["support", "admin"] as const).map((value) => {
             const removing = member.groups.includes(value);
@@ -5779,7 +5866,14 @@ function MemberDetail({
                 }}
                 type="button"
               >
-                {value} {removing ? "해제 준비" : "부여 준비"}
+                {value}{" "}
+                {removing
+                  ? isKorean
+                    ? "해제 준비"
+                    : "prepare removal"
+                  : isKorean
+                    ? "부여 준비"
+                    : "prepare grant"}
               </button>
             );
           })}
@@ -5788,24 +5882,37 @@ function MemberDetail({
         member.userSub &&
         member.userSub === currentUserSub ? (
           <p className={styles.memberStateNote}>
-            본인 계정의 admin 권한은 해제할 수 없습니다.
+            {isKorean
+              ? "본인 계정의 admin 권한은 해제할 수 없습니다."
+              : "You cannot remove the admin permission from your own account."}
           </p>
         ) : null}
         {group ? (
-          <div className={styles.memberChangePreview} aria-label="권한 변경 미리보기">
-            <strong>아직 미반영</strong>
+          <div
+            className={styles.memberChangePreview}
+            aria-label={isKorean ? "권한 변경 미리보기" : "Permission change preview"}
+          >
+            <strong>{isKorean ? "아직 미반영" : "Not applied yet"}</strong>
             <dl>
               <div>
-                <dt>현재</dt>
+                <dt>{isKorean ? "현재" : "Now"}</dt>
                 <dd>{currentGroups}</dd>
               </div>
               <div>
-                <dt>변경 후</dt>
-                <dd>{nextGroups.length ? nextGroups.join(" · ") : "운영 그룹 없음"}</dd>
+                <dt>{isKorean ? "변경 후" : "After"}</dt>
+                <dd>
+                  {nextGroups.length
+                    ? nextGroups.join(" · ")
+                    : isKorean
+                      ? "운영 그룹 없음"
+                      : "No operating group"}
+                </dd>
               </div>
             </dl>
             <p>
-              {group} 그룹을 {add ? "부여" : "해제"}합니다. 대상: {member.username}
+              {isKorean
+                ? `${group} 그룹을 ${add ? "부여" : "해제"}합니다. 대상: ${member.username}`
+                : `${add ? "Grants" : "Removes"} the ${group} group. Target: ${member.username}`}
             </p>
             <label>
               <input
@@ -5813,7 +5920,9 @@ function MemberDetail({
                 onChange={(event) => setConfirmed(event.target.checked)}
                 type="checkbox"
               />
-              선택한 회원과 권한 변경 내용을 확인했습니다
+              {isKorean
+                ? "선택한 회원과 권한 변경 내용을 확인했습니다"
+                : "I checked the selected member and the permission change"}
             </label>
           </div>
         ) : null}
@@ -5825,7 +5934,9 @@ function MemberDetail({
               if (!group || !confirmed || cannotChange || selfAdminBlocked) return;
               if (
                 !window.confirm(
-                  `${label} (${member.username})\n현재: ${currentGroups}\n변경 후: ${nextGroups.length ? nextGroups.join(" · ") : "운영 그룹 없음"}\n${group} 그룹을 ${add ? "부여" : "해제"}할까요?`,
+                  isKorean
+                    ? `${label} (${member.username})\n현재: ${currentGroups}\n변경 후: ${nextGroups.length ? nextGroups.join(" · ") : isKorean ? "운영 그룹 없음" : "No operating group"}\n${group} 그룹을 ${add ? "부여" : "해제"}할까요?`
+                    : `${label} (${member.username})\nNow: ${currentGroups}\nAfter: ${nextGroups.length ? nextGroups.join(" · ") : "No operating group"}\n${add ? "Grant" : "Remove"} the ${group} group?`,
                 )
               )
                 return;
@@ -5833,7 +5944,13 @@ function MemberDetail({
             }}
             type="button"
           >
-            {saving ? "권한 변경 중…" : "권한 변경 내용 확인"}
+            {saving
+              ? isKorean
+                ? "권한 변경 중…"
+                : "Changing permission…"
+              : isKorean
+                ? "권한 변경 내용 확인"
+                : "Review permission change"}
           </button>
           <button
             className={styles.secondaryButton}
@@ -5844,22 +5961,27 @@ function MemberDetail({
             }}
             type="button"
           >
-            권한 선택 취소
+            {isKorean ? "권한 선택 취소" : "Cancel selection"}
           </button>
         </div>
       </fieldset>
       {needsRefresh ? (
         <p className={styles.memberStateWarning}>
-          최신 권한을 확인해야 합니다. 회원 목록을 다시 불러온 뒤 변경 내용을 새로
-          검토하세요.
+          {isKorean
+            ? "최신 권한을 확인해야 합니다. 회원 목록을 다시 불러온 뒤 변경 내용을 새로 검토하세요."
+            : "Check the latest permissions. Load the member list again, then review the change from scratch."}
         </p>
       ) : !canUpdate ? (
         <p className={styles.memberStateNote}>
-          권한 변경 API가 연결되지 않아 읽기만 가능합니다.
+          {isKorean
+            ? "권한 변경 API가 연결되지 않아 읽기만 가능합니다."
+            : "The permission API is not connected, so this is read-only."}
         </p>
       ) : (
         <p className={styles.memberStateNote}>
-          그룹 변경은 서버에서 다시 검증합니다. 새 권한은 다음 로그인부터 적용됩니다.
+          {isKorean
+            ? "그룹 변경은 서버에서 다시 검증합니다. 새 권한은 다음 로그인부터 적용됩니다."
+            : "The server validates group changes again. New permissions apply from the next sign-in."}
         </p>
       )}
     </aside>
