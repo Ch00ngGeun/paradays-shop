@@ -68,6 +68,25 @@ export function DeckSizeDiagram({ spec }: Readonly<{ spec: DeckSpec }>) {
         <path d="M 270 180 H 280 V 440 H 270" />
         <path d="M 270 460 H 280 V 580 H 270" />
       </g>
+      {/* 앞뒤 구분: 윤곽 위·아래 끝 바로 바깥 */}
+      <text
+        className={styles.label}
+        dominantBaseline="middle"
+        textAnchor="middle"
+        x="180"
+        y="20"
+      >
+        nose
+      </text>
+      <text
+        className={styles.label}
+        dominantBaseline="middle"
+        textAnchor="middle"
+        x="180"
+        y="600"
+      >
+        tail
+      </text>
       <DiagramLabel inches={spec.length} rotate={-90} x={45} y={310} />
       <DiagramLabel inches={spec.width} x={180} y={310} />
       <DiagramLabel inches={spec.nose} rotate={90} x={305} y={100} />
