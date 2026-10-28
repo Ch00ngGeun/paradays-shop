@@ -53,6 +53,7 @@ import type {
   AdminOverviewMetrics,
   AdminProductDraft,
 } from "@/lib/admin-ui/types";
+import type { DeckSpec } from "@/types/store";
 import {
   appendProductOption,
   createProductSku,
@@ -83,6 +84,8 @@ import { AdminOrderInventoryPanel } from "./admin-order-inventory";
 import { AdminOrderSimulationPanel } from "./admin-order-simulation";
 import { AdminSalesLedgerPanel } from "./admin-sales-ledger";
 import { AdminNotice, AdminStatusBadge, StockStatusBadge } from "./admin-status";
+import { AdminDeckSpecModal } from "./admin-deck-spec-modal";
+import { formatDeckInches } from "./deck-size-diagram";
 import {
   OcrInventoryCommitPanel,
   OcrInventoryAttemptStore,
@@ -1190,6 +1193,40 @@ function AdminWorkspace({
     }
   };
 
+  /** 상세사이즈 모달 저장: 상품 저장과 별도로 즉시 서버에 반영하고, 열린 폼의 version을 따라 올려 409를 막습니다. */
+  const saveProductDeckSpec = async (deckSpec: DeckSpec | null) => {
+    const editor = productEditor;
+    const productId = editor?.draft.productId;
+    const version = editor?.draft.version;
+
+    if (!actions?.updateProductDeckSpec || !editor || !productId || !version) {
+      throw new Error("DECK_SPEC_UNAVAILABLE");
+    }
+
+    const updated = await actions.updateProductDeckSpec({
+      id: productId,
+      version,
+      deckSpec,
+    });
+    catalogMutationGenerationRef.current += 1;
+    setLocalProducts((current) =>
+      current.map((item) =>
+        item.id === updated.id && item.version <= updated.version ? updated : item,
+      ),
+    );
+    productEditors.updateDraft(editor.id, (current) =>
+      current.productId === updated.id
+        ? { ...current, version: updated.version }
+        : current,
+    );
+    setProductNotice({
+      kind: "success",
+      message: deckSpec
+        ? `${updated.name} 상세사이즈를 저장했습니다. 스토어 상세 페이지에 바로 반영됩니다.`
+        : `${updated.name} 상세사이즈를 삭제했습니다.`,
+    });
+  };
+
   const resetProductDraft = () => {
     if (productEditor) {
       removePendingProductActivity(productEditor.id);
@@ -2108,6 +2145,9 @@ function AdminWorkspace({
             onOpenCreate={openNewProductEditor}
             onReset={resetProductDraft}
             onSave={(event) => void handleProductSave(event)}
+            onSaveDeckSpec={
+              actions?.updateProductDeckSpec ? saveProductDeckSpec : undefined
+            }
             onTextChange={updateProductText}
             onToggleChange={updateProductToggle}
             previewCompareAtPrice={previewCompareAtPrice}
@@ -2887,6 +2927,7 @@ function ProductSection({
   onOpenCreate,
   onReset,
   onSave,
+  onSaveDeckSpec,
   onTextChange,
   onToggleChange,
   previewCompareAtPrice,
@@ -2915,6 +2956,7 @@ function ProductSection({
   onOpenCreate: () => void;
   onReset: () => void;
   onSave: (event: FormEvent<HTMLFormElement>) => void;
+  onSaveDeckSpec?: (deckSpec: DeckSpec | null) => Promise<void>;
   onTextChange: (
     field: Exclude<
       keyof AdminProductDraft,
@@ -2942,6 +2984,9 @@ function ProductSection({
     .map((line) => line.trim())
     .filter(Boolean);
   const currentProduct = products.find((product) => product.id === draft.productId);
+  const deckSpec = currentProduct?.deckSpec;
+  const [isDeckSpecOpen, setIsDeckSpecOpen] = useState(false);
+  const canEditDeckSpec = Boolean(onSaveDeckSpec && draft.productId && draft.version);
   const isCurrentlyPublic = Boolean(
     currentProduct?.version && currentProduct.isVisible,
   );
@@ -3477,6 +3522,47 @@ function ProductSection({
               onChange={(value) => onTextChange("sizes", value)}
               value={draft.sizes}
             />
+            {draft.category === "Deck" ? (
+              <div className={styles.productLegacyPrice}>
+                <span>
+                  상세사이즈
+                  <strong>
+                    {deckSpec
+                      ? `${formatDeckInches(deckSpec.width)} × ${formatDeckInches(deckSpec.length)} · WB ${formatDeckInches(deckSpec.wheelbase)}`
+                      : "미등록"}
+                  </strong>
+                </span>
+                <button
+                  className={styles.secondaryButton}
+                  disabled={!canEditDeckSpec}
+                  onClick={() => setIsDeckSpecOpen(true)}
+                  type="button"
+                >
+                  {deckSpec ? "상세사이즈 수정" : "+ 상세사이즈 등록"}
+                </button>
+                {onSaveDeckSpec && isDeckSpecOpen ? (
+                  <AdminDeckSpecModal
+                    initialSpec={deckSpec}
+                    isOpen
+                    onCancel={() => setIsDeckSpecOpen(false)}
+                    onSave={async (next) => {
+                      await onSaveDeckSpec(next);
+                      setIsDeckSpecOpen(false);
+                    }}
+                    productName={previewName}
+                  />
+                ) : null}
+                {canEditDeckSpec ? (
+                  <small>모달의 저장 버튼을 누르면 바로 반영됩니다.</small>
+                ) : (
+                  <small>
+                    {onSaveDeckSpec
+                      ? "상품을 먼저 저장하면 등록할 수 있습니다."
+                      : "서버에 연결된 관리자 화면에서만 등록할 수 있습니다."}
+                  </small>
+                )}
+              </div>
+            ) : null}
             {view === "edit" && draft.compareAtPrice ? (
               <div className={styles.productLegacyPrice}>
                 <span>
