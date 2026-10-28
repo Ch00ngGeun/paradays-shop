@@ -6545,6 +6545,7 @@ function QuickAction({
   primary?: boolean;
   value?: string;
 }>) {
+  const { locale } = useLocale();
   return (
     <article className={styles.overviewTask}>
       <div className={styles.taskIcon} data-tone={operationIconTone[icon]}>
@@ -6556,7 +6557,9 @@ function QuickAction({
           {value !== undefined ? (
             <span className={styles.taskCount}>{value}</span>
           ) : null}
-          {needsAttention ? <AdminStatusBadge status="attention" /> : null}
+          {needsAttention ? (
+            <AdminStatusBadge locale={locale} status="attention" />
+          ) : null}
         </h3>
         <p>{note}</p>
       </div>
@@ -6588,7 +6591,10 @@ function NoticeMessage({ notice }: Readonly<{ notice: Exclude<Notice, null> }>) 
   const { locale } = useLocale();
   return (
     <div role={notice.kind === "error" ? "alert" : "status"}>
-      <AdminNotice status={notice.kind === "error" ? "warning" : "neutral"}>
+      <AdminNotice
+        locale={locale}
+        status={notice.kind === "error" ? "warning" : "neutral"}
+      >
         {localizedText(notice.message, locale)}
       </AdminNotice>
     </div>
