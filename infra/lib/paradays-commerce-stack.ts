@@ -960,6 +960,22 @@ export class CommerceStack extends Stack {
     });
     ocrJobTable.grantReadWriteData(adminOcrFunction);
     activePaddleOcrSecret.grantRead(adminOcrFunction);
+    // shortcut: while operational OCR is on hold, this context key pins the already-deployed
+    // OCR bundle and its scope-free routes; delete the key from cdk.json when OCR ships.
+    const pinnedOcrCodeS3Key = this.node.tryGetContext("adminOcrPinnedCodeS3Key") as
+      | string
+      | undefined;
+    if (pinnedOcrCodeS3Key)
+      (adminOcrFunction.node.defaultChild as lambda.CfnFunction).addPropertyOverride(
+        "Code",
+        {
+          S3Bucket: `cdk-hnb659fds-assets-${this.account}-${this.region}`,
+          S3Key: pinnedOcrCodeS3Key,
+        },
+      );
+    const ocrRouteScopes = pinnedOcrCodeS3Key
+      ? {}
+      : { authorizationScopes: [commerceOAuthScope.scopeName] };
 
     /**
      * Access token에는 cognito:groups가 없으므로, 관리자 Lambda가 Cognito에서
@@ -1108,12 +1124,23 @@ export class CommerceStack extends Stack {
       methods: [apigwv2.HttpMethod.POST],
       integration: webhookIntegration,
     });
-    commerceApi.addRoutes({
+    const [, adminRefundGetRoute] = commerceApi.addRoutes({
       path: "/admin/orders/{orderId}/refunds",
-      methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST],
+      // POST binds the shared integration first, matching the deployed integration ID.
+      methods: [apigwv2.HttpMethod.POST, apigwv2.HttpMethod.GET],
       integration: adminRefundIntegration,
       authorizer: jwtAuthorizer,
     });
+    // The deployed stack carries this GET route under its H-012 logical IDs; keep them so a
+    // deploy updates in place instead of recreating the same route key (which would conflict).
+    (adminRefundGetRoute!.node.defaultChild as apigwv2.CfnRoute).overrideLogicalId(
+      "H012AdminOrderGetRoute",
+    );
+    (
+      adminRefundGetRoute!.node.findChild(
+        "AdminRefundIntegration-Permission",
+      ) as lambda.CfnPermission
+    ).overrideLogicalId("H012AdminOrderGetPermission");
     commerceApi.addRoutes({
       path: "/admin/catalog/products",
       methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST],
@@ -1213,14 +1240,14 @@ export class CommerceStack extends Stack {
       methods: [apigwv2.HttpMethod.POST],
       integration: adminOcrIntegration,
       authorizer: jwtAuthorizer,
-      authorizationScopes: [commerceOAuthScope.scopeName],
+      ...ocrRouteScopes,
     });
     commerceApi.addRoutes({
       path: "/admin/ocr/jobs/{jobId}",
       methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.PATCH],
       integration: adminOcrIntegration,
       authorizer: jwtAuthorizer,
-      authorizationScopes: [commerceOAuthScope.scopeName],
+      ...ocrRouteScopes,
     });
     commerceApi.addRoutes({
       path: "/catalog/products",

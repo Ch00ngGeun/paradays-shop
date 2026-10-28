@@ -28,6 +28,7 @@ interface StackFixtureOptions {
   readonly privateService?: boolean | string;
   readonly imageUri?: string;
   readonly concreteEnvironment?: boolean;
+  readonly pinnedOcrCodeS3Key?: string;
 }
 
 interface StackFixture {
@@ -48,6 +49,9 @@ function createStackFixture(options: StackFixtureOptions = {}): StackFixture {
         ...(options.imageUri === undefined
           ? {}
           : { paddleOcrImageUri: options.imageUri }),
+        ...(options.pinnedOcrCodeS3Key === undefined
+          ? {}
+          : { adminOcrPinnedCodeS3Key: options.pinnedOcrCodeS3Key }),
       },
     });
     const stack = new CommerceStack(app, "PrivateOcrContractTest", {
@@ -374,4 +378,30 @@ test("private OCR opt-in은 isolated service 경계와 shared runtime credential
     }),
   );
   assertCognitoAndDataStoresArePreserved(template);
+});
+
+test("OCR hold pins the deployed OCR bundle and keeps its routes scope-free; without it scopes apply", () => {
+  const ocrRoutes = (template: Template) =>
+    Object.values(template.findResources("AWS::ApiGatewayV2::Route")).filter((route) =>
+      String(route.Properties.RouteKey).includes("/admin/ocr/jobs"),
+    );
+  const ocrFunction = (template: Template) =>
+    Object.values(template.findResources("AWS::Lambda::Function")).find((fn) =>
+      JSON.stringify(fn.Properties.Environment ?? {}).includes("OCR_JOB_TABLE_NAME"),
+    )!;
+
+  const pinned = synthesize({ pinnedOcrCodeS3Key: "pinned-ocr.zip" });
+  assert.deepEqual(ocrFunction(pinned).Properties.Code, {
+    S3Bucket: `cdk-hnb659fds-assets-${TEST_ACCOUNT}-${TEST_REGION}`,
+    S3Key: "pinned-ocr.zip",
+  });
+  assert.equal(ocrRoutes(pinned).length, 3);
+  for (const route of ocrRoutes(pinned))
+    assert.equal(route.Properties.AuthorizationScopes, undefined);
+
+  const shipped = synthesize({});
+  assert.notEqual(ocrFunction(shipped).Properties.Code.S3Key, "pinned-ocr.zip");
+  assert.equal(ocrRoutes(shipped).length, 3);
+  for (const route of ocrRoutes(shipped))
+    assert.equal(route.Properties.AuthorizationScopes.length, 1);
 });

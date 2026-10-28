@@ -3,6 +3,7 @@
   "context": {
     "appName": "paradays",
     "stage": "dev",
+    "adminOcrPinnedCodeS3Key": "0d573ca00f90bf0cf49bfdffda82f73a626afab30a40dde63275777c19ad6d05.zip",
     "managedLoginDomainPrefix": "paradays-dev-login",
     "allowedOrigins": [
       "http://localhost:3010",
