@@ -4066,6 +4066,7 @@ function ProductSection({
                     initialSpec={deckSpec}
                     isOpen
                     key={deckSpecModal.session}
+                    locale={locale}
                     onCancel={() => setDeckSpecModal(null)}
                     onSave={async (next) => {
                       const { session } = deckSpecModal;
