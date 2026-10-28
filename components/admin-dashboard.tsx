@@ -3000,8 +3000,18 @@ function ProductSection({
     .filter(Boolean);
   const currentProduct = products.find((product) => product.id === draft.productId);
   const deckSpec = currentProduct?.deckSpec;
-  // 모달은 연 편집기에만 묶어, 늦게 끝난 저장이 다른 상품의 모달을 닫지 않게 합니다.
-  const [deckSpecEditorId, setDeckSpecEditorId] = useState<string | null>(null);
+  // 모달은 열 때마다 새 번호를 받고, 저장 응답은 자기 번호의 모달만 닫습니다. 편집기를 벗어나면 모달을 비웁니다.
+  const deckSpecSessionRef = useRef(0);
+  const [deckSpecModal, setDeckSpecModal] = useState<{
+    editorKey: string;
+    session: number;
+  } | null>(null);
+  const editorKey = `${view}:${editorId}`;
+  const [deckSpecEditorKey, setDeckSpecEditorKey] = useState(editorKey);
+  if (deckSpecEditorKey !== editorKey) {
+    setDeckSpecEditorKey(editorKey);
+    setDeckSpecModal(null);
+  }
   const canEditDeckSpec = Boolean(onSaveDeckSpec && draft.productId && draft.version);
   const isCurrentlyPublic = Boolean(
     currentProduct?.version && currentProduct.isVisible,
@@ -3551,20 +3561,27 @@ function ProductSection({
                 <button
                   className={styles.secondaryButton}
                   disabled={!canEditDeckSpec}
-                  onClick={() => setDeckSpecEditorId(editorId)}
+                  onClick={() =>
+                    setDeckSpecModal({
+                      editorKey,
+                      session: ++deckSpecSessionRef.current,
+                    })
+                  }
                   type="button"
                 >
                   {deckSpec ? "상세사이즈 수정" : "+ 상세사이즈 등록"}
                 </button>
-                {onSaveDeckSpec && deckSpecEditorId === editorId ? (
+                {onSaveDeckSpec && deckSpecModal?.editorKey === editorKey ? (
                   <AdminDeckSpecModal
                     initialSpec={deckSpec}
                     isOpen
-                    onCancel={() => setDeckSpecEditorId(null)}
+                    key={deckSpecModal.session}
+                    onCancel={() => setDeckSpecModal(null)}
                     onSave={async (next) => {
+                      const { session } = deckSpecModal;
                       await onSaveDeckSpec(next);
-                      setDeckSpecEditorId((current) =>
-                        current === editorId ? null : current,
+                      setDeckSpecModal((current) =>
+                        current?.session === session ? null : current,
                       );
                     }}
                     productName={previewName}
