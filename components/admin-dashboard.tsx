@@ -2824,7 +2824,7 @@ function OverviewSection({
     metricsState === "ready" && metrics?.lowStockCount !== undefined;
   const homeSteps: AdminStep[] = [
     {
-      label: "운영 지표 조회",
+      label: isKorean ? "운영 지표 조회" : "Load metrics",
       state:
         metricsState === "ready"
           ? "complete"
@@ -2833,7 +2833,7 @@ function OverviewSection({
             : "current",
     },
     {
-      label: "재고 확인",
+      label: isKorean ? "재고 확인" : "Check stock",
       state: !lowStockReady
         ? "upcoming"
         : (metrics?.lowStockCount ?? 0) > 0
@@ -2842,7 +2842,7 @@ function OverviewSection({
     },
     {
       // 일마감 결과는 홈에서 조회하지 않으므로 완료로 표시하지 않습니다.
-      label: "매출·일마감",
+      label: isKorean ? "매출·일마감" : "Sales & day close",
       state: lowStockReady && metrics?.lowStockCount === 0 ? "current" : "upcoming",
     },
   ];
@@ -2850,7 +2850,8 @@ function OverviewSection({
     <div className={`${styles.sectionStack} ${styles.overviewStack}`}>
       <AdminStepper
         className={styles.screenStepper}
-        label="홈 작업 흐름"
+        label={isKorean ? "홈 작업 흐름" : "Home workflow"}
+        locale={locale}
         steps={homeSteps}
       />
       <header className={styles.overviewHeader}>
@@ -2949,7 +2950,9 @@ function OverviewSection({
         aria-labelledby="recent-operations-title"
       >
         <header>
-          <h2 id="recent-operations-title">최근 운영 기록</h2>
+          <h2 id="recent-operations-title">
+            {isKorean ? "최근 운영 기록" : "Recent activity"}
+          </h2>
           {activities.length > 5 ? (
             <button
               aria-expanded={showAllActivities}
@@ -2957,17 +2960,26 @@ function OverviewSection({
               onClick={() => setShowAllActivities((current) => !current)}
               type="button"
             >
-              {showAllActivities ? "최근 5건" : "전체보기"}
+              {showAllActivities
+                ? isKorean
+                  ? "최근 5건"
+                  : "Latest 5"
+                : isKorean
+                  ? "전체보기"
+                  : "Show all"}
             </button>
           ) : null}
         </header>
         <p className={styles.operationScope}>
-          이번 관리자 화면에서 수행한 작업별 최근 상태만 표시합니다(최대 12개).
-          새로고침하면 초기화되며, 서버 전체 운영 이력이 아닙니다.
+          {isKorean
+            ? "이번 관리자 화면에서 수행한 작업별 최근 상태만 표시합니다(최대 12개). 새로고침하면 초기화되며, 서버 전체 운영 이력이 아닙니다."
+            : "Shows only the latest status of each task done on this admin screen (up to 12). It resets on refresh and is not the full server activity history."}
         </p>
         {activities.length === 0 ? (
           <p className={styles.operationEmpty}>
-            아직 이 화면에서 수행한 작업이 없습니다.
+            {isKorean
+              ? "아직 이 화면에서 수행한 작업이 없습니다."
+              : "No tasks done on this screen yet."}
           </p>
         ) : (
           <ul className={styles.operationList}>
@@ -2977,11 +2989,16 @@ function OverviewSection({
                 return (
                   <li data-status={activity.status} key={activity.key}>
                     <AdminNotice
+                      locale={locale}
                       status="attention"
-                      title={`${sectionShortLabels[locale][activity.section]} 작업`}
+                      title={
+                        isKorean
+                          ? `${sectionShortLabels[locale][activity.section]} 작업`
+                          : `${sectionShortLabels[locale][activity.section]} task`
+                      }
                     >
                       <time dateTime={new Date(activity.at).toISOString()}>
-                        {new Intl.DateTimeFormat("ko-KR", {
+                        {new Intl.DateTimeFormat(isKorean ? "ko-KR" : "en-US", {
                           timeZone: "Asia/Seoul",
                           hour: "2-digit",
                           minute: "2-digit",
@@ -2992,8 +3009,9 @@ function OverviewSection({
                       <p>{localizedText(activity.detail, locale)}</p>
                       {activity.editorId && !resume ? (
                         <small>
-                          편집 초안은 더 이상 열려 있지 않습니다. 상품 목록에서
-                          확인하세요.
+                          {isKorean
+                            ? "편집 초안은 더 이상 열려 있지 않습니다. 상품 목록에서 확인하세요."
+                            : "The edit draft is no longer open. Check the product list."}
                         </small>
                       ) : null}
                       <button
@@ -3001,7 +3019,13 @@ function OverviewSection({
                         onClick={() => onOpenActivity(activity)}
                         type="button"
                       >
-                        {resume ? "이어서 수정" : "메뉴 보기"}
+                        {resume
+                          ? isKorean
+                            ? "이어서 수정"
+                            : "Continue editing"
+                          : isKorean
+                            ? "메뉴 보기"
+                            : "Open menu"}
                         <span className={styles.srOnly}>
                           {" "}
                           · {sectionShortLabels[locale][activity.section]}
@@ -3018,7 +3042,7 @@ function OverviewSection({
                   key={activity.key}
                 >
                   <time dateTime={new Date(activity.at).toISOString()}>
-                    {new Intl.DateTimeFormat("ko-KR", {
+                    {new Intl.DateTimeFormat(isKorean ? "ko-KR" : "en-US", {
                       timeZone: "Asia/Seoul",
                       hour: "2-digit",
                       minute: "2-digit",
@@ -3033,15 +3057,19 @@ function OverviewSection({
                     <AdminMenuIcon section={activity.section} />
                   </div>
                   <div className={styles.operationDescription}>
-                    <strong>{sectionShortLabels[locale][activity.section]} 작업</strong>
+                    <strong>
+                      {sectionShortLabels[locale][activity.section]}{" "}
+                      {isKorean ? "작업" : "task"}
+                    </strong>
                     <span className={styles.operationStatus}>
                       {operationStatusLabels[locale][activity.status]}
                     </span>
                     <p>{localizedText(activity.detail, locale)}</p>
                     {activity.editorId && !resume ? (
                       <small>
-                        편집 초안은 더 이상 열려 있지 않습니다. 상품 목록에서
-                        확인하세요.
+                        {isKorean
+                          ? "편집 초안은 더 이상 열려 있지 않습니다. 상품 목록에서 확인하세요."
+                          : "The edit draft is no longer open. Check the product list."}
                       </small>
                     ) : null}
                   </div>
@@ -3050,7 +3078,13 @@ function OverviewSection({
                     onClick={() => onOpenActivity(activity)}
                     type="button"
                   >
-                    {resume ? "이어서 수정" : "메뉴 보기"}
+                    {resume
+                      ? isKorean
+                        ? "이어서 수정"
+                        : "Continue editing"
+                      : isKorean
+                        ? "메뉴 보기"
+                        : "Open menu"}
                     <span className={styles.srOnly}>
                       {" "}
                       · {sectionShortLabels[locale][activity.section]}
@@ -6511,6 +6545,7 @@ function QuickAction({
   primary?: boolean;
   value?: string;
 }>) {
+  const { locale } = useLocale();
   return (
     <article className={styles.overviewTask}>
       <div className={styles.taskIcon} data-tone={operationIconTone[icon]}>
@@ -6522,7 +6557,9 @@ function QuickAction({
           {value !== undefined ? (
             <span className={styles.taskCount}>{value}</span>
           ) : null}
-          {needsAttention ? <AdminStatusBadge status="attention" /> : null}
+          {needsAttention ? (
+            <AdminStatusBadge locale={locale} status="attention" />
+          ) : null}
         </h3>
         <p>{note}</p>
       </div>
@@ -6554,7 +6591,10 @@ function NoticeMessage({ notice }: Readonly<{ notice: Exclude<Notice, null> }>) 
   const { locale } = useLocale();
   return (
     <div role={notice.kind === "error" ? "alert" : "status"}>
-      <AdminNotice status={notice.kind === "error" ? "warning" : "neutral"}>
+      <AdminNotice
+        locale={locale}
+        status={notice.kind === "error" ? "warning" : "neutral"}
+      >
         {localizedText(notice.message, locale)}
       </AdminNotice>
     </div>
