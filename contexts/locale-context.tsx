@@ -5,6 +5,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -14,6 +15,8 @@ import type { Locale } from "@/types/store";
 
 /** localStorage에 선택한 언어를 저장할 때 쓰는 키 */
 const LOCALE_STORAGE_KEY = "paradays-locale";
+/** app/layout.tsx의 head 스크립트가 저장값 ko일 때 걸어 두는 표시 보류 속성(이름을 함께 바꿀 것). */
+const LOCALE_PENDING_ATTRIBUTE = "data-locale-pending";
 
 // 카탈로그 원문을 키로 사용해 상품명은 유지하면서 상세 사양만 로케일에 맞게 표시합니다.
 const productDescriptionTranslations: Record<Locale, Record<string, string>> = {
@@ -495,6 +498,33 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [hasLoadedPreference, locale]);
+
+  // 저장 언어가 화면에 반영된 커밋에서 그리기 전에 표시 보류를 해제합니다.
+  // dev Strict Mode 재마운트가 html 속성을 지우면 확정 전까지 다시 겁니다.
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    if (hasLoadedPreference) {
+      root.removeAttribute(LOCALE_PENDING_ATTRIBUTE);
+      return;
+    }
+    try {
+      if (window.localStorage.getItem(LOCALE_STORAGE_KEY) !== "ko") return;
+    } catch {
+      // 스토리지를 못 읽으면 보류하지 않고 기본 언어로 바로 보여 줍니다.
+      return;
+    }
+    root.setAttribute(LOCALE_PENDING_ATTRIBUTE, "");
+    // 저장값 복원이 끝나지 않아도 화면이 숨겨진 채 남지 않게 합니다.
+    const release = window.setTimeout(
+      () => root.removeAttribute(LOCALE_PENDING_ATTRIBUTE),
+      3_000,
+    );
+    // 복원 전에 해제돼도(재마운트·오류 경계) 숨김이 남지 않게 정리 때 함께 풂.
+    return () => {
+      window.clearTimeout(release);
+      root.removeAttribute(LOCALE_PENDING_ATTRIBUTE);
+    };
+  }, [hasLoadedPreference]);
 
   // <html lang>을 현재 로케일과 동기화합니다.
   useEffect(() => {
