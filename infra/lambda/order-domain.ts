@@ -152,7 +152,8 @@ export function calculateOrder(
 
 /** Toss의 100자 주문명 제한 안에서 대표 상품과 추가 건수를 표현합니다. */
 function createOrderName(lines: readonly OrderLineSnapshot[]) {
-  const firstName = lines[0]?.name ?? "PARADAYS Order";
+  // Toss shows the order name on one line, so a product name entered on two lines is joined with a space.
+  const firstName = (lines[0]?.name ?? "PARADAYS Order").replace(/\s+/g, " ").trim();
   const suffix = lines.length > 1 ? ` 외 ${lines.length - 1}건` : "";
   const maximumFirstNameLength = Math.max(1, 100 - suffix.length);
 
