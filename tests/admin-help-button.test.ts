@@ -6,11 +6,11 @@ import { AdminHelpButton, adminHelpLabels } from "@/components/admin-help-button
 
 const render = (locale: "ko" | "en", target: string) =>
   renderToStaticMarkup(
-    createElement(AdminHelpButton, {
-      locale,
-      target,
-      children: createElement("p", null, "BODY"),
-    }),
+    createElement(
+      AdminHelpButton,
+      { locale, target },
+      createElement("p", null, "BODY"),
+    ),
   );
 
 describe("admin help button", () => {

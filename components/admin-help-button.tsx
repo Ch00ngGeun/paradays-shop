@@ -21,8 +21,8 @@ type AdminHelpButtonProps = Readonly<{
   /** 도움말이 설명하는 컨트롤 이름. 예: "옵션 추가" */
   target: string;
   locale: Locale;
-  /** 도움말 본문(화면 언어로 된 문단). */
-  children: ReactNode;
+  /** 도움말 본문(화면 언어로 된 문단). Optional only so createElement can pass it as an argument. */
+  children?: ReactNode;
 }>;
 
 /** 작은 '?' 버튼. 누르면 도움말 모달을 열고, 닫으면 버튼으로 포커스를 돌려줍니다. */
