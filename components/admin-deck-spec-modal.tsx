@@ -93,7 +93,32 @@ type AdminDeckSpecFormProps = Readonly<{
   onBusyChange?: (busy: boolean) => void;
   /** 단위 테스트가 provider 없이 렌더하므로 언어는 prop으로 받습니다. */
   locale?: Locale;
+  /** 폼 맨 위에 보여 줄 안내. 이름을 바꿀 수 없는 이유 등 caller가 아는 사정을 모달 안에서 알립니다. */
+  notice?: string;
+  /** 저장 실패 원인을 caller가 아는 문구로 바꿉니다. 없거나 undefined면 일반 실패 문구를 씁니다. */
+  describeError?: (error: unknown) => string | undefined;
 }>;
+
+/** caller가 아는 실패 원인이 있으면 그 문구를, 없으면 입력값 보존을 알리는 일반 문구를 씁니다. */
+export function deckSpecFailureMessage(
+  error: unknown,
+  describeError: ((error: unknown) => string | undefined) | undefined,
+  isKorean: boolean,
+) {
+  let described: string | undefined;
+  try {
+    described = describeError?.(error);
+  } catch {
+    // A failing description must not leave the form stuck in its saving state.
+    described = undefined;
+  }
+  return (
+    described ??
+    (isKorean
+      ? "저장하지 못했습니다. 입력값은 그대로 두었으니 다시 저장해 주세요."
+      : "Could not save. Your input is kept, so save again.")
+  );
+}
 
 /** 모달 본문. 저장 성공 시 caller가 모달을 닫고, 실패하면 입력값을 그대로 두고 오류를 보여 줍니다. */
 export function AdminDeckSpecForm({
@@ -104,11 +129,13 @@ export function AdminDeckSpecForm({
   onSave,
   onBusyChange,
   locale = "ko",
+  notice,
+  describeError,
 }: AdminDeckSpecFormProps) {
   const isKorean = locale === "ko";
   const [inputs, setInputs] = useState(() => toInputs(initialSpec));
   const [saving, setSaving] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
   const nameEditable = size !== undefined && otherOptions !== undefined;
   const [name, setName] = useState(size ?? "");
   const { spec, nameResult, sizeName, ready } = getDeckSpecSaveState(
@@ -120,12 +147,12 @@ export function AdminDeckSpecForm({
   const submit = async (next: DeckSpec | null, nextName?: string) => {
     setSaving(true);
     onBusyChange?.(true);
-    setFailed(false);
+    setFailure(null);
 
     try {
       await onSave(next, size, nextName);
-    } catch {
-      setFailed(true);
+    } catch (error) {
+      setFailure(deckSpecFailureMessage(error, describeError, isKorean));
       setSaving(false);
     } finally {
       onBusyChange?.(false);
@@ -145,6 +172,7 @@ export function AdminDeckSpecForm({
   return (
     <form className={styles.form} noValidate onSubmit={handleSubmit}>
       <div className={styles.fields}>
+        {notice ? <p className={styles.hint}>{notice}</p> : null}
         {nameEditable ? (
           <label className={styles.field}>
             <span className={styles.fieldName}>
@@ -231,11 +259,9 @@ export function AdminDeckSpecForm({
         )}
       </div>
 
-      {failed ? (
+      {failure ? (
         <p className={styles.error} role="alert">
-          {isKorean
-            ? "저장하지 못했습니다. 입력값은 그대로 두었으니 다시 저장해 주세요."
-            : "Could not save. Your input is kept, so save again."}
+          {failure}
         </p>
       ) : null}
 
@@ -388,6 +414,8 @@ export function AdminDeckSpecModal({
   onCancel,
   onSave,
   locale = "ko",
+  notice,
+  describeError,
 }: AdminDeckSpecModalProps) {
   const layer = useModalLayer(isOpen);
   const busyRef = useRef(false);
@@ -421,9 +449,11 @@ export function AdminDeckSpecModal({
         </h2>
         {size === undefined ? (
           <AdminDeckSpecEditor
+            describeError={describeError}
             initialSpec={initialSpec}
             initialSpecsBySize={initialSpecsBySize}
             locale={locale}
+            notice={notice}
             onBusyChange={setBusy}
             onCancel={onCancel}
             onSave={onSave}
@@ -431,8 +461,10 @@ export function AdminDeckSpecModal({
           />
         ) : (
           <AdminDeckSpecForm
+            describeError={describeError}
             initialSpec={initialSpec}
             locale={locale}
+            notice={notice}
             onBusyChange={setBusy}
             onCancel={onCancel}
             onSave={onSave}
