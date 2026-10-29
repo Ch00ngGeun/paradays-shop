@@ -1437,6 +1437,132 @@ describe("createAdminApiClient", () => {
       expect(getAccessToken).not.toHaveBeenCalled();
       expect(fetchImplementation).not.toHaveBeenCalled();
     });
+
+    const optionSpec = { ...deckSpec, width: 8.25, wheelbase: 14 };
+    const respond = (product: object) =>
+      new Response(JSON.stringify({ product }), { status: 200 });
+
+    it("saves one size option with sizeDeckSpec and parses the option map", async () => {
+      const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+        respond({
+          ...savedProduct(4, deckSpec),
+          sizes: ["8.25", "8.5"],
+          deckSpecsBySize: { "8.25": optionSpec },
+        }),
+      );
+      const { client } = createClient(fetchImplementation);
+
+      const product = await client.updateProductDeckSpec({
+        id: "prd_deck",
+        version: 3,
+        deckSpec: optionSpec,
+        size: "8.25",
+      });
+
+      expect(JSON.parse(String(fetchImplementation.mock.calls[0][1]?.body))).toEqual({
+        version: 3,
+        size: "8.25",
+        sizeDeckSpec: optionSpec,
+      });
+      expect(product.deckSpec).toEqual(deckSpec);
+      expect(product.deckSpecsBySize).toEqual({ "8.25": optionSpec });
+    });
+
+    it("rejects an option save answered by a server without option charts", async () => {
+      // An older server ignores size and sizeDeckSpec and only bumps the version.
+      const fetchImplementation = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(respond(savedProduct(4, deckSpec)));
+      const { client } = createClient(fetchImplementation);
+
+      await expect(
+        client.updateProductDeckSpec({
+          id: "prd_deck",
+          version: 3,
+          deckSpec: optionSpec,
+          size: "8.5",
+        }),
+      ).rejects.toBeInstanceOf(AdminApiResponseError);
+    });
+
+    it("deletes one size option with null and checks only that option", async () => {
+      const fetchImplementation = vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(
+          respond({
+            ...savedProduct(4, deckSpec),
+            deckSpecsBySize: { "8.0": optionSpec },
+          }),
+        )
+        .mockResolvedValueOnce(
+          respond({ ...savedProduct(5), deckSpecsBySize: { "8.5": optionSpec } }),
+        );
+      const { client } = createClient(fetchImplementation);
+
+      const cleared = await client.updateProductDeckSpec({
+        id: "prd_deck",
+        version: 3,
+        deckSpec: null,
+        size: "8.5",
+      });
+      expect(JSON.parse(String(fetchImplementation.mock.calls[0][1]?.body))).toEqual({
+        version: 3,
+        size: "8.5",
+        sizeDeckSpec: null,
+      });
+      expect(cleared.deckSpecsBySize).toEqual({ "8.0": optionSpec });
+
+      await expect(
+        client.updateProductDeckSpec({
+          id: "prd_deck",
+          version: 4,
+          deckSpec: null,
+          size: "8.5",
+        }),
+      ).rejects.toBeInstanceOf(AdminApiResponseError);
+    });
+
+    it("rejects an empty or oversized option name before authentication or fetch", async () => {
+      const fetchImplementation = vi.fn<typeof fetch>();
+      const { client, getAccessToken } = createClient(fetchImplementation);
+
+      for (const size of ["", "   ", "x".repeat(51), 8.5 as unknown as string]) {
+        await expect(
+          client.updateProductDeckSpec({ id: "prd_deck", version: 3, deckSpec, size }),
+        ).rejects.toBeInstanceOf(AdminApiResponseError);
+      }
+      expect(getAccessToken).not.toHaveBeenCalled();
+      expect(fetchImplementation).not.toHaveBeenCalled();
+    });
+
+    it("keeps only well-formed option charts when listing products", async () => {
+      const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            products: [
+              {
+                ...savedProduct(4),
+                deckSpecsBySize: {
+                  "8.25": optionSpec,
+                  "8.5": { ...optionSpec, nose: 0 },
+                },
+              },
+              {
+                ...savedProduct(4),
+                productId: "prd_bad",
+                deckSpecsBySize: { "8.5": {} },
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      );
+      const { client } = createClient(fetchImplementation);
+
+      const [kept, dropped] = await client.listCatalogProducts();
+      expect(kept.deckSpecsBySize).toEqual({ "8.25": optionSpec });
+      expect(dropped).not.toHaveProperty("deckSpecsBySize");
+    });
   });
 
   describe("explicit product comparison price serialization", () => {
