@@ -6583,16 +6583,17 @@ function CouponSection({
           <summary>{isKorean ? "도움말" : "Help"}</summary>
           <p>
             {isKorean
-              ? "이 화면은 쿠폰 초안만 저장합니다. 고객에게 발급하거나 결제에 적용하지 않습니다."
-              : "This screen saves coupon drafts only. It does not issue coupons to customers or apply them at checkout."}
-          </p>
-          <p>
-            {isKorean
               ? "대상 선택·최소 주문 금액·최대 할인·시작일 설정은 현재 지원하지 않습니다. 만료 시각은 한국 시간으로 입력하며 해당 시각에 만료하는 초안입니다."
               : "Target selection, minimum order, maximum discount and start date are not supported yet. Enter the expiry in Korea time; the draft expires at that time."}
           </p>
         </details>
       </header>
+      {/* A safety notice, so it stays on screen instead of inside the help. */}
+      <p className={styles.couponSaveNote}>
+        {isKorean
+          ? "이 화면은 쿠폰 초안만 저장합니다. 고객에게 발급하거나 결제에 적용하지 않습니다."
+          : "This screen saves coupon drafts only. It does not issue coupons to customers or apply them at checkout."}
+      </p>
       <AdminStepper
         label={isKorean ? "쿠폰 작업 흐름" : "Coupon workflow"}
         locale={locale}
@@ -6642,27 +6643,42 @@ function CouponSection({
                 value={couponName}
               />
             </label>
-            <label>
-              <span>
-                {isKorean ? "쿠폰 코드 (필수)" : "Coupon code (required)"}
-                <span aria-hidden="true" className={requiredStyles.requiredMark}>
-                  *
+            <div className={styles.helpField}>
+              <label>
+                <span>
+                  {isKorean ? "쿠폰 코드 (필수)" : "Coupon code (required)"}
+                  <span aria-hidden="true" className={requiredStyles.requiredMark}>
+                    *
+                  </span>
                 </span>
+                <input
+                  aria-describedby="coupon-code-help"
+                  maxLength={32}
+                  required
+                  onChange={(event) => onCodeChange(event.target.value.toUpperCase())}
+                  placeholder="WELCOME10"
+                  value={couponCode}
+                />
+                {/* Still the input's description; seen on screen through the help button. */}
+                <small className="srOnly" id="coupon-code-help">
+                  {isKorean
+                    ? "영문·숫자로 시작하는 3–32자 · 영문 대문자·숫자·_·- 사용"
+                    : "3–32 characters starting with a letter or number · Uppercase letters, numbers, _ and -"}
+                </small>
+              </label>
+              <span className={styles.fieldHelpCorner}>
+                <AdminHelpButton
+                  locale={locale}
+                  target={isKorean ? "쿠폰 코드" : "Coupon code"}
+                >
+                  <p>
+                    {isKorean
+                      ? "영문·숫자로 시작하는 3–32자 · 영문 대문자·숫자·_·- 사용"
+                      : "3–32 characters starting with a letter or number · Uppercase letters, numbers, _ and -"}
+                  </p>
+                </AdminHelpButton>
               </span>
-              <input
-                aria-describedby="coupon-code-help"
-                maxLength={32}
-                required
-                onChange={(event) => onCodeChange(event.target.value.toUpperCase())}
-                placeholder="WELCOME10"
-                value={couponCode}
-              />
-              <small id="coupon-code-help">
-                {isKorean
-                  ? "영문·숫자로 시작하는 3–32자 · 영문 대문자·숫자·_·- 사용"
-                  : "3–32 characters starting with a letter or number · Uppercase letters, numbers, _ and -"}
-              </small>
-            </label>
+            </div>
             <div className={styles.couponInlineFields}>
               <label>
                 <span>{isKorean ? "혜택 유형" : "Benefit type"}</span>
@@ -6680,60 +6696,78 @@ function CouponSection({
                   </option>
                 </select>
               </label>
+              <div className={styles.helpField}>
+                <label>
+                  <span>
+                    {couponType === "percent"
+                      ? isKorean
+                        ? "할인율 (%)"
+                        : "Discount rate (%)"
+                      : isKorean
+                        ? "할인 금액 (원)"
+                        : "Discount amount (KRW)"}{" "}
+                    {isKorean ? "(필수)" : "(required)"}
+                    <span aria-hidden="true" className={requiredStyles.requiredMark}>
+                      *
+                    </span>
+                  </span>
+                  <input
+                    inputMode="numeric"
+                    maxLength={12}
+                    required
+                    onChange={(event) => onValueChange(event.target.value)}
+                    placeholder={couponType === "percent" ? "10" : "5000"}
+                    type="text"
+                    value={couponValue}
+                  />
+                </label>
+                <span className={styles.fieldHelpCorner}>
+                  <AdminHelpButton
+                    locale={locale}
+                    target={isKorean ? "할인 값" : "Discount value"}
+                  >
+                    <p>
+                      {couponType === "percent"
+                        ? isKorean
+                          ? "1–100 사이 정수"
+                          : "Whole number from 1 to 100"
+                        : isKorean
+                          ? "1–100,000,000원 사이 정수"
+                          : "Whole number from 1 to 100,000,000 KRW"}{" "}
+                      {isKorean
+                        ? "· 쉼표·소수·지수 표기 제외"
+                        : "· No commas, decimals or exponents"}
+                    </p>
+                  </AdminHelpButton>
+                </span>
+              </div>
+            </div>
+            <div className={styles.helpField}>
               <label>
                 <span>
-                  {couponType === "percent"
-                    ? isKorean
-                      ? "할인율 (%)"
-                      : "Discount rate (%)"
-                    : isKorean
-                      ? "할인 금액 (원)"
-                      : "Discount amount (KRW)"}{" "}
-                  {isKorean ? "(필수)" : "(required)"}
-                  <span aria-hidden="true" className={requiredStyles.requiredMark}>
-                    *
-                  </span>
+                  {isKorean
+                    ? "만료 시각 (한국 시간·선택)"
+                    : "Expiry (Korea time · optional)"}
                 </span>
                 <input
-                  inputMode="numeric"
-                  maxLength={12}
-                  required
-                  onChange={(event) => onValueChange(event.target.value)}
-                  placeholder={couponType === "percent" ? "10" : "5000"}
-                  type="text"
-                  value={couponValue}
+                  onChange={(event) => onExpiresAtChange(event.target.value)}
+                  type="datetime-local"
+                  value={couponExpiresAt}
                 />
-                <small>
-                  {couponType === "percent"
-                    ? isKorean
-                      ? "1–100 사이 정수"
-                      : "Whole number from 1 to 100"
-                    : isKorean
-                      ? "1–100,000,000원 사이 정수"
-                      : "Whole number from 1 to 100,000,000 KRW"}{" "}
-                  {isKorean
-                    ? "· 쉼표·소수·지수 표기 제외"
-                    : "· No commas, decimals or exponents"}
-                </small>
               </label>
-            </div>
-            <label>
-              <span>
-                {isKorean
-                  ? "만료 시각 (한국 시간·선택)"
-                  : "Expiry (Korea time · optional)"}
+              <span className={styles.fieldHelpCorner}>
+                <AdminHelpButton
+                  locale={locale}
+                  target={isKorean ? "만료 시각" : "Expiry"}
+                >
+                  <p>
+                    {isKorean
+                      ? "입력한 한국 시간의 해당 시각에 만료합니다. 비우면 초안에 만료 시각을 넣지 않습니다."
+                      : "Expires at the entered Korea time. Leave it empty to save the draft without an expiry."}
+                  </p>
+                </AdminHelpButton>
               </span>
-              <input
-                onChange={(event) => onExpiresAtChange(event.target.value)}
-                type="datetime-local"
-                value={couponExpiresAt}
-              />
-              <small>
-                {isKorean
-                  ? "입력한 한국 시간의 해당 시각에 만료합니다. 비우면 초안에 만료 시각을 넣지 않습니다."
-                  : "Expires at the entered Korea time. Leave it empty to save the draft without an expiry."}
-              </small>
-            </label>
+            </div>
             {hasInput && validationMessage ? (
               <p className={styles.couponValidation}>
                 {localizedText(validationMessage, locale)}
@@ -6883,16 +6917,17 @@ function MarketingSection({
           <summary>{isKorean ? "도움말" : "Help"}</summary>
           <p>
             {isKorean
-              ? "이 화면은 제목·메시지·채널을 초안으로만 저장합니다. 수신자 조회·예약·발송·이미지 첨부는 지원하지 않습니다."
-              : "This screen saves the title, message and channels as a draft only. Recipient lookup, scheduling, sending and image attachments are not supported."}
-          </p>
-          <p>
-            {isKorean
               ? "채널 선택은 초안에 담을 문구의 종류입니다. 실제 채널 연결 상태나 발송 가능 여부를 확인하는 표시가 아닙니다. 수신 동의와 발송 정책은 별도 서버 검증이 필요합니다."
               : "Channel selection sets which text the draft holds. It does not show whether a channel is connected or can send. Consent and sending policy need separate server checks."}
           </p>
         </details>
       </header>
+      {/* A safety notice, so it stays on screen instead of inside the help. */}
+      <p className={styles.campaignSaveNote}>
+        {isKorean
+          ? "이 화면은 제목·메시지·채널을 초안으로만 저장합니다. 수신자 조회·예약·발송·이미지 첨부는 지원하지 않습니다."
+          : "This screen saves the title, message and channels as a draft only. Recipient lookup, scheduling, sending and image attachments are not supported."}
+      </p>
       <AdminStepper
         label={isKorean ? "캠페인 작업 흐름" : "Campaign workflow"}
         locale={locale}
@@ -6966,11 +7001,18 @@ function MarketingSection({
                 ))}
               </div>
             </fieldset>
-            <p className={styles.campaignScopeNote}>
-              {isKorean
-                ? "초안 작성용 선택 · 채널 연결·수신자 수·발송 가능 여부는 미조회입니다."
-                : "Selection for the draft only · Channel connection, recipient count and send availability are not checked."}
-            </p>
+            <div className={styles.campaignScopeNote}>
+              <AdminHelpButton
+                locale={locale}
+                target={isKorean ? "채널 선택" : "Channel selection"}
+              >
+                <p>
+                  {isKorean
+                    ? "초안 작성용 선택 · 채널 연결·수신자 수·발송 가능 여부는 미조회입니다."
+                    : "Selection for the draft only · Channel connection, recipient count and send availability are not checked."}
+                </p>
+              </AdminHelpButton>
+            </div>
             <label>
               <span>
                 {isKorean ? "캠페인 제목 (필수)" : "Campaign title (required)"}

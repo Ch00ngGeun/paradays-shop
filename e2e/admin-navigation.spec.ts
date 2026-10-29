@@ -1590,6 +1590,52 @@ test("help on home, stock, brand and member screens opens on demand while warnin
   await check("브랜드 추가", "저장하면 서버에 브랜드가 등록됩니다.");
 });
 
+test("coupon and campaign help opens on demand while their draft-only warnings stay visible", async ({
+  page,
+}) => {
+  await setup(page, { path: "/admin?section=coupons" });
+  const dialog = page.getByRole("dialog");
+  const panel = couponWorkspace(page);
+  // Warnings that were inside the collapsed help are always on screen now.
+  await expect(
+    page.getByText(
+      "이 화면은 쿠폰 초안만 저장합니다. 고객에게 발급하거나 결제에 적용하지 않습니다.",
+    ),
+  ).toBeVisible();
+  await expect(panel.getByText("서버에 초안만 저장합니다")).toBeVisible();
+  // The code format stays the input's description while hidden from the screen.
+  await expect(couponField(page, "쿠폰 코드 (필수)")).toHaveAccessibleDescription(
+    /영문·숫자로 시작하는 3–32자/,
+  );
+  const check = async (target: string, text: string) => {
+    const help = page.getByRole("button", { name: `${target} 도움말`, exact: true });
+    await help.click();
+    await expect(dialog).toContainText(text);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(help).toBeFocused();
+  };
+  await expect(panel.getByText("1–100 사이 정수")).toHaveCount(0);
+  await check("쿠폰 코드", "영문·숫자로 시작하는 3–32자");
+  await check("할인 값", "1–100 사이 정수");
+  await check("만료 시각", "입력한 한국 시간의 해당 시각에 만료합니다");
+
+  await select(page, "marketing");
+  await expect(
+    page.getByText("이 화면은 제목·메시지·채널을 초안으로만 저장합니다."),
+  ).toBeVisible();
+  for (const text of [
+    "수신 대상 미조회 · 발송 없음",
+    "이 미리보기는 실제 전송물이 아닙니다",
+  ])
+    await expect(page.getByText(text, { exact: false }).first()).toBeVisible();
+  await expect(page.getByText("초안 작성용 선택 · 채널 연결")).toHaveCount(0);
+  await check(
+    "채널 선택",
+    "초안 작성용 선택 · 채널 연결·수신자 수·발송 가능 여부는 미조회입니다.",
+  );
+});
+
 test("stock help explains the range while the input keeps its description and the error shows it again", async ({
   page,
 }) => {
@@ -4526,8 +4572,11 @@ test("member redesign: mobile selection focuses detail and reflows at 375 and 32
 });
 
 const couponWorkspace = (page: Page) => page.locator("#admin-panel-coupons");
+// Form controls only: a '?' help button named "<label> 도움말" shares the label text.
 const couponField = (page: Page, label: string) =>
-  couponWorkspace(page).getByLabel(label, { exact: false });
+  couponWorkspace(page)
+    .getByLabel(label, { exact: false })
+    .and(page.locator("input, select, textarea"));
 async function fillCoupon(
   page: Page,
   options: {
