@@ -1,7 +1,7 @@
 // 역할: 화면의 설명 문구를 기본으로 숨기고, 컨트롤 옆 '?' 버튼을 눌렀을 때만 모달로 보여 줍니다.
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { useFocusTrap } from "@/hooks/use-focus-trap";
@@ -15,6 +15,27 @@ export function adminHelpLabels(target: string, locale: Locale) {
   return locale === "ko"
     ? { button: `${target} 도움말`, title: `${target} 도움말`, close: "닫기" }
     : { button: `Help: ${target}`, title: `Help: ${target}`, close: "Close" };
+}
+
+/** 열린 도움말 모달(아래→위 순서). Esc는 맨 위 하나만 닫습니다. */
+const openHelpDialogs: string[] = [];
+
+type EscapeEvent = Pick<KeyboardEvent, "key" | "preventDefault" | "stopPropagation">;
+
+/**
+ * 도움말 모달의 Esc 처리. window 캡처 단계에서 먼저 받아, 맨 위 도움말이면 닫고 전파를 멈춥니다.
+ * 그래서 그 아래의 도움말이나 다른 모달(상세사이즈·모의 테스트)의 Esc 처리기는 실행되지 않습니다.
+ */
+export function handleHelpEscape(
+  event: EscapeEvent,
+  id: string,
+  onClose: () => void,
+  stack: readonly string[] = openHelpDialogs,
+) {
+  if (event.key !== "Escape" || stack.at(-1) !== id) return;
+  event.preventDefault();
+  event.stopPropagation();
+  onClose();
 }
 
 type AdminHelpButtonProps = Readonly<{
@@ -76,19 +97,35 @@ function HelpDialog({
   children: ReactNode;
 }>) {
   const layer = useModalLayer(true);
-  const dialogRef = useFocusTrap(true, onClose);
+  // Esc is handled below, so the trap's own Escape callback does nothing.
+  const dialogRef = useFocusTrap(true, () => {});
+  const titleId = useId();
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+  useEffect(() => {
+    openHelpDialogs.push(titleId);
+    const onKeyDown = (event: KeyboardEvent) =>
+      handleHelpEscape(event, titleId, () => onCloseRef.current());
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true);
+      openHelpDialogs.splice(openHelpDialogs.indexOf(titleId), 1);
+    };
+  }, [titleId]);
   if (!layer) return null;
   return createPortal(
     <div className={styles.overlay}>
       <section
-        aria-labelledby="admin-help-title"
+        aria-labelledby={titleId}
         aria-modal="true"
         className={styles.dialog}
         ref={dialogRef}
         role="dialog"
         tabIndex={-1}
       >
-        <h2 className={styles.title} id="admin-help-title">
+        <h2 className={styles.title} id={titleId}>
           {title}
         </h2>
         <div className={styles.body}>{children}</div>
