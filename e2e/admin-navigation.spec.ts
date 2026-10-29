@@ -4506,6 +4506,39 @@ test("coupon redesign: editing the live ticket never issues a coupon or loads fa
   );
 });
 
+test("coupon redesign: Enter in the growing coupon name saves only when the save button is enabled", async ({
+  page,
+}) => {
+  const commands: unknown[] = [];
+  await setup(page, {
+    path: "/admin?section=coupons",
+    handleCouponMutation: async (route) => {
+      commands.push(route.request().postDataJSON());
+      await savedCoupon(route);
+    },
+  });
+  const panel = couponWorkspace(page);
+  const name = couponField(page, "쿠폰명 (필수)");
+  const save = panel.getByRole("button", { name: "쿠폰 초안 저장", exact: true });
+  // With only a name the form is incomplete, so Enter does what a one-line input would: nothing.
+  await name.fill("[TEST] Enter coupon");
+  await expect(save).toBeDisabled();
+  await name.press("Enter");
+  await expect(name).toHaveValue("[TEST] Enter coupon");
+  await page.waitForTimeout(300);
+  expect(commands).toEqual([]);
+  await expect(panel.getByText("아직 고객에게 발급되지 않았습니다")).toHaveCount(0);
+  // The submit handler never ran, so no error notice appeared either.
+  await expect(panel.getByRole("alert")).toHaveCount(0);
+
+  // Once the form is complete, Enter submits through the save button as before.
+  await fillCoupon(page, { name: "[TEST] Enter coupon", code: "test_enter10" });
+  await expect(save).toBeEnabled();
+  await name.press("Enter");
+  await expect.poll(() => commands.length).toBe(1);
+  await expect(name).not.toHaveValue(/\n/);
+});
+
 test("coupon redesign: explicit percent and amount draft saves preserve uppercase codes supported fields and KST expiration", async ({
   page,
 }) => {

@@ -3273,7 +3273,17 @@ function GrowingLineInput({
       onKeyDown={(event) => {
         if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
         event.preventDefault();
-        event.currentTarget.form?.requestSubmit();
+        // Like a one-line input's implicit submission: only through the form's first submit button,
+        // and nothing at all while that button is disabled (for example, the form is incomplete).
+        const form = event.currentTarget.form;
+        const submitter = Array.from(form?.elements ?? []).find(
+          (element): element is HTMLButtonElement | HTMLInputElement =>
+            (element instanceof HTMLButtonElement && element.type === "submit") ||
+            (element instanceof HTMLInputElement &&
+              (element.type === "submit" || element.type === "image")),
+        );
+        if (form && submitter && !submitter.matches(":disabled"))
+          form.requestSubmit(submitter);
       }}
       ref={attach}
       rows={1}
