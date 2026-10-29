@@ -304,7 +304,10 @@ async function createProduct(
       ? commitCatalogIntake(catalogTableName, intake, userSub)
       : jsonResponse(400, { code: "OCR_INTAKE_INVALID" });
   }
-  const input = parseProductInput(body);
+  // Option size charts are saved only through the dedicated sizeDeckSpec PATCH.
+  const input = parseProductInput(
+    isRecord(body) ? { ...body, deckSpecsBySize: undefined } : body,
+  );
 
   if (!input) {
     return jsonResponse(400, { code: "CATALOG_PRODUCT_INVALID" });
@@ -1616,17 +1619,24 @@ function readDeckSpecsBySize(
     return undefined;
   }
 
-  if (!isRecord(value) || Object.keys(value).length > MAX_DECK_SPECS_BY_SIZE) {
+  if (!isRecord(value)) {
     return null;
   }
 
+  // Prune first, so a key left by an older server never counts against the limit.
   const entries: [string, CatalogDeckSpec][] = [];
   for (const [size, spec] of Object.entries(value)) {
+    if (!sizes.includes(size)) continue;
     const parsed = readDeckSpec(spec);
     if (!parsed) return null;
-    if (sizes.includes(size)) entries.push([size, parsed]);
+    entries.push([size, parsed]);
   }
 
+  if (entries.length > MAX_DECK_SPECS_BY_SIZE) {
+    return null;
+  }
+
+  // fromEntries defines own keys, so an option named __proto__ is stored like any other.
   return entries.length ? Object.fromEntries(entries) : undefined;
 }
 
@@ -1654,10 +1664,10 @@ function patchDeckSpecsBySize(
     return null;
   }
 
-  const next: Record<string, CatalogDeckSpec> = { ...product.deckSpecsBySize };
-  if (spec) next[size] = spec;
-  else delete next[size];
-  return next;
+  return Object.fromEntries([
+    ...Object.entries(product.deckSpecsBySize ?? {}).filter(([key]) => key !== size),
+    ...(spec ? [[size, spec] as const] : []),
+  ]);
 }
 
 /** 저장 행의 옵션별 상세사이즈 중 현재 sizes에 있는 값만 응답에 담습니다. */

@@ -1036,6 +1036,74 @@ test("only option values whose size still exists are kept or returned", async (t
   );
 });
 
+test("option size charts are never taken from a create body", async (t) => {
+  const db = fixture(t, []);
+  const spec = { nose: 6.875, tail: 6.5, width: 8.25, length: 31.75, wheelbase: 14.25 };
+  const created = unpack(
+    await handler(
+      event("POST", {
+        name: "New deck",
+        brandName: "Example",
+        sizes: ["8.25"],
+        category: "Deck",
+        price: 80_000,
+        deckSpecsBySize: { "8.25": spec },
+      }),
+    ),
+  );
+  assert.equal(created.status, 201);
+  assert.equal(created.body.product.deckSpecsBySize, undefined);
+  const row = [...db.records.values()].find((item) => item.name === "New deck")!;
+  assert.equal(Object.hasOwn(row, "deckSpecsBySize"), false);
+});
+
+test("an option named __proto__ is stored as an own key", async (t) => {
+  const db = fixture(t, [product({ sizes: ["__proto__", "8.25"] })]);
+  const spec = { nose: 6.875, tail: 6.5, width: 8.25, length: 31.75, wheelbase: 14.25 };
+  const saved = unpack(
+    await handler(
+      event("PATCH", { version: 3, size: "__proto__", sizeDeckSpec: spec }, "prd_deck"),
+    ),
+  );
+  assert.equal(saved.status, 200);
+  const stored = db.records.get("prd_deck")!.deckSpecsBySize as object;
+  assert.equal(Object.getPrototypeOf(stored), Object.prototype);
+  assert.deepEqual(Object.getOwnPropertyDescriptor(stored, "__proto__")?.value, spec);
+  assert.deepEqual(
+    Object.getOwnPropertyDescriptor(saved.body.product.deckSpecsBySize, "__proto__")
+      ?.value,
+    spec,
+  );
+
+  const cleared = unpack(
+    await handler(
+      event("PATCH", { version: 4, size: "__proto__", sizeDeckSpec: null }, "prd_deck"),
+    ),
+  );
+  assert.equal(cleared.status, 200);
+  assert.equal(Object.hasOwn(db.records.get("prd_deck")!, "deckSpecsBySize"), false);
+});
+
+test("a key left for a removed option does not count against the option limit", async (t) => {
+  const spec = { nose: 6.875, tail: 6.5, width: 8.25, length: 31.75, wheelbase: 14.25 };
+  const sizes = Array.from({ length: 20 }, (_, index) => `S${index}`);
+  const legacy = Object.fromEntries([
+    ...sizes.slice(0, 19).map((size) => [size, spec]),
+    ["removed", spec],
+  ]);
+  const db = fixture(t, [product({ sizes, deckSpecsBySize: legacy })]);
+  const saved = unpack(
+    await handler(
+      event("PATCH", { version: 3, size: "S19", sizeDeckSpec: spec }, "prd_deck"),
+    ),
+  );
+  assert.equal(saved.status, 200);
+  assert.deepEqual(
+    Object.keys(db.records.get("prd_deck")!.deckSpecsBySize as object).sort(),
+    [...sizes].sort(),
+  );
+});
+
 test("internal rows cannot be addressed and are hidden without breaking catalog pagination", async (t) => {
   const db = fixture(t);
   await handler(event("POST", existing()));
