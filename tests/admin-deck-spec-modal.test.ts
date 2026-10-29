@@ -307,4 +307,61 @@ describe("admin deck spec modal", () => {
       "저장하지 못했습니다. 입력값은 그대로 두었으니 다시 저장해 주세요.",
     );
   });
+
+  it("keeps the inch explanation behind a help button and shows the range only for a wrong value", () => {
+    const clean = renderToStaticMarkup(
+      createElement(AdminDeckSpecForm, {
+        initialSpec: spec,
+        onCancel: () => {},
+        onSave: noop,
+      }),
+    );
+    const wrong = renderToStaticMarkup(
+      createElement(AdminDeckSpecForm, {
+        initialSpec: { ...spec, width: 0 },
+        onCancel: () => {},
+        onSave: noop,
+      }),
+    );
+    const english = renderToStaticMarkup(
+      createElement(AdminDeckSpecForm, {
+        initialSpec: { ...spec, width: 0 },
+        locale: "en",
+        onCancel: () => {},
+        onSave: noop,
+      }),
+    );
+
+    expect(clean).toContain('aria-label="상세사이즈 입력 도움말"');
+    expect(clean).not.toContain("인치로 입력하면");
+    expect(clean).not.toContain("0 초과 100 이하");
+    expect(wrong).toContain("0 초과 100 이하의 인치로, 소수 4자리까지 입력해 주세요.");
+    // The wrong field points at the range message.
+    const errorId = /<p[^>]*id="([^"]+)"[^>]*>0 초과 100 이하/.exec(wrong)?.[1];
+    expect(errorId).toBeTruthy();
+    expect(wrong).toMatch(
+      new RegExp(
+        `<input[^>]*aria-describedby="${errorId}"[^>]*aria-invalid="true"[^>]*name="width"`,
+      ),
+    );
+    expect(english).toContain('aria-label="Help: Size chart input"');
+    expect(english).toContain(
+      "Enter inches above 0 and up to 100, with up to 4 decimals.",
+    );
+    expect(english).not.toMatch(/[가-힣]/u);
+  });
+
+  it("still shows the default-value status for an option without its own chart", () => {
+    const markup = renderToStaticMarkup(
+      createElement(AdminDeckSpecForm, {
+        onCancel: () => {},
+        onSave: noop,
+        size: "8.5",
+      }),
+    );
+
+    expect(markup).toContain(
+      "이 옵션은 지금 기본값을 표시합니다. 저장하면 이 옵션에만 적용됩니다.",
+    );
+  });
 });

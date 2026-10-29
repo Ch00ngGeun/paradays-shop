@@ -494,6 +494,62 @@ test("a duplicated legacy option name opens its chart without a name field", asy
   expect(audit.blocked).toEqual([]);
 });
 
+test("Esc closes the help inside the size chart dialog first, then the dialog, and nothing stays locked", async ({
+  page,
+}) => {
+  const audit = await setup(page, "/admin?section=products");
+  await editDeck(page);
+  const open = page.getByRole("button", { name: "+ 상세사이즈 등록" });
+  await open.click();
+  const chart = page.getByRole("dialog", {
+    name: /^상세사이즈 · \[TEST\] Deck size A/,
+  });
+  await expect(chart).toBeVisible();
+  // The inch explanation is behind the help button.
+  await expect(chart).not.toContainText("인치로 입력하면");
+  const help = chart.getByRole("button", {
+    name: "상세사이즈 입력 도움말",
+    exact: true,
+  });
+  await help.click();
+  const helpDialog = page.getByRole("dialog", { name: "상세사이즈 입력 도움말" });
+  await expect(helpDialog).toContainText("인치로 입력하면 cm는 자동으로 계산됩니다.");
+  const inert = (locator: typeof chart) =>
+    locator.evaluate((element) => element.closest("[inert]") !== null);
+  expect(await inert(chart)).toBe(true);
+
+  await page.keyboard.press("Escape");
+  await expect(helpDialog).toHaveCount(0);
+  await expect(chart).toBeVisible();
+  await expect(help).toBeFocused();
+  expect(await inert(chart)).toBe(false);
+
+  // A wrong value brings the range back as an error tied to that field.
+  const nose = chart.getByRole("textbox", { name: "nose" });
+  await nose.fill("0");
+  await expect(chart).toContainText(
+    "0 초과 100 이하의 인치로, 소수 4자리까지 입력해 주세요.",
+  );
+  await expect(nose).toHaveAccessibleDescription(
+    "0 초과 100 이하의 인치로, 소수 4자리까지 입력해 주세요.",
+  );
+
+  await page.keyboard.press("Escape");
+  await expect(chart).toHaveCount(0);
+  expect(
+    await page.evaluate(() => ({
+      overflow: document.body.style.overflow,
+      inert: [...document.body.children].some(
+        (element) => (element as HTMLElement).inert,
+      ),
+    })),
+  ).toEqual({ overflow: "", inert: false });
+  await expect(open).toBeEnabled();
+  await open.click();
+  await expect(chart).toBeVisible();
+  expect(audit.blocked).toEqual([]);
+});
+
 test("ESC during a pending save keeps the modal open, and a failed save keeps the inputs with an error", async ({
   page,
 }) => {
