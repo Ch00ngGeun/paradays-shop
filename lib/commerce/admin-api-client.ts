@@ -486,6 +486,7 @@ export function createAdminApiClient(
       const product = parseCatalogListItem(body.product);
       // Compare the raw response: the list parser drops a malformed spec, which would look like a delete.
       const raw = isRecord(body.product) ? body.product : {};
+      // shortcut: an older server never returns the option map, so an ignored option delete looks like success; add a handled marker to the server response to tell them apart.
       const savedDeckSpec =
         size === undefined
           ? raw.deckSpec
