@@ -1587,6 +1587,13 @@ const DECK_SPEC_FIELDS = ["nose", "tail", "width", "length", "wheelbase"] as con
 const MAX_DECK_SPEC_INCHES = 100;
 // Matches the sizes list limit, so every option can have its own spec.
 const MAX_DECK_SPECS_BY_SIZE = 20;
+// The DynamoDB marshaller assigns map keys onto a plain object, which these names would break.
+const UNSAFE_DECK_SPEC_OPTIONS = ["__proto__", "constructor", "prototype"];
+
+/** 옵션별 상세사이즈 키로 쓸 수 있는 현재 sizes 값인지 확인합니다. */
+function isDeckSpecOption(sizes: readonly string[], size: string) {
+  return sizes.includes(size) && !UNSAFE_DECK_SPEC_OPTIONS.includes(size);
+}
 // Up to 4 decimals (1/16" = 0.0625), matching what the admin modal can type and reopen unchanged.
 const DECK_SPEC_INCHES_PATTERN = /^\d+(?:\.\d{1,4})?$/;
 
@@ -1626,7 +1633,7 @@ function readDeckSpecsBySize(
   // Prune first, so a key left by an older server never counts against the limit.
   const entries: [string, CatalogDeckSpec][] = [];
   for (const [size, spec] of Object.entries(value)) {
-    if (!sizes.includes(size)) continue;
+    if (!isDeckSpecOption(sizes, size)) continue;
     const parsed = readDeckSpec(spec);
     if (!parsed) return null;
     entries.push([size, parsed]);
@@ -1657,7 +1664,7 @@ function patchDeckSpecsBySize(
       (field) => !["version", "size", "sizeDeckSpec"].includes(field),
     ) ||
     typeof size !== "string" ||
-    !product.sizes.includes(size) ||
+    !isDeckSpecOption(product.sizes, size) ||
     spec === null ||
     (spec === undefined && body.sizeDeckSpec !== null)
   ) {
@@ -1674,7 +1681,7 @@ function patchDeckSpecsBySize(
 function deckSpecsBySizeOutput(product: CatalogProductRecord) {
   const deckSpecsBySize = Object.fromEntries(
     Object.entries(product.deckSpecsBySize ?? {})
-      .filter(([size]) => product.sizes.includes(size))
+      .filter(([size]) => isDeckSpecOption(product.sizes, size))
       .map(([size, spec]) => [size, { ...spec }]),
   );
   return Object.keys(deckSpecsBySize).length ? { deckSpecsBySize } : {};

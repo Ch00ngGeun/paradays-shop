@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import { CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";
 import { GetCommand, ScanCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
@@ -1057,31 +1058,46 @@ test("option size charts are never taken from a create body", async (t) => {
   assert.equal(Object.hasOwn(row, "deckSpecsBySize"), false);
 });
 
-test("an option named __proto__ is stored as an own key", async (t) => {
-  const db = fixture(t, [product({ sizes: ["__proto__", "8.25"] })]);
+test("unsafe option names are refused and saved option charts survive DynamoDB marshalling", async (t) => {
+  const unsafe = ["__proto__", "constructor", "prototype"];
+  const db = fixture(t, [product({ sizes: [...unsafe, "8.25"] })]);
   const spec = { nose: 6.875, tail: 6.5, width: 8.25, length: 31.75, wheelbase: 14.25 };
+  for (const size of unsafe) {
+    const refused = unpack(
+      await handler(
+        event("PATCH", { version: 3, size, sizeDeckSpec: spec }, "prd_deck"),
+      ),
+    );
+    assert.equal(refused.status, 400, size);
+  }
+  assert.equal(db.transactions.length, 0);
+
   const saved = unpack(
     await handler(
-      event("PATCH", { version: 3, size: "__proto__", sizeDeckSpec: spec }, "prd_deck"),
+      event("PATCH", { version: 3, size: "8.25", sizeDeckSpec: spec }, "prd_deck"),
     ),
   );
   assert.equal(saved.status, 200);
-  const stored = db.records.get("prd_deck")!.deckSpecsBySize as object;
-  assert.equal(Object.getPrototypeOf(stored), Object.prototype);
-  assert.deepEqual(Object.getOwnPropertyDescriptor(stored, "__proto__")?.value, spec);
-  assert.deepEqual(
-    Object.getOwnPropertyDescriptor(saved.body.product.deckSpecsBySize, "__proto__")
-      ?.value,
-    spec,
-  );
+  // The in-memory transport skips the SDK conversion, so round-trip the stored row through it.
+  const row = db.records.get("prd_deck")!;
+  const restored = unmarshall(marshall(row, { removeUndefinedValues: true }));
+  assert.deepEqual(restored.deckSpecsBySize, { "8.25": spec });
+  assert.equal(isCatalogProductRecord(restored), true);
 
-  const cleared = unpack(
-    await handler(
-      event("PATCH", { version: 4, size: "__proto__", sizeDeckSpec: null }, "prd_deck"),
+  // A row that somehow holds such a key never returns it.
+  const legacy = product({
+    status: "PUBLISHED",
+    publicationStatus: "PUBLISHED",
+    image: "/deck.webp",
+    sizes: [...unsafe, "8.25"],
+    deckSpecsBySize: JSON.parse(
+      JSON.stringify({ "8.25": spec, constructor: spec, prototype: spec }).replace(
+        '"prototype"',
+        '"__proto__"',
+      ),
     ),
-  );
-  assert.equal(cleared.status, 200);
-  assert.equal(Object.hasOwn(db.records.get("prd_deck")!, "deckSpecsBySize"), false);
+  });
+  assert.deepEqual(toPublicCatalogProduct(legacy)?.deckSpecsBySize, { "8.25": spec });
 });
 
 test("a key left for a removed option does not count against the option limit", async (t) => {
