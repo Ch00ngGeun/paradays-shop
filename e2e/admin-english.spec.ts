@@ -576,6 +576,15 @@ test("product editor, size chart dialog and stock stepper show no Korean in Engl
   await page.getByRole("button", { name: "+ Add size chart" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await scan(page, "size chart dialog", found);
+  // Option labels are scanned even while the picker is closed; also check the option-target notice.
+  await page
+    .getByRole("dialog")
+    .getByRole("combobox", { name: "Applies to" })
+    .selectOption({ index: 1 });
+  await expect(page.getByRole("dialog")).toContainText(
+    "This option shows the default now.",
+  );
+  await scan(page, "size chart dialog option target", found);
   await page.keyboard.press("Escape");
   await openSection(page, "Stock editing");
   await page

@@ -1363,7 +1363,7 @@ function AdminWorkspace({
    * 폼이 기준으로 삼은 version으로만 보내므로, 그 사이 다른 곳에서 바뀌었으면 409로 멈추고 덮어쓰지 않습니다.
    * 직접 받은 성공 응답일 때만 폼 version을 올려 이후 상품 저장이 409가 나지 않게 합니다.
    */
-  const saveProductDeckSpec = async (deckSpec: DeckSpec | null) => {
+  const saveProductDeckSpec = async (deckSpec: DeckSpec | null, size?: string) => {
     const editor = productEditor;
     const productId = editor?.draft.productId;
     const version = editor?.draft.version;
@@ -1378,6 +1378,7 @@ function AdminWorkspace({
         id: productId,
         version,
         deckSpec,
+        ...(size === undefined ? {} : { size }),
       });
     } catch (error) {
       // Success is never guessed from a re-read; a conflict only refreshes the list and asks to reopen.
@@ -3368,7 +3369,7 @@ function ProductSection({
   onOpenCreate: () => void;
   onReset: () => void;
   onSave: (event: FormEvent<HTMLFormElement>) => void;
-  onSaveDeckSpec?: (deckSpec: DeckSpec | null) => Promise<void>;
+  onSaveDeckSpec?: (deckSpec: DeckSpec | null, size?: string) => Promise<void>;
   onTextChange: (
     field: Exclude<
       keyof AdminProductDraft,
@@ -3399,6 +3400,16 @@ function ProductSection({
     .filter(Boolean);
   const currentProduct = products.find((product) => product.id === draft.productId);
   const deckSpec = currentProduct?.deckSpec;
+  const deckSpecsBySize = currentProduct?.deckSpecsBySize;
+  const optionDeckSpecCount = Object.keys(deckSpecsBySize ?? {}).length;
+  // 모달은 서버가 검증하는 저장된 옵션만 대상으로 씁니다. 편집 중인 옵션과 다르면 먼저 상품 저장을 안내합니다.
+  const splitSizes = (value: string) =>
+    value
+      .split(",")
+      .map((size) => size.trim())
+      .filter(Boolean);
+  const savedSizes = splitSizes(currentProduct?.sizes ?? "");
+  const hasUnsavedSizes = savedSizes.join(",") !== splitSizes(draft.sizes).join(",");
   // 모달은 열 때마다 새 번호를 받고, 저장 응답은 자기 번호의 모달만 닫습니다. 편집기를 벗어나면 모달을 비웁니다.
   const deckSpecSessionRef = useRef(0);
   const [deckSpecModal, setDeckSpecModal] = useState<{
@@ -4047,11 +4058,19 @@ function ProductSection({
                 <span>
                   {isKorean ? "상세사이즈" : "Size chart"}
                   <strong>
+                    {optionDeckSpecCount ? (isKorean ? "기본 " : "Default ") : ""}
                     {deckSpec
                       ? `${formatDeckInches(deckSpec.width)} × ${formatDeckInches(deckSpec.length)} · WB ${formatDeckInches(deckSpec.wheelbase)}`
                       : isKorean
                         ? "미등록"
-                        : "Not set"}
+                        : optionDeckSpecCount
+                          ? "not set"
+                          : "Not set"}
+                    {optionDeckSpecCount
+                      ? isKorean
+                        ? ` · 옵션별 ${optionDeckSpecCount}개`
+                        : ` · ${optionDeckSpecCount} per option`
+                      : ""}
                   </strong>
                 </span>
                 <button
@@ -4065,7 +4084,7 @@ function ProductSection({
                   }
                   type="button"
                 >
-                  {deckSpec
+                  {deckSpec || optionDeckSpecCount
                     ? isKorean
                       ? "상세사이즈 수정"
                       : "Edit size chart"
@@ -4076,19 +4095,35 @@ function ProductSection({
                 {onSaveDeckSpec && deckSpecModal?.editorKey === editorKey ? (
                   <AdminDeckSpecModal
                     initialSpec={deckSpec}
+                    initialSpecsBySize={deckSpecsBySize}
                     isOpen
                     key={deckSpecModal.session}
                     locale={locale}
                     onCancel={() => setDeckSpecModal(null)}
-                    onSave={async (next) => {
+                    onSave={async (next, size) => {
                       const { session } = deckSpecModal;
-                      await onSaveDeckSpec(next);
+                      await onSaveDeckSpec(next, size);
                       setDeckSpecModal((current) =>
                         current?.session === session ? null : current,
                       );
                     }}
                     productName={previewName}
+                    sizeOptions={savedSizes}
                   />
+                ) : null}
+                {canEditDeckSpec && hasUnsavedSizes ? (
+                  <small>
+                    {isKorean
+                      ? "바뀐 옵션은 상품을 먼저 저장해야 상세사이즈 대상으로 고를 수 있습니다."
+                      : "Save the product first to pick changed options for the size chart."}
+                  </small>
+                ) : null}
+                {optionDeckSpecCount ? (
+                  <small>
+                    {isKorean
+                      ? "옵션 이름을 바꾸거나 지우고 상품을 저장하면 그 옵션의 상세사이즈는 지워집니다."
+                      : "Renaming or removing an option and saving the product deletes that option's size chart."}
+                  </small>
                 ) : null}
                 {canEditDeckSpec ? (
                   <small>
