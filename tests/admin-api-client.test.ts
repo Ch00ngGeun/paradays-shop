@@ -1535,6 +1535,130 @@ describe("createAdminApiClient", () => {
       expect(fetchImplementation).not.toHaveBeenCalled();
     });
 
+    it("renames an option with its chart in one PATCH and checks the renamed list", async () => {
+      const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+        respond({
+          ...savedProduct(4, deckSpec),
+          sizes: ["8.25 wide", "8.5"],
+          deckSpecsBySize: { "8.25 wide": optionSpec },
+        }),
+      );
+      const { client } = createClient(fetchImplementation);
+
+      const product = await client.updateProductDeckSpec({
+        id: "prd_deck",
+        version: 3,
+        deckSpec: optionSpec,
+        size: "8.25",
+        sizeName: "8.25 wide",
+      });
+
+      expect(JSON.parse(String(fetchImplementation.mock.calls[0][1]?.body))).toEqual({
+        version: 3,
+        size: "8.25",
+        sizeName: "8.25 wide",
+        sizeDeckSpec: optionSpec,
+      });
+      expect(product.sizes).toBe("8.25 wide, 8.5");
+      expect(product.deckSpecsBySize).toEqual({ "8.25 wide": optionSpec });
+    });
+
+    it("renames with an empty chart and sends the same-name save as the H-035 body", async () => {
+      const fetchImplementation = vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(respond({ ...savedProduct(4), sizes: ["8.75", "8.5"] }))
+        .mockResolvedValueOnce(
+          respond({
+            ...savedProduct(5),
+            sizes: ["8.75", "8.5"],
+            deckSpecsBySize: { "8.5": optionSpec },
+          }),
+        );
+      const { client } = createClient(fetchImplementation);
+
+      await client.updateProductDeckSpec({
+        id: "prd_deck",
+        version: 3,
+        deckSpec: null,
+        size: "8.25",
+        sizeName: "8.75",
+      });
+      expect(JSON.parse(String(fetchImplementation.mock.calls[0][1]?.body))).toEqual({
+        version: 3,
+        size: "8.25",
+        sizeName: "8.75",
+        sizeDeckSpec: null,
+      });
+
+      // An unchanged name, even one the new-name rules would refuse, keeps the H-035 body.
+      await client.updateProductDeckSpec({
+        id: "prd_deck",
+        version: 4,
+        deckSpec: optionSpec,
+        size: "8.5",
+        sizeName: "8.5",
+      });
+      expect(JSON.parse(String(fetchImplementation.mock.calls[1][1]?.body))).toEqual({
+        version: 4,
+        size: "8.5",
+        sizeDeckSpec: optionSpec,
+      });
+    });
+
+    it("rejects a rename answered with the old option name still listed", async () => {
+      // A server before H-035 ignores every option field and only bumps the version.
+      for (const sizes of [["8.25", "8.5"], ["8.25", "8.25 wide"], "8.25 wide"]) {
+        const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+          respond({
+            ...savedProduct(4),
+            sizes,
+            deckSpecsBySize: { "8.25 wide": optionSpec },
+          }),
+        );
+        const { client } = createClient(fetchImplementation);
+
+        await expect(
+          client.updateProductDeckSpec({
+            id: "prd_deck",
+            version: 3,
+            deckSpec: optionSpec,
+            size: "8.25",
+            sizeName: "8.25 wide",
+          }),
+        ).rejects.toBeInstanceOf(AdminApiResponseError);
+      }
+    });
+
+    it("rejects an invalid new option name before authentication or fetch", async () => {
+      const fetchImplementation = vi.fn<typeof fetch>();
+      const { client, getAccessToken } = createClient(fetchImplementation);
+
+      for (const input of [
+        { size: "8.25", sizeName: "" },
+        { size: "8.25", sizeName: " 8.75" },
+        { size: "8.25", sizeName: "8.75 " },
+        { size: "8.25", sizeName: "x".repeat(51) },
+        { size: "8.25", sizeName: "8.75, 9.0" },
+        { size: "8.25", sizeName: "8.75\n" },
+        { size: "8.25", sizeName: "__proto__" },
+        { size: "8.25", sizeName: "constructor" },
+        { size: "8.25", sizeName: "prototype" },
+        { size: "8.25", sizeName: 8.75 as unknown as string },
+        { sizeName: "8.75" },
+      ]) {
+        await expect(
+          client.updateProductDeckSpec({
+            id: "prd_deck",
+            version: 3,
+            deckSpec,
+            ...input,
+          }),
+        ).rejects.toBeInstanceOf(AdminApiResponseError);
+      }
+      expect(getAccessToken).not.toHaveBeenCalled();
+      expect(fetchImplementation).not.toHaveBeenCalled();
+    });
+
     it("keeps only well-formed option charts when listing products", async () => {
       const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
         new Response(

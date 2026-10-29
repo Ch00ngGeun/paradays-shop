@@ -227,6 +227,8 @@ export type AdminDashboardActions = Readonly<{
       deckSpec: DeckSpec | null;
       /** 있으면 그 사이즈 옵션만, 없으면 기본값을 저장(null이면 삭제)합니다. */
       size?: string;
+      /** size 옵션의 새 이름. 다르면 이름 변경과 상세사이즈를 함께 저장합니다. */
+      sizeName?: string;
     }>,
   ) => Promise<AdminCatalogListItem>;
   deleteCatalogProducts?: (

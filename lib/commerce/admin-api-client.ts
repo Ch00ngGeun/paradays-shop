@@ -123,6 +123,8 @@ export type AdminApiClient = Readonly<{
       deckSpec: DeckSpec | null;
       /** 있으면 그 사이즈 옵션의 상세사이즈만, 없으면 기본값을 저장합니다. */
       size?: string;
+      /** size 옵션의 새 이름. 다르면 이름 변경과 상세사이즈를 한 번에 저장합니다. */
+      sizeName?: string;
     }>,
   ) => Promise<AdminCatalogListItem>;
   deleteCatalogProducts: (
@@ -459,13 +461,22 @@ export function createAdminApiClient(
         (input.size !== undefined &&
           (typeof input.size !== "string" ||
             !input.size.trim() ||
-            input.size.length > 50))
+            input.size.length > 50)) ||
+        (input.sizeName !== undefined &&
+          (input.size === undefined ||
+            (input.sizeName !== input.size && !isNewOptionName(input.sizeName))))
       ) {
         throw new AdminApiResponseError();
       }
 
       const deckSpec = input.deckSpec && copyDeckSpec(input.deckSpec);
       const { size } = input;
+      // Only an actual rename sends sizeName, so a same-name save stays the H-035 body.
+      const sizeName =
+        input.sizeName !== undefined && input.sizeName !== size
+          ? input.sizeName
+          : undefined;
+      const savedKey = sizeName ?? size;
       const body = await requestJson({
         apiBaseUrl,
         authorizationTokenProvider: dependencies.authorizationTokenProvider,
@@ -476,7 +487,12 @@ export function createAdminApiClient(
         body:
           size === undefined
             ? { version: input.version, deckSpec }
-            : { version: input.version, size, sizeDeckSpec: deckSpec },
+            : {
+                version: input.version,
+                size,
+                ...(sizeName === undefined ? {} : { sizeName }),
+                sizeDeckSpec: deckSpec,
+              },
       });
 
       if (!isRecord(body) || !("product" in body)) {
@@ -488,12 +504,20 @@ export function createAdminApiClient(
       const raw = isRecord(body.product) ? body.product : {};
       // shortcut: an older server never returns the option map, so an ignored option delete looks like success; add a handled marker to the server response to tell them apart.
       const savedDeckSpec =
-        size === undefined
+        savedKey === undefined
           ? raw.deckSpec
-          : isRecord(raw.deckSpecsBySize) && Object.hasOwn(raw.deckSpecsBySize, size)
-            ? raw.deckSpecsBySize[size]
+          : isRecord(raw.deckSpecsBySize) &&
+              Object.hasOwn(raw.deckSpecsBySize, savedKey)
+            ? raw.deckSpecsBySize[savedKey]
             : undefined;
+      // A server that ignored sizeName still lists the old name, so the rename is not taken as saved.
+      const renamed =
+        sizeName === undefined ||
+        (Array.isArray(raw.sizes) &&
+          raw.sizes.includes(sizeName) &&
+          !raw.sizes.includes(size));
       if (
+        !renamed ||
         product.id !== productId ||
         product.version !== input.version + 1 ||
         JSON.stringify(savedDeckSpec ?? null) !== JSON.stringify(deckSpec)
@@ -1357,6 +1381,18 @@ function parseCatalogListItem(value: unknown): AdminCatalogListItem {
     ...(isDeckSpec(value.deckSpec) ? { deckSpec: copyDeckSpec(value.deckSpec) } : {}),
     ...parseDeckSpecsBySize(value.deckSpecsBySize),
   };
+}
+
+/** 서버의 새 옵션 이름 규칙과 같습니다. 다른 옵션과의 중복은 서버가 저장된 목록으로 확인합니다. */
+function isNewOptionName(name: unknown): name is string {
+  return (
+    typeof name === "string" &&
+    name.length > 0 &&
+    name.length <= 50 &&
+    name === name.trim() &&
+    !/[,\r\n]/.test(name) &&
+    !["__proto__", "constructor", "prototype"].includes(name)
+  );
 }
 
 function copyDeckSpec(spec: DeckSpec): DeckSpec {
