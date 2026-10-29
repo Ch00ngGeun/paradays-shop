@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   AdminDeckSpecEditor,
   AdminDeckSpecForm,
+  deckSpecFailureMessage,
   getDeckSpecSaveState,
   optionNameError,
   parseDeckInches,
@@ -315,5 +316,38 @@ describe("admin deck spec modal", () => {
     expect(korean.every((text) => /[가-힣]/u.test(text))).toBe(true);
     expect(english.join("")).not.toMatch(/[가-힣]/u);
     expect(english).toContain("This option name already exists.");
+  });
+
+  it("a caller notice shows at the top of the form, and none leaves the markup unchanged", () => {
+    const base = { onCancel: () => {}, onSave: noop, otherOptions: [], size: "M" };
+    const plain = renderToStaticMarkup(createElement(AdminDeckSpecForm, base));
+    const withUndefined = renderToStaticMarkup(
+      createElement(AdminDeckSpecForm, {
+        ...base,
+        notice: undefined,
+        describeError: () => undefined,
+      }),
+    );
+    const noticed = renderToStaticMarkup(
+      createElement(AdminDeckSpecForm, { ...base, notice: "CALLER_NOTICE" }),
+    );
+
+    expect(withUndefined).toBe(plain);
+    expect(noticed).toContain("CALLER_NOTICE");
+    expect(noticed.indexOf("CALLER_NOTICE")).toBeLessThan(noticed.indexOf("옵션 이름"));
+  });
+
+  it("a save failure uses the caller's description and falls back to the general message", () => {
+    const reserved = new Error("reserved");
+    const describe = (error: unknown) =>
+      error === reserved ? "RESERVED_TEXT" : undefined;
+
+    expect(deckSpecFailureMessage(reserved, describe, true)).toBe("RESERVED_TEXT");
+    expect(deckSpecFailureMessage(new Error("other"), describe, true)).toBe(
+      "저장하지 못했습니다. 입력값은 그대로 두었으니 다시 저장해 주세요.",
+    );
+    expect(deckSpecFailureMessage(reserved, undefined, false)).toBe(
+      "Could not save. Your input is kept, so save again.",
+    );
   });
 });
