@@ -272,7 +272,9 @@ async function editDeck(page: Page) {
     .click();
 }
 const chipNames = (page: Page) =>
-  page.getByRole("list", { name: "추가된 옵션" }).locator("li > :first-child");
+  page
+    .getByRole("list", { name: "추가된 옵션" })
+    .locator("li > :first-child > span:first-child");
 const chip = (page: Page, name: string) =>
   page
     .getByRole("list", { name: "추가된 옵션" })
@@ -730,7 +732,7 @@ test("a legacy duplicate option chip is removed alone, by its position", async (
     .click();
   const chips = page
     .getByRole("list", { name: "추가된 옵션" })
-    .locator("li > :first-child");
+    .locator("li > :first-child > span:first-child");
   await expect(chips).toHaveText(["M", "M", "L"]);
   await page.getByRole("button", { name: "M 삭제", exact: true }).nth(1).click();
   await expect(chips).toHaveText(["M", "L"]);

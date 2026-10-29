@@ -2652,16 +2652,36 @@
 
 .productOptionChip {
   align-items: center;
-  border: 1px solid var(--product-field-border);
   display: inline-flex;
-  gap: 0.25rem;
   max-width: 100%;
-  min-height: 2.75rem;
-  padding-inline: 0.55rem 0;
 }
 
-.productOptionChip > :first-child {
+/* The bordered box is the name and its chart mark; the remove button sits just outside it. */
+.productScreen .productOptionChipBox {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--product-field-border);
+  border-radius: 4px;
+  color: inherit;
+  display: inline-flex;
+  font: inherit;
+  gap: 0.25rem;
+  justify-content: center;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
   overflow-wrap: anywhere;
+  padding: 0 0.55rem;
+}
+
+/* A deck chip box opens its size chart, so it fills like the product form's secondary buttons. */
+.productScreen button.productOptionChipBox {
+  cursor: pointer;
+}
+
+.productScreen button.productOptionChipBox:is(:hover, :focus-visible) {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-paper);
 }
 
 .productOptionChipMark {
@@ -2669,10 +2689,16 @@
   font-size: 0.75rem;
 }
 
+.productScreen
+  button.productOptionChipBox:is(:hover, :focus-visible)
+  .productOptionChipMark {
+  color: inherit;
+}
+
 .productScreen .productOptionChipRemove {
   background: transparent;
   border: 0;
-  color: inherit;
+  color: var(--admin-muted);
   font-size: 1rem;
   line-height: 1;
   min-height: 2.75rem;
@@ -2682,19 +2708,6 @@
 
 .productScreen .productOptionChipRemove:hover {
   color: var(--product-danger);
-}
-
-/* A deck chip's name opens its size chart, so it fills like the product form's secondary buttons. */
-.productScreen .productOptionChip > .productOptionChipRemove:first-child {
-  border-radius: 4px;
-  padding-inline: 0.45rem;
-}
-
-.productScreen
-  .productOptionChip
-  > .productOptionChipRemove:first-child:is(:hover, :focus-visible) {
-  background: var(--color-ink);
-  color: var(--color-paper);
 }
 
 .productLegacyPrice {
