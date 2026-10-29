@@ -57,6 +57,13 @@ export function ProductDetail({ product }: ProductDetailProps) {
   const [selectedSize, setSelectedSize] = useState(product.sizes[0]);
   const [isAddedModalOpen, setIsAddedModalOpen] = useState(false);
   const [isSizeChartOpen, setIsSizeChartOpen] = useState(false);
+  // 선택한 사이즈에 옵션값이 있으면 그것을, 없으면 상품 공통 기본값을 도면에 씁니다.
+  const deckSpec =
+    selectedSize &&
+    product.deckSpecsBySize &&
+    Object.hasOwn(product.deckSpecsBySize, selectedSize)
+      ? product.deckSpecsBySize[selectedSize]
+      : product.deckSpec;
   const gallery = getGalleryImages(product);
   const [imageIndex, setImageIndex] = useState(0);
   const hasGallery = gallery.length > 1;
@@ -195,7 +202,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
           )}
         </button>
 
-        {product.deckSpec ? (
+        {deckSpec ? (
           <button
             aria-haspopup="dialog"
             className={styles.sizeChartButton}
@@ -299,13 +306,13 @@ export function ProductDetail({ product }: ProductDetailProps) {
         productName={displayName}
       />
 
-      {product.deckSpec && isSizeChartOpen ? (
+      {deckSpec && isSizeChartOpen ? (
         <SizeChartOverlay
           closeLabel={copy.close}
           image={product.image}
           name={displayName}
           onClose={() => setIsSizeChartOpen(false)}
-          spec={product.deckSpec}
+          spec={deckSpec}
           title={copy.sizeChart}
         />
       ) : null}

@@ -14,6 +14,8 @@ type Stored = {
   name: string;
   version: number;
   deckSpec?: typeof SPEC;
+  sizes?: string[];
+  deckSpecsBySize?: Record<string, typeof SPEC>;
 };
 type Audit = {
   blocked: string[];
@@ -50,11 +52,12 @@ function adminShape(item: Stored) {
     image: "/images/product-placeholder.svg",
     images: ["/images/product-placeholder.svg"],
     description: ["Synthetic deck size fixture"],
-    sizes: ["8.5"],
+    sizes: item.sizes ?? ["8.5"],
     version: item.version,
     createdAt: "2026-10-28T00:00:00Z",
     updatedAt: "2026-10-28T00:00:00Z",
     ...(item.deckSpec ? { deckSpec: item.deckSpec } : {}),
+    ...(item.deckSpecsBySize ? { deckSpecsBySize: item.deckSpecsBySize } : {}),
   };
 }
 
@@ -69,13 +72,19 @@ function publicShape(item: Stored) {
     inventoryQuantity: 5,
     image: "/images/product-placeholder.svg",
     description: ["Synthetic deck size fixture"],
-    sizes: ["8.5"],
+    sizes: item.sizes ?? ["8.5"],
     featured: false,
     ...(item.deckSpec ? { deckSpec: item.deckSpec } : {}),
+    ...(item.deckSpecsBySize ? { deckSpecsBySize: item.deckSpecsBySize } : {}),
   };
 }
 
-async function setup(page: Page, path: string, deckSpec?: typeof SPEC) {
+async function setup(
+  page: Page,
+  path: string,
+  deckSpec?: typeof SPEC,
+  deck: Partial<Stored> = {},
+) {
   const store: Stored[] = [
     {
       productId: DECK.id,
@@ -83,6 +92,7 @@ async function setup(page: Page, path: string, deckSpec?: typeof SPEC) {
       name: "[TEST] Deck size A",
       version: 3,
       deckSpec,
+      ...deck,
     },
     { productId: PLAIN.id, slug: PLAIN.slug, name: "[TEST] Deck size B", version: 1 },
   ];
@@ -401,6 +411,62 @@ test("the storefront shows a size chart with inches and cm only when the product
 
   await page.goto(`/products?slug=${PLAIN.slug}`);
   await expect(page.getByRole("heading", { name: "[TEST] Deck size B" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "상세사이즈" })).toHaveCount(0);
+  expect(audit.blocked).toEqual([]);
+});
+
+test("the storefront size chart follows the selected size and falls back to the default", async ({
+  page,
+}) => {
+  const option = { ...SPEC, width: 8.25, wheelbase: 14 };
+  const audit = await setup(page, `/products/${DECK.slug}`, SPEC, {
+    sizes: ["8.25", "8.5"],
+    deckSpecsBySize: { "8.25": option },
+  });
+  await expect(page.getByRole("heading", { name: "[TEST] Deck size A" })).toBeVisible();
+  const openChart = async () => {
+    await page.getByRole("button", { name: "상세사이즈" }).click();
+    const svg = page.getByRole("dialog").locator("svg");
+    await expect(svg).toBeVisible();
+    return svg;
+  };
+
+  // The first size is selected and has its own values.
+  await expect(page.getByRole("button", { name: "8.25", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  let svg = await openChart();
+  for (const text of ['8.25"', "(21.0cm)", '14"', "(35.6cm)"])
+    await expect(svg).toContainText(text);
+  await expect(svg).not.toContainText('14.25"');
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "8.5", exact: true }).click();
+  svg = await openChart();
+  for (const text of ['8.5"', "(21.6cm)", '14.25"', "(36.2cm)"])
+    await expect(svg).toContainText(text);
+  await expect(svg).not.toContainText('8.25"');
+  await page.keyboard.press("Escape");
+  expect(audit.blocked).toEqual([]);
+});
+
+test("without a default, only a size with its own values shows the size chart", async ({
+  page,
+}) => {
+  const audit = await setup(page, `/products/${DECK.slug}`, undefined, {
+    sizes: ["8.25", "8.5"],
+    deckSpecsBySize: { "8.5": SPEC },
+  });
+  await expect(page.getByRole("heading", { name: "[TEST] Deck size A" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "상세사이즈" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "8.5", exact: true }).click();
+  await page.getByRole("button", { name: "상세사이즈" }).click();
+  await expect(page.getByRole("dialog").locator("svg")).toContainText('14.25"');
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "8.25", exact: true }).click();
   await expect(page.getByRole("button", { name: "상세사이즈" })).toHaveCount(0);
   expect(audit.blocked).toEqual([]);
 });
