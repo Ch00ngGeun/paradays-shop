@@ -38,6 +38,8 @@ export type Product = {
   featured?: boolean;
   /** 데크 상세사이즈. 5개 값이 모두 있을 때만 상세 페이지에 상세사이즈 버튼을 표시 */
   deckSpec?: DeckSpec;
+  /** 사이즈 옵션별 상세사이즈. 선택한 사이즈에 값이 없으면 deckSpec(기본값)을 표시 */
+  deckSpecsBySize?: Record<string, DeckSpec>;
 };
 
 /** 장바구니에 담긴 한 줄 (상품·선택 옵션·수량). 결제 요청은 이 식별자 대신 productId+selectedSize만 전송합니다. */

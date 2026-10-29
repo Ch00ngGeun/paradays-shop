@@ -149,6 +149,7 @@ function parseProduct(value: unknown): Product {
   const nameI18n = parseNameI18n(value.nameI18n);
   const descriptionI18n = parseDescriptionI18n(value.descriptionI18n);
   const deckSpec = parseDeckSpec(value.deckSpec);
+  const deckSpecsBySize = parseDeckSpecsBySize(value.deckSpecsBySize, value.sizes);
 
   return {
     id: value.id,
@@ -171,6 +172,7 @@ function parseProduct(value: unknown): Product {
       : {}),
     ...(typeof value.featured === "boolean" ? { featured: value.featured } : {}),
     ...(deckSpec ? { deckSpec } : {}),
+    ...(deckSpecsBySize ? { deckSpecsBySize } : {}),
   };
 }
 
@@ -192,6 +194,28 @@ function parseDeckSpec(value: unknown): DeckSpec | undefined {
     length: value.length as number,
     wheelbase: value.wheelbase as number,
   };
+}
+
+// Same names the server refuses, since they cannot be stored as plain map keys.
+const UNSAFE_DECK_SPEC_OPTIONS = ["__proto__", "constructor", "prototype"];
+
+/** 옵션별 상세사이즈는 sizes에 있는 옵션의 올바른 값만 남기고, 남은 값이 없으면 생략합니다. */
+function parseDeckSpecsBySize(
+  value: unknown,
+  sizes: readonly unknown[],
+): Record<string, DeckSpec> | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const entries = Object.entries(value).flatMap(([size, spec]) => {
+    const parsed =
+      sizes.includes(size) && !UNSAFE_DECK_SPEC_OPTIONS.includes(size)
+        ? parseDeckSpec(spec)
+        : undefined;
+    return parsed ? [[size, parsed] as const] : [];
+  });
+  return entries.length ? Object.fromEntries(entries) : undefined;
 }
 
 function isSafeInches(value: unknown): value is number {
