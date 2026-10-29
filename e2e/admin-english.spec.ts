@@ -483,6 +483,18 @@ async function scan(page: Page, step: string, found: Map<string, string[]>) {
   const left = (await hangul(page)).filter((text) => !ALLOWED.has(text));
   if (left.length) found.set(step, left);
 }
+/** Opens one '?' help dialog, scans the whole page with it open, then closes it with Esc. */
+async function scanHelp(page: Page, target: string, found: Map<string, string[]>) {
+  const name = `Help: ${target}`;
+  await page.getByRole("button", { name, exact: true }).click();
+  const dialog = page.getByRole("dialog", { name, exact: true });
+  await expect(dialog).toBeVisible();
+  // The help body must really be there, in English, for the scan to mean anything.
+  await expect(dialog.locator("p").first()).toHaveText(/[A-Za-z]{3}/);
+  await scan(page, `help ${target}`, found);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+}
 function expectClean(found: Map<string, string[]>) {
   expect(Object.fromEntries(found)).toEqual({});
 }
@@ -535,7 +547,14 @@ test("all nine menus and the overview order panels show no Korean in English", a
     await page.waitForLoadState("networkidle");
     await scan(page, `menu ${name}`, found);
   }
+  await openSection(page, "Sales & daily close");
+  await scanHelp(page, "Real operations", found);
+  await openSection(page, "Brands");
+  await scanHelp(page, "Add brand", found);
+  await openSection(page, "Stock-in OCR");
+  await scanHelp(page, "Source image", found);
   await openSection(page, "Home (Operations Overview)");
+  await scanHelp(page, "Recent activity", found);
   await page
     .getByRole("textbox", { name: "Order number", exact: true })
     .fill(order.orderId);
@@ -565,6 +584,11 @@ test("all nine menus and the overview order panels show no Korean in English", a
     .click();
   await expect(page.getByRole("status", { name: "Mock result" })).toBeVisible();
   await scan(page, "mock order panel", found);
+  // This help opens on top of the mock test dialog.
+  await scanHelp(page, "Mock partial actions", found);
+  await expect(
+    page.getByRole("dialog", { name: "Mock order and stock test", exact: true }),
+  ).toBeVisible();
   expectClean(found);
 });
 
@@ -575,11 +599,22 @@ test("product editor, size chart dialog and stock stepper show no Korean in Engl
   const found = new Map<string, string[]>();
   await page.getByRole("button", { name: "Register new product", exact: true }).click();
   await scan(page, "new product editor", found);
+  for (const target of [
+    "Size / options",
+    "Main image",
+    "Saving the product",
+    "Customer preview",
+  ])
+    await scanHelp(page, target, found);
   await openSection(page, "Product registration");
   await page.getByRole("button", { name: "Edit", exact: true }).first().click();
+  await scanHelp(page, "Size chart", found);
   await page.getByRole("button", { name: "+ Add size chart" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await scan(page, "size chart dialog", found);
+  // This help opens on top of the size chart dialog; Esc closes only the help.
+  await scanHelp(page, "Size chart input", found);
+  await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
   // A saved chip opens the option dialog; a rename shows the name check and the sales notice.
   const chips = page.getByRole("list", { name: "Added options", exact: true });
@@ -607,6 +642,7 @@ test("product editor, size chart dialog and stock stepper show no Korean in Engl
     .getByRole("button", { name: "Adjust stock for [TEST] English deck", exact: true })
     .click();
   await scan(page, "stock stepper", found);
+  await scanHelp(page, "Stock after change", found);
   expectClean(found);
 });
 
@@ -706,13 +742,17 @@ test("member detail, coupon and campaign steps show no Korean in English", async
     .getByRole("button", { name: "[TEST] Alex member details", exact: true })
     .click();
   await scan(page, "member detail", found);
+  await scanHelp(page, "Change operating permission", found);
   await openSection(page, "Coupons");
   await page.getByLabel("Coupon name (required)").fill("Welcome");
   await scan(page, "coupon draft", found);
+  for (const target of ["Coupon code", "Discount value", "Expiry"])
+    await scanHelp(page, target, found);
   await openSection(page, "Marketing");
   await page.getByLabel("Campaign title (required)").fill("Autumn");
   await page.getByLabel("Message (required)").fill("Synthetic message");
   await scan(page, "campaign draft", found);
+  await scanHelp(page, "Channel selection", found);
   expectClean(found);
 });
 
@@ -771,6 +811,7 @@ test("OCR intake, area mapping and stock receipt show no Korean in English", asy
     page.getByRole("button", { name: "Save review", exact: true }),
   ).toBeEnabled();
   await scan(page, "OCR review and area mapping", found);
+  await scanHelp(page, "Image area selection", found);
 
   await expect(
     page.getByRole("img", {
@@ -778,6 +819,9 @@ test("OCR intake, area mapping and stock receipt show no Korean in English", asy
       exact: true,
     }),
   ).toHaveJSProperty("naturalWidth", 1600);
+  // The row spacing help shows only while there is no quantity area.
+  await page.getByRole("button", { name: "Quantity none", exact: true }).click();
+  await scanHelp(page, "Row spacing", found);
   await dragArea(page, "Product name", [90, 190, 450, 240]);
   await dragArea(page, "Brand", [490, 190, 680, 240]);
   await dragArea(page, "Option", [790, 190, 1000, 240]);
@@ -812,6 +856,15 @@ test("OCR intake, area mapping and stock receipt show no Korean in English", asy
   await page.getByRole("button", { name: "Save review", exact: true }).click();
   const panel = page.getByRole("region", { name: "Apply to stock", exact: true });
   await panel.getByRole("button", { name: "Load stock products", exact: true }).click();
+  // New product rows have their own help; switch row 1 there and back.
+  const method = panel.getByRole("combobox", {
+    name: "Receiving method 1",
+    exact: true,
+  });
+  await method.selectOption("new");
+  await scanHelp(page, "New option 1", found);
+  await scanHelp(page, "New price 1", found);
+  await method.selectOption("existing");
   for (const row of [1, 2]) {
     await panel
       .getByRole("combobox", { name: `Stock product ${row}`, exact: true })
