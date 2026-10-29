@@ -1571,6 +1571,58 @@ test("product form refinement: the two-line notice does not follow the admin to 
   await expect(notice).toHaveCount(0);
 });
 
+test("help on home, stock, brand and member screens opens on demand while warnings stay visible", async ({
+  page,
+}) => {
+  await setup(page, { path: "/admin?section=overview" });
+  const dialog = page.getByRole("dialog");
+  const check = async (target: string, text: string) => {
+    const help = page.getByRole("button", { name: `${target} 도움말`, exact: true });
+    await expect(page.getByText(text, { exact: false })).toHaveCount(0);
+    await help.click();
+    await expect(dialog).toContainText(text);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(help).toBeFocused();
+  };
+  await check("최근 운영 기록", "서버 전체 운영 이력이 아닙니다");
+  await select(page, "brands");
+  await check("브랜드 추가", "저장하면 서버에 브랜드가 등록됩니다.");
+});
+
+test("stock help explains the range while the input keeps its description and the error shows it again", async ({
+  page,
+}) => {
+  await setup(page, {
+    path: "/admin?section=inventory",
+    catalogProducts: inventoryProducts,
+  });
+  await inventoryWorkspace(page)
+    .getByRole("button", { name: `${products[0]!.name} 재고 조정`, exact: true })
+    .click();
+  const input = page.getByRole("textbox", { name: "변경 후 재고 수량", exact: true });
+  // Hidden from the screen, but still read as the input's description.
+  await expect(input).toHaveAccessibleDescription(/0~1,000,000개/);
+  const hint = page.locator("#inventory-input-hint");
+  expect(
+    await hint.evaluate((element) => element.getBoundingClientRect().width),
+  ).toBeLessThanOrEqual(1);
+  const help = page.getByRole("button", {
+    name: "변경 후 재고 수량 도움말",
+    exact: true,
+  });
+  await help.click();
+  await expect(page.getByRole("dialog")).toContainText(
+    "확인 전에는 수량이 변경되지 않습니다",
+  );
+  await page.keyboard.press("Escape");
+  await expect(help).toBeFocused();
+  await input.fill("1000001");
+  await expect(page.locator("#inventory-draft-error")).toContainText(
+    "0~1,000,000 사이의 정수를 입력해 주세요",
+  );
+});
+
 test("product help: explanations stay behind '?' buttons that open, close with Esc and return focus", async ({
   page,
 }) => {
@@ -3433,6 +3485,11 @@ test("inventory redesign: mobile selection preview and controls reflow at 375 an
   const headingBounds = await heading.boundingBox();
   expect(headingBounds!.y).toBeGreaterThanOrEqual(0);
   expect(headingBounds!.y + headingBounds!.height).toBeLessThanOrEqual(844);
+  // The label's '?' help comes first, then the stepper.
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("button", { name: "변경 후 재고 수량 도움말", exact: true }),
+  ).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(
     page.getByRole("button", { name: "재고 1개 감소", exact: true }),
@@ -5588,8 +5645,16 @@ test("accessible operations: colored metric icons and an honest empty session hi
       .getAttribute("d"),
   ).toContain("M3 10 12 3");
   await expect(operationRows(page)).toHaveCount(0);
-  await expect(recentOperations(page)).toContainText("작업별 최근 상태");
-  await expect(recentOperations(page)).toContainText("서버 전체 운영 이력이 아닙니다");
+  // The scope note now sits behind the heading's '?' help.
+  await recentOperations(page)
+    .getByRole("button", { name: "최근 운영 기록 도움말", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toContainText("작업별 최근 상태");
+  await expect(page.getByRole("dialog")).toContainText(
+    "서버 전체 운영 이력이 아닙니다",
+  );
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.screenshot({
     path: testInfo.outputPath("accessible-home-desktop-1440.png"),
     fullPage: true,

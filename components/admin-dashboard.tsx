@@ -2989,9 +2989,23 @@ function OverviewSection({
         aria-labelledby="recent-operations-title"
       >
         <header>
-          <h2 id="recent-operations-title">
-            {isKorean ? "최근 운영 기록" : "Recent activity"}
-          </h2>
+          <div className={styles.titleWithHelp}>
+            <h2 id="recent-operations-title">
+              {isKorean ? "최근 운영 기록" : "Recent activity"}
+            </h2>
+            <span className={styles.fieldHelp}>
+              <AdminHelpButton
+                locale={locale}
+                target={isKorean ? "최근 운영 기록" : "Recent activity"}
+              >
+                <p>
+                  {isKorean
+                    ? "이번 관리자 화면에서 수행한 작업별 최근 상태만 표시합니다(최대 12개). 새로고침하면 초기화되며, 서버 전체 운영 이력이 아닙니다."
+                    : "Shows only the latest status of each task done on this admin screen (up to 12). It resets on refresh and is not the full server activity history."}
+                </p>
+              </AdminHelpButton>
+            </span>
+          </div>
           {activities.length > 5 ? (
             <button
               aria-expanded={showAllActivities}
@@ -3009,11 +3023,6 @@ function OverviewSection({
             </button>
           ) : null}
         </header>
-        <p className={styles.operationScope}>
-          {isKorean
-            ? "이번 관리자 화면에서 수행한 작업별 최근 상태만 표시합니다(최대 12개). 새로고침하면 초기화되며, 서버 전체 운영 이력이 아닙니다."
-            : "Shows only the latest status of each task done on this admin screen (up to 12). It resets on refresh and is not the full server activity history."}
-        </p>
         {activities.length === 0 ? (
           <p className={styles.operationEmpty}>
             {isKorean
@@ -5405,9 +5414,23 @@ function StockStepper({
             : "Changes the quantity on this screen only. Server stock is not updated."}
         </p>
       ) : null}
-      <label className={styles.inventoryQuantityLabel} htmlFor="inventory-next-stock">
-        {isKorean ? "변경 후 재고 수량" : "Stock after change"}
-      </label>
+      <div className={styles.titleWithHelp}>
+        <label className={styles.inventoryQuantityLabel} htmlFor="inventory-next-stock">
+          {isKorean ? "변경 후 재고 수량" : "Stock after change"}
+        </label>
+        <span className={styles.fieldHelp}>
+          <AdminHelpButton
+            locale={locale}
+            target={isKorean ? "변경 후 재고 수량" : "Stock after change"}
+          >
+            <p>
+              {isKorean
+                ? "0~1,000,000개까지 입력할 수 있습니다. 확인 전에는 수량이 변경되지 않습니다."
+                : "Enter 0–1,000,000. The quantity does not change until you confirm."}
+            </p>
+          </AdminHelpButton>
+        </span>
+      </div>
       <div className={styles.stockStepper}>
         <button
           aria-label={isKorean ? "재고 1개 감소" : "Decrease stock by 1"}
@@ -5442,7 +5465,8 @@ function StockStepper({
           ＋
         </button>
       </div>
-      <p className={styles.inventoryInputHint} id="inventory-input-hint">
+      {/* Still the input's description; seen on screen through the help button and the error. */}
+      <p className="srOnly" id="inventory-input-hint">
         {isKorean
           ? "0~1,000,000개 · 확인 전에는 수량이 변경되지 않습니다."
           : "0–1,000,000 · The quantity does not change until you confirm."}
@@ -5809,7 +5833,23 @@ function BrandSection({
           onSubmit={onSubmit}
         >
           <div className={styles.brandFormHeading}>
-            <h3>{isKorean ? "브랜드 추가" : "Add brand"}</h3>
+            <div className={styles.titleWithHelp}>
+              <h3>{isKorean ? "브랜드 추가" : "Add brand"}</h3>
+              {canSaveToServer ? (
+                <span className={styles.fieldHelp}>
+                  <AdminHelpButton
+                    locale={locale}
+                    target={isKorean ? "브랜드 추가" : "Add brand"}
+                  >
+                    <p>
+                      {isKorean
+                        ? "저장하면 서버에 브랜드가 등록됩니다."
+                        : "Saving registers the brand on the server."}
+                    </p>
+                  </AdminHelpButton>
+                </span>
+              ) : null}
+            </div>
             <span>
               {saving
                 ? isKorean
@@ -5824,15 +5864,13 @@ function BrandSection({
                     : "No server"}
             </span>
           </div>
-          <p className={styles.brandSaveHint}>
-            {canSaveToServer
-              ? isKorean
-                ? "저장하면 서버에 브랜드가 등록됩니다."
-                : "Saving registers the brand on the server."
-              : isKorean
+          {canSaveToServer ? null : (
+            <p className={styles.brandSaveHint}>
+              {isKorean
                 ? "서버 연결이 없어 이 화면에만 임시 추가합니다."
                 : "Without a server connection, it is added on this screen only."}
-          </p>
+            </p>
+          )}
           <fieldset disabled={saving} className={styles.brandFields}>
             <label>
               <span>
@@ -6450,11 +6488,18 @@ function MemberDetail({
             : "The permission API is not connected, so this is read-only."}
         </p>
       ) : (
-        <p className={styles.memberStateNote}>
-          {isKorean
-            ? "그룹 변경은 서버에서 다시 검증합니다. 새 권한은 다음 로그인부터 적용됩니다."
-            : "The server validates group changes again. New permissions apply from the next sign-in."}
-        </p>
+        <div className={styles.memberStateNote}>
+          <AdminHelpButton
+            locale={locale}
+            target={isKorean ? "운영 권한 변경" : "Change operating permission"}
+          >
+            <p>
+              {isKorean
+                ? "그룹 변경은 서버에서 다시 검증합니다. 새 권한은 다음 로그인부터 적용됩니다."
+                : "The server validates group changes again. New permissions apply from the next sign-in."}
+            </p>
+          </AdminHelpButton>
+        </div>
       )}
     </aside>
   );

@@ -5619,3 +5619,11 @@
   display: flex;
   gap: 0.15rem;
 }
+
+/* A heading or label followed by its '?' help button on the same line. */
+.titleWithHelp {
+  align-items: center;
+  display: flex;
+  gap: 0.15rem;
+  min-width: 0;
+}
