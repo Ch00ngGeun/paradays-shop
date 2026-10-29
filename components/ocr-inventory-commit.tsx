@@ -22,6 +22,7 @@ import {
   type OcrIntakeMatch,
   type OcrIntakeNewProduct,
 } from "@/lib/admin-ui/ocr-intake-matching";
+import { AdminHelpButton } from "./admin-help-button";
 import styles from "./admin-dashboard.module.css";
 import inventoryStyles from "./ocr-inventory-commit.module.css";
 
@@ -472,44 +473,70 @@ export function OcrInventoryCommitPanel({
                             }
                           />
                         </label>
-                        <label>
-                          {isKorean ? `신규 옵션 ${number}` : `New option ${number}`}
-                          <input
-                            aria-label={
-                              isKorean ? `신규 옵션 ${number}` : `New option ${number}`
-                            }
-                            value={draft.option}
-                            maxLength={50}
-                            onChange={(event) =>
-                              changeDraft(row.id, { option: event.target.value })
-                            }
-                          />
-                          <small>
-                            {isKorean
-                              ? "옵션이 없으면 빈칸. 옵션별 재고는 생성하지 않습니다."
-                              : "Leave empty if there is no option. Stock per option is not created."}
-                          </small>
-                        </label>
-                        <label>
-                          {isKorean ? `신규 가격 ${number}` : `New price ${number}`}
-                          <input
-                            aria-label={
-                              isKorean ? `신규 가격 ${number}` : `New price ${number}`
-                            }
-                            value={draft.price}
-                            inputMode="numeric"
-                            maxLength={9}
-                            required
-                            onChange={(event) =>
-                              changeDraft(row.id, { price: event.target.value })
-                            }
-                          />
-                          <small>
-                            {isKorean
-                              ? "필수 · 원 단위 정수, 0~100,000,000원"
-                              : "Required · Whole KRW, 0–100,000,000"}
-                          </small>
-                        </label>
+                        <div className={styles.helpField}>
+                          <label>
+                            {isKorean ? `신규 옵션 ${number}` : `New option ${number}`}
+                            <input
+                              aria-label={
+                                isKorean
+                                  ? `신규 옵션 ${number}`
+                                  : `New option ${number}`
+                              }
+                              value={draft.option}
+                              maxLength={50}
+                              onChange={(event) =>
+                                changeDraft(row.id, { option: event.target.value })
+                              }
+                            />
+                          </label>
+                          <span className={styles.fieldHelpCorner}>
+                            <AdminHelpButton
+                              locale={locale}
+                              target={
+                                isKorean
+                                  ? `신규 옵션 ${number}`
+                                  : `New option ${number}`
+                              }
+                            >
+                              <p>
+                                {isKorean
+                                  ? "옵션이 없으면 빈칸. 옵션별 재고는 생성하지 않습니다."
+                                  : "Leave empty if there is no option. Stock per option is not created."}
+                              </p>
+                            </AdminHelpButton>
+                          </span>
+                        </div>
+                        <div className={styles.helpField}>
+                          <label>
+                            {isKorean ? `신규 가격 ${number}` : `New price ${number}`}
+                            <input
+                              aria-label={
+                                isKorean ? `신규 가격 ${number}` : `New price ${number}`
+                              }
+                              value={draft.price}
+                              inputMode="numeric"
+                              maxLength={9}
+                              required
+                              onChange={(event) =>
+                                changeDraft(row.id, { price: event.target.value })
+                              }
+                            />
+                          </label>
+                          <span className={styles.fieldHelpCorner}>
+                            <AdminHelpButton
+                              locale={locale}
+                              target={
+                                isKorean ? `신규 가격 ${number}` : `New price ${number}`
+                              }
+                            >
+                              <p>
+                                {isKorean
+                                  ? "필수 · 원 단위 정수, 0~100,000,000원"
+                                  : "Required · Whole KRW, 0–100,000,000"}
+                              </p>
+                            </AdminHelpButton>
+                          </span>
+                        </div>
                         <label>
                           {isKorean
                             ? `신규 카테고리 ${number}`

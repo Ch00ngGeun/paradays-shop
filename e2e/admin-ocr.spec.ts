@@ -2244,6 +2244,46 @@ async function expectInventoryStock(
 }
 
 test.describe("OCR inventory application", () => {
+  test("OCR help opens on demand while the stock and privacy warnings stay visible", async ({
+    page,
+  }) => {
+    await setupInventoryCatalogApi(page, []);
+    const rows = [{ ...inventoryReviewRow(), productName: "New synthetic deck" }];
+    await setupInventoryReviewApi(page, OCR_ROUTE, rows);
+    await saveInventoryReview(page);
+    const dialog = page.getByRole("dialog");
+    const check = async (target: string, text: string) => {
+      const help = page.getByRole("button", { name: `${target} 도움말`, exact: true });
+      await expect(page.getByText(text, { exact: true })).toHaveCount(0);
+      await help.click();
+      await expect(dialog).toContainText(text);
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+      await expect(help).toBeFocused();
+    };
+    // Stock and safety notices stay on screen.
+    await expect(
+      page.getByText("빈 수량 제외 · 실제 재고와 무관", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("검토본을 저장해도 재고는 변경되지", { exact: false }),
+    ).toBeVisible();
+    await check("원본 이미지", "PNG·JPG·WEBP · 4MiB 이하 · 표 전체가 보이는 이미지");
+
+    const panel = inventoryApplicationPanel(page);
+    await panel
+      .getByRole("button", { name: "재고 상품 불러오기", exact: true })
+      .click();
+    await panel
+      .getByRole("combobox", { name: "입고 방식 1", exact: true })
+      .selectOption("new");
+    await check("신규 옵션 1", "옵션이 없으면 빈칸. 옵션별 재고는 생성하지 않습니다.");
+    await check("신규 가격 1", "필수 · 원 단위 정수, 0~100,000,000원");
+    // The price range comes back as the validation message when the price is wrong.
+    await panel.getByLabel("신규 가격 1", { exact: true }).fill("100000001");
+    await expect(panel).toContainText("0~100,000,000원 정수여야 합니다");
+  });
+
   test("a new product requires price and category and is created as a private draft with intake stock", async ({
     page,
   }) => {
