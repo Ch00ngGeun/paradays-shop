@@ -119,3 +119,56 @@ export function formatProductWheelOption(
     return null;
   return `${diameter}mm / ${hardness}a`;
 }
+
+/** 쉼표 목록을 저장 순서 그대로 칩 목록으로 나눕니다. 서버와 같이 앞뒤 공백과 빈 항목은 버립니다. */
+export function listProductOptions(value: string): string[] {
+  return value
+    .split(",")
+    .map((option) => option.trim())
+    .filter(Boolean);
+}
+
+/** 칩 하나를 뺀 목록을 돌려줍니다. 없는 옵션이면 입력 문자열을 그대로 둡니다. */
+export function removeProductOption(value: string, option: string): string {
+  const options = listProductOptions(value);
+  return options.includes(option)
+    ? options.filter((item) => item !== option).join(", ")
+    : value;
+}
+
+/** 서버에서 바뀐 옵션 이름을 draft에도 같은 위치로 반영합니다. 없는 옵션이면 그대로 둡니다. */
+export function renameProductOption(value: string, from: string, to: string): string {
+  const options = listProductOptions(value);
+  return options.includes(from)
+    ? options.map((item) => (item === from ? to : item)).join(", ")
+    : value;
+}
+
+export type ProductOptionNameResult =
+  | Readonly<{ ok: true; name: string }>
+  | Readonly<{
+      ok: false;
+      reason:
+        | Exclude<ProductOptionError, "too-many-options">
+        | "duplicate-option"
+        | "reserved-option";
+    }>;
+
+/**
+ * 옵션 모달의 새 이름을 서버 규칙(trim·50자·쉼표 없음·상세사이즈 키 금지 이름)으로 확인합니다.
+ * others에는 이름을 바꾸는 옵션을 뺀 저장된 옵션을 넘깁니다.
+ */
+export function validateProductOptionName(
+  value: string,
+  others: readonly string[],
+): ProductOptionNameResult {
+  const name = value.trim();
+  if (!name) return { ok: false, reason: "empty-option" };
+  if (/[,\r\n]/.test(name)) return { ok: false, reason: "multiple-options" };
+  if (name.length > PRODUCT_OPTION_LIMITS.maximumItemLength)
+    return { ok: false, reason: "option-too-long" };
+  if (["__proto__", "constructor", "prototype"].includes(name))
+    return { ok: false, reason: "reserved-option" };
+  if (others.includes(name)) return { ok: false, reason: "duplicate-option" };
+  return { ok: true, name };
+}
