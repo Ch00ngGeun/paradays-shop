@@ -1100,6 +1100,175 @@ test("unsafe option names are refused and saved option charts survive DynamoDB m
   assert.deepEqual(toPublicCatalogProduct(legacy)?.deckSpecsBySize, { "8.25": spec });
 });
 
+test("sizeName renames one option in place and moves its size chart atomically", async (t) => {
+  const base = { nose: 6.875, tail: 6.5, width: 8.25, length: 31.75, wheelbase: 14.25 };
+  const small = { ...base, width: 8, wheelbase: 14 };
+  const large = { ...base, width: 8.5, length: 32 };
+  const db = fixture(t, [
+    product({
+      status: "PUBLISHED",
+      publicationStatus: "PUBLISHED",
+      image: "/deck.webp",
+      sizes: ["8.0", "8.25", "8.5"],
+      deckSpec: base,
+      // "8.75" is a stale key from a removed option that must not come back.
+      deckSpecsBySize: { "8.0": small, "8.5": large, "8.75": base },
+    }),
+  ]);
+  const stored = () => db.records.get("prd_deck") as CatalogProductRecord;
+  const patch = async (body: Record<string, unknown>) =>
+    unpack(await handler(event("PATCH", body, "prd_deck")));
+
+  const renamed = await patch({
+    version: 3,
+    size: "8.0",
+    sizeName: "8.0 wide",
+    sizeDeckSpec: { ...small, tail: 6.625 },
+  });
+  assert.equal(renamed.status, 200);
+  assert.deepEqual(renamed.body.product.sizes, ["8.0 wide", "8.25", "8.5"]);
+  assert.deepEqual(renamed.body.product.deckSpecsBySize, {
+    "8.0 wide": { ...small, tail: 6.625 },
+    "8.5": large,
+  });
+  assert.deepEqual(renamed.body.product.deckSpec, base);
+  assert.deepEqual(stored().sizes, ["8.0 wide", "8.25", "8.5"]);
+  assert.equal(Object.hasOwn(stored().deckSpecsBySize!, "8.0"), false);
+  assert.deepEqual(toPublicCatalogProduct(stored())?.sizes, [
+    "8.0 wide",
+    "8.25",
+    "8.5",
+  ]);
+
+  // A name-only rename with an empty chart moves nothing and drops the stale same-named key.
+  const nameOnly = await patch({
+    version: 4,
+    size: "8.5",
+    sizeName: "8.75",
+    sizeDeckSpec: null,
+  });
+  assert.equal(nameOnly.status, 200);
+  assert.deepEqual(nameOnly.body.product.sizes, ["8.0 wide", "8.25", "8.75"]);
+  assert.deepEqual(nameOnly.body.product.deckSpecsBySize, {
+    "8.0 wide": { ...small, tail: 6.625 },
+  });
+  assert.equal(Object.hasOwn(stored().deckSpecsBySize!, "8.75"), false);
+
+  // Keeping the same name behaves exactly like the H-035 option save.
+  const same = await patch({
+    version: 5,
+    size: "8.25",
+    sizeName: "8.25",
+    sizeDeckSpec: base,
+  });
+  assert.equal(same.status, 200);
+  assert.deepEqual(same.body.product.sizes, ["8.0 wide", "8.25", "8.75"]);
+  assert.deepEqual(same.body.product.deckSpecsBySize["8.25"], base);
+
+  const writes = db.transactions.length;
+  for (const sizeName of [
+    "",
+    " 8.9",
+    "8.9 ",
+    "x".repeat(51),
+    "8.9, 9.0",
+    "8.9\n",
+    "__proto__",
+    "constructor",
+    "prototype",
+    "8.75",
+    8.9,
+    null,
+  ]) {
+    const refused = await patch({
+      version: 6,
+      size: "8.25",
+      sizeName,
+      sizeDeckSpec: base,
+    });
+    assert.equal(refused.status, 400, JSON.stringify(sizeName));
+  }
+  for (const invalid of [
+    { version: 6, size: "8.25", sizeName: "8.9" },
+    { version: 6, sizeName: "8.9", sizeDeckSpec: base },
+    { version: 6, size: "9.0", sizeName: "8.9", sizeDeckSpec: base },
+    { version: 6, size: "8.25", sizeName: "8.9", sizeDeckSpec: base, sizes: "8.9" },
+  ]) {
+    assert.equal((await patch(invalid)).status, 400, JSON.stringify(invalid));
+  }
+  assert.equal(db.transactions.length, writes);
+
+  const stale = await patch({
+    version: 5,
+    size: "8.25",
+    sizeName: "8.9",
+    sizeDeckSpec: base,
+  });
+  assert.equal(stale.status, 409);
+  assert.deepEqual(stored().sizes, ["8.0 wide", "8.25", "8.75"]);
+
+  // The renamed row still survives the DynamoDB marshaller.
+  const restored = unmarshall(marshall(stored(), { removeUndefinedValues: true }));
+  assert.deepEqual(restored.sizes, ["8.0 wide", "8.25", "8.75"]);
+  assert.equal(isCatalogProductRecord(restored), true);
+});
+
+test("an option rename is refused while stock is reserved or when it duplicates another product", async (t) => {
+  const spec = { nose: 6.875, tail: 6.5, width: 8.25, length: 31.75, wheelbase: 14.25 };
+  const db = fixture(t, [
+    product({ sizes: ["8.25", "8.5"], inventoryReserved: 1 }),
+    product({
+      productId: "prd_free",
+      name: "Free deck",
+      sku: "FREE-1",
+      sizes: ["8.25"],
+    }),
+    product({
+      productId: "prd_other",
+      name: "Free deck",
+      sku: "OTHER-1",
+      sizes: ["9.0"],
+    }),
+  ]);
+  const reserved = unpack(
+    await handler(
+      event(
+        "PATCH",
+        { version: 3, size: "8.5", sizeName: "8.75", sizeDeckSpec: spec },
+        "prd_deck",
+      ),
+    ),
+  );
+  assert.equal(reserved.status, 409);
+  assert.equal(reserved.body.code, "CATALOG_PRODUCT_RESERVED");
+  // A chart-only save keeps working on a reserved product.
+  const chartOnly = unpack(
+    await handler(
+      event(
+        "PATCH",
+        { version: 3, size: "8.5", sizeName: "8.5", sizeDeckSpec: spec },
+        "prd_deck",
+      ),
+    ),
+  );
+  assert.equal(chartOnly.status, 200);
+  assert.deepEqual(db.records.get("prd_deck")!.sizes, ["8.25", "8.5"]);
+
+  const duplicate = unpack(
+    await handler(
+      event(
+        "PATCH",
+        { version: 3, size: "8.25", sizeName: "9.0", sizeDeckSpec: null },
+        "prd_free",
+      ),
+    ),
+  );
+  assert.equal(duplicate.status, 409);
+  assert.equal(duplicate.body.code, "CATALOG_PRODUCT_DUPLICATE");
+  assert.deepEqual(duplicate.body.productIds, ["prd_other"]);
+  assert.deepEqual(db.records.get("prd_free")!.sizes, ["8.25"]);
+});
+
 test("a key left for a removed option does not count against the option limit", async (t) => {
   const spec = { nose: 6.875, tail: 6.5, width: 8.25, length: 31.75, wheelbase: 14.25 };
   const sizes = Array.from({ length: 20 }, (_, index) => `S${index}`);
