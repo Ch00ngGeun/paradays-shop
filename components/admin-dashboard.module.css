@@ -2602,7 +2602,7 @@
   grid-template-columns: minmax(0, 1fr) minmax(4.25rem, 0.7fr);
 }
 
-.productScreen .productBrandControls :is(input, select) {
+.productScreen .productBrandControls :is(input, select, textarea) {
   padding-inline: 0.45rem;
 }
 
@@ -4409,7 +4409,7 @@
   min-width: 0;
 }
 
-.couponScreen :is(input, select) {
+.couponScreen :is(input, select, .growingInput) {
   background: var(--color-paper);
   border: 1px solid var(--coupon-field-border);
   border-radius: 5px;
@@ -5583,4 +5583,11 @@
   .overviewTask > button {
     justify-self: start;
   }
+}
+
+/* One-line values that wrap and grow while typing instead of being cut off; Enter never adds a line. */
+.adminPage textarea.growingInput {
+  field-sizing: content;
+  overflow: hidden;
+  resize: none;
 }

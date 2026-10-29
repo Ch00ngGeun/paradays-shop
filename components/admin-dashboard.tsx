@@ -9,6 +9,8 @@ import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type RefObject,
+  type TextareaHTMLAttributes,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -3202,6 +3204,84 @@ function fitProductNameInput(input: HTMLTextAreaElement) {
   input.style.height = `${input.scrollHeight + input.offsetHeight - input.clientHeight}px`;
 }
 
+type GrowingLineInputProps = Omit<
+  TextareaHTMLAttributes<HTMLTextAreaElement>,
+  "onChange" | "rows" | "value"
+> & {
+  value: string;
+  onValueChange: (value: string) => void;
+  inputRef?: RefObject<HTMLTextAreaElement | null>;
+};
+
+/**
+ * 한 줄 값이지만 길면 줄이 접히며 늘어나 입력 중에 잘리지 않는 칸입니다.
+ * Enter는 기존 한 줄 칸처럼 폼을 제출하고, 붙여넣은 줄바꿈은 공백으로 바꿉니다(길이가 같아 커서도 그대로).
+ */
+function GrowingLineInput({
+  value,
+  onValueChange,
+  inputRef,
+  className,
+  ...props
+}: GrowingLineInputProps) {
+  const ownRef = useRef<HTMLTextAreaElement | null>(null);
+  const observerRef = useRef<ResizeObserver | null>(null);
+  const caretRef = useRef<number | null>(null);
+  const [caretTick, setCaretTick] = useState(0);
+  const attach = useCallback(
+    (input: HTMLTextAreaElement | null) => {
+      ownRef.current = input;
+      if (inputRef) inputRef.current = input;
+      observerRef.current?.disconnect();
+      observerRef.current = null;
+      if (!input || CSS.supports("field-sizing", "content")) return;
+      fitProductNameInput(input);
+      let width = input.clientWidth;
+      observerRef.current = new ResizeObserver(() => {
+        if (input.clientWidth === width) return;
+        width = input.clientWidth;
+        fitProductNameInput(input);
+      });
+      observerRef.current.observe(input);
+    },
+    [inputRef],
+  );
+  useLayoutEffect(() => {
+    const input = ownRef.current;
+    if (!input) return;
+    if (!CSS.supports("field-sizing", "content")) fitProductNameInput(input);
+    const caret = caretRef.current;
+    caretRef.current = null;
+    if (caret !== null && document.activeElement === input)
+      input.setSelectionRange(caret, caret);
+  }, [value, caretTick]);
+  return (
+    <textarea
+      {...props}
+      className={
+        className ? `${styles.growingInput} ${className}` : styles.growingInput
+      }
+      onChange={(event) => {
+        const input = event.target;
+        const single = input.value.replace(/[\r\n]/g, " ");
+        if (single !== input.value) {
+          caretRef.current = input.selectionStart;
+          setCaretTick((tick) => tick + 1);
+        }
+        onValueChange(single);
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+        event.preventDefault();
+        event.currentTarget.form?.requestSubmit();
+      }}
+      ref={attach}
+      rows={1}
+      value={value}
+    />
+  );
+}
+
 /** 관리자 검색은 줄바꿈·연속 공백을 공백 하나로 보고 비교합니다. */
 function normalizeSearchText(value: string) {
   return value.replace(/\s+/g, " ").trim().toLowerCase();
@@ -3610,6 +3690,7 @@ function ProductSection({
   if (deckSpecEditorKey !== editorKey) {
     setDeckSpecEditorKey(editorKey);
     setDeckSpecModal(null);
+    setNameLineNotice(null);
   }
   const canEditDeckSpec = Boolean(onSaveDeckSpec && draft.productId && draft.version);
   const isCurrentlyPublic = Boolean(
@@ -3642,7 +3723,7 @@ function ProductSection({
   const [stockFilter, setStockFilter] = useState<"all" | "inStock" | "soldOut">("all");
   const [optionResetKey, setOptionResetKey] = useState(0);
   const [manualBrandEditor, setManualBrandEditor] = useState<string | null>(null);
-  const brandInputRef = useRef<HTMLInputElement>(null);
+  const brandInputRef = useRef<HTMLTextAreaElement | null>(null);
   const brandChoices = useMemo(
     () =>
       mergeProductBrandNames(
@@ -4169,12 +4250,12 @@ function ProductSection({
                 </span>
               </label>
               <div className={styles.productBrandControls}>
-                <input
+                <GrowingLineInput
                   id={`product-brand-${editorId}`}
+                  inputRef={brandInputRef}
                   maxLength={100}
-                  onChange={(event) => onTextChange("brand", event.target.value)}
+                  onValueChange={(value) => onTextChange("brand", value)}
                   placeholder={isKorean ? "직접 입력" : "Enter manually"}
-                  ref={brandInputRef}
                   required
                   value={draft.brand}
                 />
@@ -5698,10 +5779,10 @@ function BrandSection({
                   *
                 </span>
               </span>
-              <input
+              <GrowingLineInput
                 maxLength={100}
                 required
-                onChange={(event) => onNameChange(event.target.value)}
+                onValueChange={onNameChange}
                 placeholder={isKorean ? "예: April" : "e.g. April"}
                 value={brandName}
               />
@@ -6441,10 +6522,10 @@ function CouponSection({
                   *
                 </span>
               </span>
-              <input
+              <GrowingLineInput
                 maxLength={120}
                 required
-                onChange={(event) => onNameChange(event.target.value)}
+                onValueChange={onNameChange}
                 placeholder={
                   isKorean ? "첫 구매 웰컴 쿠폰" : "First purchase welcome coupon"
                 }
@@ -6787,10 +6868,10 @@ function MarketingSection({
                   *
                 </span>
               </span>
-              <input
+              <GrowingLineInput
                 maxLength={160}
                 required
-                onChange={(event) => onTitleChange(event.target.value)}
+                onValueChange={onTitleChange}
                 placeholder={
                   isKorean
                     ? "이번 주 신상품을 확인하세요"
@@ -7371,25 +7452,23 @@ function OcrSection({
                     <div className={styles.ocrMainFields}>
                       <label>
                         <span>{isKorean ? "상품명" : "Product name"}</span>
-                        <input
+                        <GrowingLineInput
                           aria-label={isKorean ? "상품명" : "Product name"}
                           aria-describedby="ocr-row-edit-limits"
                           maxLength={OCR_INPUT_LIMITS.maxProductNameLength}
-                          onChange={(event) =>
-                            onRowChange(row.id, "productName", event.target.value)
+                          onValueChange={(value) =>
+                            onRowChange(row.id, "productName", value)
                           }
                           value={row.productName}
                         />
                       </label>
                       <label>
                         <span>{isKorean ? "브랜드" : "Brand"}</span>
-                        <input
+                        <GrowingLineInput
                           aria-label={isKorean ? "브랜드" : "Brand"}
                           aria-describedby="ocr-row-edit-limits"
                           maxLength={OCR_INPUT_LIMITS.maxBrandLength}
-                          onChange={(event) =>
-                            onRowChange(row.id, "brand", event.target.value)
-                          }
+                          onValueChange={(value) => onRowChange(row.id, "brand", value)}
                           value={row.brand}
                         />
                       </label>
@@ -7432,7 +7511,7 @@ function OcrSection({
                             ? "OCR 원문 (수정 가능)"
                             : "OCR source text (editable)"}
                         </span>
-                        <input
+                        <GrowingLineInput
                           aria-label={
                             isKorean
                               ? "OCR 원문 (수정 가능)"
@@ -7440,8 +7519,8 @@ function OcrSection({
                           }
                           aria-describedby="ocr-row-edit-limits"
                           maxLength={OCR_INPUT_LIMITS.maxSourceTextLength}
-                          onChange={(event) =>
-                            onRowChange(row.id, "sourceText", event.target.value)
+                          onValueChange={(value) =>
+                            onRowChange(row.id, "sourceText", value)
                           }
                           value={row.sourceText}
                         />
