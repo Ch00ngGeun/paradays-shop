@@ -7427,12 +7427,21 @@ function OcrSection({
       {notice ? <NoticeMessage notice={notice} /> : null}
       <div className={styles.ocrWorkspace}>
         <section className={styles.ocrSourcePanel} aria-labelledby="ocr-source-title">
-          <h3 id="ocr-source-title">{isKorean ? "원본 이미지" : "Source image"}</h3>
-          <p className={styles.ocrSourceHint}>
-            {locale === "ko"
-              ? "PNG·JPG·WEBP · 4MiB 이하 · 표 전체가 보이는 이미지"
-              : "PNG, JPG or WEBP · Up to 4 MiB · Include the complete table"}
-          </p>
+          <div className={styles.titleWithHelp}>
+            <h3 id="ocr-source-title">{isKorean ? "원본 이미지" : "Source image"}</h3>
+            <span className={styles.fieldHelp}>
+              <AdminHelpButton
+                locale={locale}
+                target={isKorean ? "원본 이미지" : "Source image"}
+              >
+                <p>
+                  {isKorean
+                    ? "PNG·JPG·WEBP · 4MiB 이하 · 표 전체가 보이는 이미지"
+                    : "PNG, JPG or WEBP · Up to 4 MiB · Include the complete table"}
+                </p>
+              </AdminHelpButton>
+            </span>
+          </div>
           {remoteOcrDemo ? (
             <div
               className={styles.ocrTransferNote}
