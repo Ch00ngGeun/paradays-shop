@@ -351,7 +351,8 @@ test("without a default, the summary counts option charts and unsaved options ar
   ).toHaveCount(0);
 
   // An option typed in the editor is not offered until the product is saved.
-  await page.getByRole("textbox", { name: "사이즈 / 옵션" }).fill("8.25, 8.75");
+  await page.getByRole("textbox", { name: "사이즈 / 옵션" }).fill("8.75");
+  await page.getByRole("button", { name: "옵션 추가", exact: true }).click();
   await expect(
     page.getByText(
       "바뀐 옵션은 상품을 먼저 저장해야 상세사이즈 대상으로 고를 수 있습니다.",
