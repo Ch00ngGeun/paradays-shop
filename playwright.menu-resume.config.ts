@@ -11,6 +11,7 @@ export default defineConfig({
     "admin-sales-ledger.spec.ts",
     "admin-sales-simulation.spec.ts",
     "deck-size-spec.spec.ts",
+    "admin-english.spec.ts",
   ],
   projects: [{ name: "chromium-menu-resume", use: isolated.projects?.[0]?.use }],
 });
