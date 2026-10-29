@@ -1374,6 +1374,65 @@ test("product redesign: a private create sends the generated SKU stock options a
   ]);
 });
 
+test("product form refinement: a two-line product name grows the box, keeps one line break and stops at two lines", async ({
+  page,
+}) => {
+  const commands: Record<string, unknown>[] = [];
+  await setup(page, {
+    path: "/admin?section=products",
+    handleProductMutation: async (route) => {
+      commands.push(route.request().postDataJSON() as Record<string, unknown>);
+      await respond(route, {});
+    },
+  });
+  await newProduct(page);
+  await fillProduct(page, "SYNTHETIC_ONE_LINE");
+  const name = page.getByRole("textbox", { name: "상품명", exact: false });
+  const oneLine = (await name.boundingBox())!.height;
+
+  await name.fill("SYNTHETIC_FIRST_LINE\nSYNTHETIC_SECOND_LINE");
+  await expect
+    .poll(async () => (await name.boundingBox())!.height)
+    .toBeGreaterThan(oneLine * 1.4);
+  // Enter at the end of the second line cannot start a third line.
+  await name.press("Control+End");
+  await name.press("Enter");
+  await expect(name).toHaveValue("SYNTHETIC_FIRST_LINE\nSYNTHETIC_SECOND_LINE");
+  await expect(page.getByRole("status").filter({ hasText: "최대 2줄" })).toBeVisible();
+  // A pasted third line and blank lines are dropped the same way.
+  await name.fill(
+    "SYNTHETIC_FIRST_LINE\n\n\nSYNTHETIC_SECOND_LINE\nSYNTHETIC_THIRD_LINE",
+  );
+  await expect(name).toHaveValue("SYNTHETIC_FIRST_LINE\nSYNTHETIC_SECOND_LINE");
+
+  await page.getByRole("button", { name: "비공개로 저장", exact: true }).click();
+  await expect.poll(() => commands.length).toBe(1);
+  const saved = String(commands[0]!.name);
+  expect(saved.match(/\n/g)).toHaveLength(1);
+  expect(saved).toBe("SYNTHETIC_FIRST_LINE\nSYNTHETIC_SECOND_LINE");
+});
+
+test("product form refinement: a spaced search finds a product whose name has a line break", async ({
+  page,
+}) => {
+  await setup(page, {
+    path: "/admin?section=products",
+    catalogProducts: [
+      { ...products[0]!, name: "[TEST] Two line\nsearch deck" },
+      products[1]!,
+    ],
+  });
+  const search = page
+    .getByRole("searchbox", { name: "상품 검색", exact: true })
+    .first();
+  await search.fill("two line search");
+  const list = page.getByRole("list", { name: "상품 목록" });
+  await expect(list.getByRole("listitem")).toHaveCount(1);
+  await expect(list.getByRole("listitem")).toContainText("search deck");
+  await search.fill("TWO   LINE\tSEARCH");
+  await expect(list.getByRole("listitem")).toHaveCount(1);
+});
+
 test("product redesign: publishing requires a deliberate confirmation and dismissing it leaves the draft untouched", async ({
   page,
 }) => {

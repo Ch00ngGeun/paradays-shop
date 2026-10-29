@@ -10,6 +10,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -3176,6 +3177,20 @@ function OverviewSection({
   );
 }
 
+/** 상품명은 최대 2줄입니다. 빈 줄은 줄바꿈 하나로 합치고 3번째 줄부터는 잘라 냅니다. */
+export function limitProductNameLines(value: string) {
+  const lines = value
+    .replace(/\r\n?/g, "\n")
+    .replace(/\n{2,}/g, "\n")
+    .split("\n");
+  return { value: lines.slice(0, 2).join("\n"), cut: lines.length > 2 };
+}
+
+/** 관리자 검색은 줄바꿈·연속 공백을 공백 하나로 보고 비교합니다. */
+function normalizeSearchText(value: string) {
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
 function ProductOptionControls({
   category,
   chartOptions = [],
@@ -3504,6 +3519,15 @@ function ProductSection({
 }>) {
   const { locale } = useLocale();
   const isKorean = locale === "ko";
+  const nameInputRef = useRef<HTMLTextAreaElement>(null);
+  const [nameLineLimitHit, setNameLineLimitHit] = useState(false);
+  // field-sizing grows the box in supporting browsers; elsewhere the height follows the content here.
+  useLayoutEffect(() => {
+    const input = nameInputRef.current;
+    if (!input || CSS.supports("field-sizing", "content")) return;
+    input.style.height = "auto";
+    input.style.height = `${input.scrollHeight + input.offsetHeight - input.clientHeight}px`;
+  }, [draft.name]);
   const previewDescriptionLines = draft.description
     .split(/\n/)
     .map((line) => line.trim())
@@ -3599,7 +3623,7 @@ function ProductSection({
   }, [products]);
 
   const filteredProducts = useMemo(() => {
-    const normalizedQuery = filterQuery.trim().toLowerCase();
+    const normalizedQuery = normalizeSearchText(filterQuery);
 
     return products.filter((product) => {
       if (
@@ -3626,7 +3650,7 @@ function ProductSection({
       }
 
       return (
-        product.name.toLowerCase().includes(normalizedQuery) ||
+        normalizeSearchText(product.name).includes(normalizedQuery) ||
         product.brand.toLowerCase().includes(normalizedQuery) ||
         product.category.toLowerCase().includes(normalizedQuery) ||
         (product.sku?.toLowerCase().includes(normalizedQuery) ?? false)
@@ -4042,14 +4066,28 @@ function ProductSection({
               <span>
                 {isKorean ? "상품명" : "Product name"} <em>*</em>
               </span>
-              <input
-                onChange={(event) => onTextChange("name", event.target.value)}
+              <textarea
+                className={styles.productNameInput}
+                onChange={(event) => {
+                  const limited = limitProductNameLines(event.target.value);
+                  setNameLineLimitHit(limited.cut);
+                  onTextChange("name", limited.value);
+                }}
                 placeholder={
                   isKorean ? "예: O'Dwyer Deck [8.25”]" : "e.g. O'Dwyer Deck [8.25”]"
                 }
+                ref={nameInputRef}
                 required
+                rows={1}
                 value={draft.name}
               />
+              {nameLineLimitHit ? (
+                <small role="status">
+                  {isKorean
+                    ? "상품명은 최대 2줄까지 입력할 수 있어 3번째 줄부터는 넣지 않았습니다."
+                    : "A product name can have up to 2 lines, so lines from the third were left out."}
+                </small>
+              ) : null}
             </label>
             <div className={styles.productBrandField}>
               <label htmlFor={`product-brand-${editorId}`}>
@@ -4728,7 +4766,7 @@ function InventorySection({
   };
 
   const filteredProducts = useMemo(() => {
-    const query = filterQuery.trim().toLowerCase();
+    const query = normalizeSearchText(filterQuery);
 
     return products
       .filter((product) => {
@@ -4741,8 +4779,9 @@ function InventorySection({
         }
 
         if (query) {
-          const haystack =
-            `${product.name} ${product.brand} ${product.sku ?? ""} ${product.category}`.toLowerCase();
+          const haystack = normalizeSearchText(
+            `${product.name} ${product.brand} ${product.sku ?? ""} ${product.category}`,
+          );
           if (!haystack.includes(query)) {
             return false;
           }
