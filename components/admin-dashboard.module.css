@@ -5591,3 +5591,31 @@
   overflow: hidden;
   resize: none;
 }
+
+/* A '?' help button beside a label keeps its 44px target without making the line taller. */
+.fieldHelp {
+  align-items: center;
+  display: inline-flex;
+  margin-block: -0.75rem;
+}
+
+/* Fields whose label wraps the input get the '?' at the label line's right end instead. */
+.productScreen :is(.productOptionField, .productImageField) {
+  position: relative;
+}
+
+.productImageField {
+  min-width: 0;
+}
+
+.fieldHelpCorner {
+  position: absolute;
+  right: 0;
+  top: -0.7rem;
+}
+
+.productPreviewTitle {
+  align-items: center;
+  display: flex;
+  gap: 0.15rem;
+}
