@@ -82,6 +82,15 @@ async function holdAppScripts(page: Page, milliseconds: number | "forever") {
 }
 const frames = (page: Page) =>
   page.evaluate(() => (window as unknown as { __frames: Frame[] }).__frames);
+/** 해제 뒤 다음 프레임들에서 숨김 없이 영어 본문이 실제로 기록될 때까지 기다립니다. */
+async function expectEnglishFrame(page: Page) {
+  await expect
+    .poll(async () => {
+      const last = (await frames(page)).at(-1);
+      return !!last && !last.pending && last.text.includes("Your cart is empty.");
+    })
+    .toBe(true);
+}
 const hydrationErrors = (watch: Watch) =>
   watch.errors.filter((text) => /hydrat|did not match|server rendered/iu.test(text));
 
@@ -149,7 +158,7 @@ test("failed app scripts release the hidden page at once with an English documen
   });
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   // abort된 스크립트 오류가 첫 프레임보다 먼저 처리될 수 있어 숨김 프레임 관찰은 단언하지 않음.
-  expect((await frames(page)).at(-1)?.text).not.toBe("");
+  await expectEnglishFrame(page);
 });
 
 test("app scripts that never arrive release the hidden page after the final timeout", async ({
@@ -165,7 +174,7 @@ test("app scripts that never arrive release the hidden page after the final time
     timeout: 12_000,
   });
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  expect((await frames(page)).at(-1)?.text).not.toBe("");
+  await expectEnglishFrame(page);
 });
 
 test("a child with an explicit visibility:visible stays hidden while the Korean preference is pending", async ({
@@ -202,11 +211,14 @@ test("hidden links cannot be focused, activated or clicked while the Korean pref
   await holdAppScripts(page, 4_000);
   await page.goto("/cart", { waitUntil: "domcontentloaded" });
   await expect(page.locator("html")).toHaveAttribute("data-locale-pending", "");
+  // 보이지 않는 실제 링크의 중심을 마우스로 누름(좌표가 링크 밖이면 차단이 깨져도 통과하므로).
+  const box = await page.locator('a[href="/signup"]').first().boundingBox();
+  if (!box) throw new Error("signup link has no box");
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   for (let step = 0; step < 6; step++) {
     await page.keyboard.press("Tab");
     await page.keyboard.press("Enter");
   }
-  await page.mouse.click(40, 40);
   await expect(page.locator("html")).toHaveAttribute("data-locale-pending", "");
   expect(new URL(page.url()).pathname).toBe("/cart");
   expect(await page.evaluate(() => document.activeElement?.tagName)).toBe("BODY");
