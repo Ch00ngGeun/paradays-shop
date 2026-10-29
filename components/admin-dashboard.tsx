@@ -92,6 +92,7 @@ import { AdminOrderSimulationPanel } from "./admin-order-simulation";
 import { AdminSalesLedgerPanel } from "./admin-sales-ledger";
 import { AdminNotice, AdminStatusBadge, StockStatusBadge } from "./admin-status";
 import { AdminDeckSpecModal } from "./admin-deck-spec-modal";
+import { AdminHelpButton } from "./admin-help-button";
 import { formatDeckInches } from "./deck-size-diagram";
 import {
   OcrInventoryCommitPanel,
@@ -3526,18 +3527,27 @@ function ProductOptionControls({
           })}
         </ul>
       ) : null}
-      <small>
-        {category === "Deck" || category === "Wheels"
-          ? isKorean
-            ? "직접 입력하거나 선택한 뒤 ‘옵션 추가’를 누르세요. 추가 전 입력값은 저장되지 않습니다. "
-            : "Type or choose, then press ‘Add option’. Nothing is saved until it is added. "
-          : isKorean
-            ? "입력한 뒤 ‘옵션 추가’나 Enter를 누르세요. "
-            : "Type, then press ‘Add option’ or Enter. "}
-        {isKorean
-          ? "옵션은 하나씩 추가 · 최대 20개 · 삭제는 상품 저장 때 반영"
-          : "One option at a time · Up to 20 · Removals apply when the product is saved"}
-      </small>
+      <span className={styles.fieldHelpCorner}>
+        <AdminHelpButton
+          locale={locale}
+          target={isKorean ? "사이즈 / 옵션" : "Size / options"}
+        >
+          <p>
+            {category === "Deck" || category === "Wheels"
+              ? isKorean
+                ? "직접 입력하거나 선택한 뒤 ‘옵션 추가’를 누르세요. 추가 전 입력값은 저장되지 않습니다."
+                : "Type or choose, then press ‘Add option’. Nothing is saved until it is added."
+              : isKorean
+                ? "입력한 뒤 ‘옵션 추가’나 Enter를 누르세요."
+                : "Type, then press ‘Add option’ or Enter."}
+          </p>
+          <p>
+            {isKorean
+              ? "옵션은 하나씩 추가 · 최대 20개 · 삭제는 상품 저장 때 반영"
+              : "One option at a time · Up to 20 · Removals apply when the product is saved"}
+          </p>
+        </AdminHelpButton>
+      </span>
       {notice ? (
         <small
           className={notice.kind === "error" ? styles.productOptionError : undefined}
@@ -4401,6 +4411,25 @@ function ProductSection({
                       : ""}
                   </strong>
                 </span>
+                {onSaveDeckSpec ? (
+                  <span className={styles.fieldHelp}>
+                    <AdminHelpButton
+                      locale={locale}
+                      target={isKorean ? "상세사이즈" : "Size chart"}
+                    >
+                      <p>
+                        {isKorean
+                          ? "옵션 칩을 누르면 그 옵션의 상세사이즈와 이름을 편집합니다. 이름을 바꾸면 상세사이즈도 함께 옮겨집니다."
+                          : "Press an option chip to edit its size chart and name. A renamed option keeps its size chart."}
+                      </p>
+                      <p>
+                        {isKorean
+                          ? "모달의 저장 버튼을 누르면 바로 반영됩니다."
+                          : "Saving in the dialog applies it right away."}
+                      </p>
+                    </AdminHelpButton>
+                  </span>
+                ) : null}
                 <button
                   className={styles.secondaryButton}
                   disabled={!canEditDeckSpec}
@@ -4477,13 +4506,7 @@ function ProductSection({
                     size={modalSize}
                   />
                 ) : null}
-                {onSaveDeckSpec ? (
-                  <small>
-                    {isKorean
-                      ? "옵션 칩을 누르면 그 옵션의 상세사이즈와 이름을 편집합니다. 이름을 바꾸면 상세사이즈도 함께 옮겨집니다."
-                      : "Press an option chip to edit its size chart and name. A renamed option keeps its size chart."}
-                  </small>
-                ) : null}
+
                 {optionDeckSpecCount ? (
                   <small>
                     {isKorean
@@ -4491,13 +4514,7 @@ function ProductSection({
                       : "Removing an option chip and saving the product deletes that option's size chart."}
                   </small>
                 ) : null}
-                {canEditDeckSpec ? (
-                  <small>
-                    {isKorean
-                      ? "모달의 저장 버튼을 누르면 바로 반영됩니다."
-                      : "Saving in the dialog applies it right away."}
-                  </small>
-                ) : (
+                {canEditDeckSpec ? null : (
                   <small>
                     {onSaveDeckSpec
                       ? isKorean
@@ -4560,26 +4577,40 @@ function ProductSection({
                 compact
                 src={draft.imageUrl}
               />
-              <label className={styles.uploadField}>
-                <span>{isKorean ? "대표 이미지" : "Main image"}</span>
-                <input
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  onChange={onImageChange}
-                  type="file"
-                />
-                <small>
-                  {isKorean
-                    ? "JPEG·PNG·WebP·GIF · 최대 6MB"
-                    : "JPEG·PNG·WebP·GIF · Up to 6MB"}
-                  {canUploadImages
-                    ? isKorean
-                      ? " · 저장할 때 업로드"
-                      : " · Uploads on save"
-                    : isKorean
-                      ? " · 업로드 연결 필요"
-                      : " · Upload needs a connection"}
-                </small>
-              </label>
+              <div className={styles.productImageField}>
+                <label className={styles.uploadField}>
+                  <span>{isKorean ? "대표 이미지" : "Main image"}</span>
+                  <input
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={onImageChange}
+                    type="file"
+                  />
+                  {canUploadImages ? null : (
+                    <small>
+                      {isKorean ? "업로드 연결 필요" : "Upload needs a connection"}
+                    </small>
+                  )}
+                </label>
+                <span className={styles.fieldHelpCorner}>
+                  <AdminHelpButton
+                    locale={locale}
+                    target={isKorean ? "대표 이미지" : "Main image"}
+                  >
+                    <p>
+                      {isKorean
+                        ? "JPEG·PNG·WebP·GIF · 최대 6MB"
+                        : "JPEG·PNG·WebP·GIF · Up to 6MB"}
+                    </p>
+                    {canUploadImages ? (
+                      <p>
+                        {isKorean
+                          ? "고른 이미지는 상품을 저장할 때 업로드됩니다."
+                          : "The chosen image uploads when the product is saved."}
+                      </p>
+                    ) : null}
+                  </AdminHelpButton>
+                </span>
+              </div>
             </div>
           </fieldset>
           <fieldset className={styles.formGroup} disabled={lockInputs}>
@@ -4643,6 +4674,24 @@ function ProductSection({
             </p>
           ) : null}
           <div className={styles.formActions}>
+            {canSaveToServer ? (
+              <span className={styles.fieldHelp}>
+                <AdminHelpButton
+                  locale={locale}
+                  target={isKorean ? "상품 저장" : "Saving the product"}
+                >
+                  <p>
+                    {draft.isVisible
+                      ? isKorean
+                        ? "저장 직전에 공개 내용을 한 번 더 확인합니다."
+                        : "You will confirm the public content once more before saving."
+                      : isKorean
+                        ? "비공개 상품은 고객에게 표시되지 않습니다."
+                        : "Private products are not shown to customers."}
+                  </p>
+                </AdminHelpButton>
+              </span>
+            ) : null}
             <button
               className={styles.secondaryButton}
               disabled={lockInputs}
@@ -4673,19 +4722,13 @@ function ProductSection({
                 : saveLabel}
             </button>
           </div>
-          <p className={styles.productSaveHint}>
-            {canSaveToServer
-              ? draft.isVisible
-                ? isKorean
-                  ? "저장 직전에 공개 내용을 한 번 더 확인합니다."
-                  : "You will confirm the public content once more before saving."
-                : isKorean
-                  ? "비공개 상품은 고객에게 표시되지 않습니다."
-                  : "Private products are not shown to customers."
-              : isKorean
+          {canSaveToServer ? null : (
+            <p className={styles.productSaveHint}>
+              {isKorean
                 ? "서버 저장·공개는 관리자 API 연결 후 가능합니다."
                 : "Saving to the server and publishing need the admin API connection."}
-          </p>
+            </p>
+          )}
         </form>
 
         <aside
@@ -4693,8 +4736,26 @@ function ProductSection({
           aria-label={isKorean ? "고객 화면 미리보기" : "Customer preview"}
         >
           <div className={styles.previewHeader}>
-            <div>
+            <div className={styles.productPreviewTitle}>
               <h2>{isKorean ? "고객 화면 미리보기" : "Customer preview"}</h2>
+              {canSaveToServer ? (
+                <span className={styles.fieldHelp}>
+                  <AdminHelpButton
+                    locale={locale}
+                    target={isKorean ? "고객 화면 미리보기" : "Customer preview"}
+                  >
+                    <p>
+                      {view === "edit"
+                        ? isKorean
+                          ? "입력한 변경 내용은 저장 후 반영됩니다."
+                          : "Your changes apply after saving."
+                        : isKorean
+                          ? "아직 고객에게 보이지 않습니다."
+                          : "Not visible to customers yet."}
+                    </p>
+                  </AdminHelpButton>
+                </span>
+              ) : null}
             </div>
             <span className={styles.productSaveState}>
               {canSaveToServer
@@ -4803,19 +4864,13 @@ function ProductSection({
               </span>
             </footer>
           </article>
-          <p className={styles.previewNote}>
-            {canSaveToServer
-              ? view === "edit"
-                ? isKorean
-                  ? "입력한 변경 내용은 저장 후 반영됩니다."
-                  : "Your changes apply after saving."
-                : isKorean
-                  ? "아직 고객에게 보이지 않습니다."
-                  : "Not visible to customers yet."
-              : isKorean
+          {canSaveToServer ? null : (
+            <p className={styles.previewNote}>
+              {isKorean
                 ? "서버 연결 전에는 실제 저장·공개되지 않습니다."
                 : "Nothing is actually saved or published until the server is connected."}
-          </p>
+            </p>
+          )}
         </aside>
       </div>
     </div>

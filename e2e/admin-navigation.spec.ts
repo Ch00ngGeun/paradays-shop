@@ -588,14 +588,17 @@ test("product list/create history restores the same private draft and file witho
   await page.getByRole("button", { name: "새 상품 등록", exact: true }).click();
   const draftName = "UNSAVED_PRIVATE_HISTORY_DRAFT";
   await page.getByRole("textbox", { name: "상품명", exact: false }).fill(draftName);
-  await page.getByLabel("대표 이미지", { exact: false }).setInputFiles({
-    name: "synthetic-private-upload.png",
-    mimeType: "image/png",
-    buffer: Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aRfsAAAAASUVORK5CYII=",
-      "base64",
-    ),
-  });
+  await page
+    .locator('input[type="file"]')
+    .and(page.getByLabel("대표 이미지", { exact: false }))
+    .setInputFiles({
+      name: "synthetic-private-upload.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aRfsAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    });
   const editorUrl = page.url();
   const editor = new URL(editorUrl).searchParams.get("editor");
   expect(editor).toMatch(
@@ -807,7 +810,13 @@ async function checkHomePrivateCreateHistory(page: Page, audit: Audit) {
   await expect(
     page.getByRole("button", { name: "비공개로 저장", exact: true }),
   ).toBeVisible();
-  await expect(productPreview(page)).toContainText("아직 고객에게 보이지 않습니다");
+  // The preview note now sits behind the preview's '?' help.
+  await productPreview(page)
+    .getByRole("button", { name: "고객 화면 미리보기 도움말", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toContainText("아직 고객에게 보이지 않습니다");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   const editorUrl = page.url();
   expect(new URL(editorUrl).searchParams.get("editor")).toMatch(
     /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
@@ -1562,6 +1571,51 @@ test("product form refinement: the two-line notice does not follow the admin to 
   await expect(notice).toHaveCount(0);
 });
 
+test("product help: explanations stay behind '?' buttons that open, close with Esc and return focus", async ({
+  page,
+}) => {
+  await setup(page, { path: "/admin?section=products" });
+  await newProduct(page);
+  const panel = page.locator("#admin-panel-products");
+  // The explanations are not on the screen until asked for.
+  for (const text of [
+    "직접 입력하거나 선택한 뒤",
+    "JPEG·PNG·WebP·GIF",
+    "비공개 상품은 고객에게 표시되지 않습니다",
+    "아직 고객에게 보이지 않습니다",
+  ])
+    await expect(panel.getByText(text)).toHaveCount(0);
+
+  const dialog = page.getByRole("dialog");
+  for (const [target, text] of [
+    ["사이즈 / 옵션", "직접 입력하거나 선택한 뒤 ‘옵션 추가’를 누르세요"],
+    ["대표 이미지", "JPEG·PNG·WebP·GIF · 최대 6MB"],
+    ["상품 저장", "비공개 상품은 고객에게 표시되지 않습니다"],
+    ["고객 화면 미리보기", "아직 고객에게 보이지 않습니다"],
+  ] as const) {
+    const help = panel.getByRole("button", { name: `${target} 도움말`, exact: true });
+    const box = (await help.boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    await help.click();
+    await expect(dialog).toContainText(text);
+    await expect(dialog.getByRole("heading")).toHaveText(`${target} 도움말`);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(help).toBeFocused();
+  }
+
+  // The close button works the same way.
+  const option = panel.getByRole("button", {
+    name: "사이즈 / 옵션 도움말",
+    exact: true,
+  });
+  await option.click();
+  await dialog.getByRole("button", { name: "닫기", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(option).toBeFocused();
+});
+
 test("product form refinement: a spaced search finds a product whose name has a line break", async ({
   page,
 }) => {
@@ -1822,14 +1876,17 @@ test("product redesign: local image preview uploads only to synthetic targets an
   });
   await newProduct(page);
   await fillProduct(page);
-  await page.getByLabel("대표 이미지", { exact: false }).setInputFiles({
-    name: "synthetic-redesign-upload.png",
-    mimeType: "image/png",
-    buffer: Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aRfsAAAAASUVORK5CYII=",
-      "base64",
-    ),
-  });
+  await page
+    .locator('input[type="file"]')
+    .and(page.getByLabel("대표 이미지", { exact: false }))
+    .setInputFiles({
+      name: "synthetic-redesign-upload.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aRfsAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    });
   await expect(productPreview(page).getByRole("img")).toHaveAttribute("src", /^blob:/);
   const beforeSave = await page.evaluate(() =>
     JSON.stringify({
@@ -5806,14 +5863,17 @@ test("accessible images: failing example stops at text and a new uploaded image 
     preview.getByText("이미지 없음 · 예시 이미지", { exact: true }),
   ).toBeVisible();
   expect(exampleRequests).toBeLessThanOrEqual(2);
-  await page.getByLabel("대표 이미지", { exact: false }).setInputFiles({
-    name: "synthetic-real.png",
-    mimeType: "image/png",
-    buffer: Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aRfsAAAAASUVORK5CYII=",
-      "base64",
-    ),
-  });
+  await page
+    .locator('input[type="file"]')
+    .and(page.getByLabel("대표 이미지", { exact: false }))
+    .setInputFiles({
+      name: "synthetic-real.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aRfsAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    });
   await expect(preview.getByRole("img")).toHaveAttribute("src", /^blob:/);
   await expect(preview.locator('[data-example="true"]')).toHaveCount(0);
   await page.getByRole("button", { name: "새 초안", exact: true }).click();
