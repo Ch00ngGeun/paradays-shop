@@ -5,11 +5,15 @@ import {
   createProductSku,
   formatProductDeckOption,
   formatProductWheelOption,
+  listProductOptions,
   mergeProductBrandNames,
   PRODUCT_DECK_WIDTHS,
   PRODUCT_OPTION_LIMITS,
   PRODUCT_WHEEL_DIAMETERS,
   PRODUCT_WHEEL_HARDNESSES,
+  removeProductOption,
+  renameProductOption,
+  validateProductOptionName,
   validateProductOptions,
 } from "@/lib/admin-ui/product-form";
 
@@ -290,4 +294,55 @@ describe("new deck and wheel choice formatting", () => {
       expect(formatProductWheelOption(diameter, hardness)).toBeNull();
     },
   );
+});
+
+describe("option chips", () => {
+  const legacy = " 8.25\u2033 , SPECIAL / blue ,, 8.5”";
+
+  it("lists options in saved order without blanks or outer spaces", () => {
+    expect(listProductOptions(legacy)).toEqual([
+      "8.25\u2033",
+      "SPECIAL / blue",
+      "8.5”",
+    ]);
+    expect(listProductOptions("")).toEqual([]);
+    expect(listProductOptions(" , ")).toEqual([]);
+  });
+
+  it("removes one chip and keeps the rest in order", () => {
+    expect(removeProductOption(legacy, "SPECIAL / blue")).toBe("8.25\u2033, 8.5”");
+    expect(removeProductOption("8.5”", "8.5”")).toBe("");
+    // An unknown chip leaves the entered text exactly as it was.
+    expect(removeProductOption(legacy, "9.0")).toBe(legacy);
+  });
+
+  it("renames one chip in place and leaves unknown names alone", () => {
+    expect(renameProductOption(legacy, "SPECIAL / blue", "SPECIAL / red")).toBe(
+      "8.25\u2033, SPECIAL / red, 8.5”",
+    );
+    expect(renameProductOption(legacy, "9.0", "9.25")).toBe(legacy);
+  });
+
+  it("checks a new option name with the server rules", () => {
+    const others = ["8.25", "8.5"];
+    expect(validateProductOptionName("  8.75 wide ", others)).toEqual({
+      ok: true,
+      name: "8.75 wide",
+    });
+    expect(validateProductOptionName("x".repeat(50), others).ok).toBe(true);
+    for (const [value, reason] of [
+      ["", "empty-option"],
+      ["   ", "empty-option"],
+      ["8.75, 9.0", "multiple-options"],
+      ["8.75\nwide", "multiple-options"],
+      ["x".repeat(51), "option-too-long"],
+      ["__proto__", "reserved-option"],
+      ["constructor", "reserved-option"],
+      ["prototype", "reserved-option"],
+      ["8.5", "duplicate-option"],
+      [" 8.25 ", "duplicate-option"],
+    ] as const) {
+      expect(validateProductOptionName(value, others)).toEqual({ ok: false, reason });
+    }
+  });
 });
