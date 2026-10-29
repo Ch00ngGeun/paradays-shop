@@ -1,7 +1,7 @@
 // 역할: 관리자가 데크 상세사이즈(인치)를 기본값 또는 사이즈 옵션별로 입력·미리보기하고, 모달의 저장 버튼으로 서버에 즉시 저장하게 합니다.
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 
 import { useFocusTrap } from "@/hooks/use-focus-trap";
@@ -13,6 +13,7 @@ import {
 import type { DeckSpec, Locale } from "@/types/store";
 
 import styles from "./admin-deck-spec-modal.module.css";
+import { AdminHelpButton } from "./admin-help-button";
 import { DeckSizeDiagram, formatDeckCm } from "./deck-size-diagram";
 
 const DECK_SPEC_FIELDS = ["nose", "tail", "width", "length", "wheelbase"] as const;
@@ -34,6 +35,11 @@ export function parseDeckInches(value: string): number | null {
   const inches = Number(trimmed);
 
   return inches > 0 && inches <= 100 ? inches : null;
+}
+
+/** 비어 있지 않은데 허용 범위·형식이 아닌 칸입니다. */
+function isInvalidInches(value: string) {
+  return value.trim() !== "" && parseDeckInches(value) === null;
 }
 
 /** 5칸이 모두 올바를 때만 저장 가능한 상세사이즈를 만듭니다. */
@@ -136,6 +142,7 @@ export function AdminDeckSpecForm({
   const [inputs, setInputs] = useState(() => toInputs(initialSpec));
   const [saving, setSaving] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const rangeErrorId = useId();
   const nameEditable = size !== undefined && otherOptions !== undefined;
   const [name, setName] = useState(size ?? "");
   const { spec, nameResult, sizeName, ready } = getDeckSpecSaveState(
@@ -206,13 +213,14 @@ export function AdminDeckSpecForm({
         ) : null}
         {DECK_SPEC_FIELDS.map((field) => {
           const inches = parseDeckInches(inputs[field]);
-          const invalid = inputs[field].trim() !== "" && inches === null;
+          const invalid = isInvalidInches(inputs[field]);
 
           return (
             <label className={styles.field} key={field}>
               <span className={styles.fieldName}>{field}</span>
               <span className={styles.inputRow}>
                 <input
+                  aria-describedby={invalid ? rangeErrorId : undefined}
                   aria-invalid={invalid || undefined}
                   disabled={saving}
                   inputMode="decimal"
@@ -233,11 +241,31 @@ export function AdminDeckSpecForm({
             </label>
           );
         })}
-        <p className={styles.hint}>
-          {isKorean
-            ? "인치로 입력하면 cm는 자동으로 계산됩니다. 0 초과 100 이하."
-            : "Enter inches; cm is calculated automatically. Above 0, up to 100."}
-        </p>
+        {/* The range shows again as an error only when a value is out of it. */}
+        {DECK_SPEC_FIELDS.some((field) => isInvalidInches(inputs[field])) ? (
+          <p className={styles.error} id={rangeErrorId}>
+            {isKorean
+              ? "0 초과 100 이하의 인치로, 소수 4자리까지 입력해 주세요."
+              : "Enter inches above 0 and up to 100, with up to 4 decimals."}
+          </p>
+        ) : null}
+        <div className={styles.hint}>
+          <AdminHelpButton
+            locale={locale}
+            target={isKorean ? "상세사이즈 입력" : "Size chart input"}
+          >
+            <p>
+              {isKorean
+                ? "인치로 입력하면 cm는 자동으로 계산됩니다."
+                : "Enter inches; cm is calculated automatically."}
+            </p>
+            <p>
+              {isKorean
+                ? "0 초과 100 이하, 소수 4자리(1/16인치 = 0.0625)까지 입력할 수 있습니다."
+                : "Above 0 and up to 100, with up to 4 decimals (1/16 inch = 0.0625)."}
+            </p>
+          </AdminHelpButton>
+        </div>
         {size !== undefined && !initialSpec ? (
           <p className={styles.hint}>
             {isKorean
