@@ -1016,6 +1016,23 @@ async function readAllowlistedAdminErrorCode(
       return undefined;
     }
   }
+  // A single product PATCH tells a reserved or duplicate rename apart from a version conflict.
+  if (/^admin\/catalog\/products\/[^/]+$/.test(endpoint)) {
+    try {
+      const body: unknown = await response.json();
+      return isRecord(body) &&
+        typeof body.code === "string" &&
+        [
+          "CATALOG_PRODUCT_RESERVED",
+          "CATALOG_PRODUCT_DUPLICATE",
+          "CATALOG_PRODUCT_VERSION_CONFLICT",
+        ].includes(body.code)
+        ? { code: body.code }
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  }
   if (!endpoint.startsWith("admin/ocr/")) {
     return undefined;
   }
