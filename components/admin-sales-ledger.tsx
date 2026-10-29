@@ -13,6 +13,7 @@ import {
   type StockPreview,
 } from "@/lib/commerce/admin-sales-api-client";
 import styles from "./admin-sales-ledger.module.css";
+import { AdminHelpButton } from "./admin-help-button";
 import { AdminSalesSimulationPanel } from "./admin-sales-simulation";
 import { AdminStepper, type AdminStep } from "./admin-stepper";
 import { AdminNotice } from "./admin-status";
@@ -294,11 +295,18 @@ function SalesModeSession({
               ? "판매를 확정하면 실제 재고가 차감됩니다. 연습하려면 ‘연습하기’를 선택하세요."
               : "Posting a sale deducts real stock. To practice, choose ‘Practice’."}
           </AdminNotice>
-          <p className={styles.muted}>
-            {isKorean
-              ? "기존 미확정 요청은 실제 운영에서 확인합니다."
-              : "Check earlier unconfirmed requests in real operations."}
-          </p>
+          <div className={styles.muted}>
+            <AdminHelpButton
+              locale={locale}
+              target={isKorean ? "실제 운영" : "Real operations"}
+            >
+              <p>
+                {isKorean
+                  ? "기존 미확정 요청은 실제 운영에서 확인합니다."
+                  : "Check earlier unconfirmed requests in real operations."}
+              </p>
+            </AdminHelpButton>
+          </div>
           <button
             aria-label={
               isKorean

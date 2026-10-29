@@ -385,6 +385,29 @@ test.afterEach(async ({ page }) => {
   }
 });
 
+test("sales help opens on demand while the stock warnings stay visible", async ({
+  page,
+}) => {
+  await setup(page, { mode: "choose" });
+  // The real-operations warning stays; only the pointer to earlier requests moved behind '?'.
+  await expect(
+    page.getByText("판매를 확정하면 실제 재고가 차감됩니다.", { exact: false }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("기존 미확정 요청은 실제 운영에서 확인합니다."),
+  ).toHaveCount(0);
+  const help = page.getByRole("button", { name: "실제 운영 도움말", exact: true });
+  await help.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("기존 미확정 요청은 실제 운영에서 확인합니다.");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(help).toBeFocused();
+  // Opening the real ledger still works afterwards.
+  await page.getByRole("button", { name: ACTUAL_MODE, exact: true }).click();
+  await expect(page.getByRole("heading", { name: "매출·일마감 관리" })).toBeVisible();
+});
+
 test("unmatched draft saves the KST time without changing stock or guessing a product", async ({
   page,
 }) => {

@@ -14,6 +14,7 @@ import {
   type SimulationCommand,
   type SimulationState,
 } from "@/lib/admin-ui/order-inventory-simulation";
+import { AdminHelpButton } from "./admin-help-button";
 import styles from "./admin-order-simulation.module.css";
 
 /**
@@ -454,11 +455,19 @@ export function AdminOrderSimulationSession({ locale }: { locale: Locale }) {
               {isKorean ? "새 모의 부분 처리 준비" : "Prepare new mock partial action"}
             </button>
           </div>
-          <p className={styles.help}>
-            {isKorean
-              ? "같은 입력을 반복 클릭하면 같은 모의 요청으로 처리합니다. 의도적으로 다음 부분 수량을 처리할 때만 ‘새 모의 부분 처리 준비’를 누르세요. 접수번호 중복 방어는 초기화 전까지 유지됩니다."
-              : "Clicking again with the same input is treated as the same mock request. Press ‘Prepare new mock partial action’ only when you intend to process the next partial quantity. Receipt number duplicate protection stays until reset."}
-          </p>
+          <div className={styles.help}>
+            <AdminHelpButton
+              locale={locale}
+              // Not named after the button, so a search for the button's own name finds only the button.
+              target={isKorean ? "모의 부분 처리" : "Mock partial actions"}
+            >
+              <p>
+                {isKorean
+                  ? "같은 입력을 반복 클릭하면 같은 모의 요청으로 처리합니다. 의도적으로 다음 부분 수량을 처리할 때만 ‘새 모의 부분 처리 준비’를 누르세요. 접수번호 중복 방어는 초기화 전까지 유지됩니다."
+                  : "Clicking again with the same input is treated as the same mock request. Press ‘Prepare new mock partial action’ only when you intend to process the next partial quantity. Receipt number duplicate protection stays until reset."}
+              </p>
+            </AdminHelpButton>
+          </div>
           <details>
             <summary>{isKorean ? "모의 처리 기록 보기" : "View mock history"}</summary>
             <ol>
