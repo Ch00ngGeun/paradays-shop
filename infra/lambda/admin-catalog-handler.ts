@@ -794,11 +794,15 @@ async function updateProduct(
   }
 
   const merged = mergeProductPatch(existingProduct, body);
-  if (hasOwn(body, "sizeDeckSpec") || hasOwn(body, "size")) {
-    const deckSpecsBySize = patchDeckSpecsBySize(existingProduct, body);
-    if (deckSpecsBySize === null)
-      return jsonResponse(400, { code: "CATALOG_PRODUCT_INVALID" });
-    merged.deckSpecsBySize = deckSpecsBySize;
+  if (
+    hasOwn(body, "sizeDeckSpec") ||
+    hasOwn(body, "size") ||
+    hasOwn(body, "sizeName")
+  ) {
+    const option = patchSizeOption(existingProduct, body);
+    if (!option) return jsonResponse(400, { code: "CATALOG_PRODUCT_INVALID" });
+    merged.sizes = option.sizes;
+    merged.deckSpecsBySize = option.deckSpecsBySize;
   }
   const input = parseProductInput(merged);
 
@@ -832,9 +836,12 @@ async function updateProduct(
 
   try {
     const revision = await readCatalogRevision(catalogTableName);
-    const identityChanged = ["name", "brandName", "brand", "sku", "sizes"].some(
-      (field) => hasOwn(body, field),
-    );
+    // A same-name option save does not change identity, so it skips the catalog scan.
+    const identityChanged =
+      ["name", "brandName", "brand", "sku", "sizes"].some((field) =>
+        hasOwn(body, field),
+      ) ||
+      (hasOwn(body, "sizeName") && body.sizeName !== body.size);
     if (identityChanged) {
       const duplicates = await readCatalogDuplicates(
         catalogTableName,
@@ -1648,33 +1655,55 @@ function readDeckSpecsBySize(
 }
 
 /**
- * PATCH { version, size, sizeDeckSpec }: 저장된 sizes에 있는 옵션 하나만 넣거나(null이면) 지운 map을 만듭니다.
- * 구 서버가 무시하도록 deckSpec과 다른 이름을 쓰며, 다른 필드와 함께 오면 거부합니다.
+ * PATCH { version, size, sizeName?, sizeDeckSpec }: 저장된 옵션 하나의 상세사이즈를 넣거나(null이면) 지우고,
+ * sizeName이 있으면 같은 위치의 옵션 이름도 바꿔 상세사이즈를 새 이름으로 옮깁니다.
+ * 구 서버가 무시하거나 거부하도록 전용 필드만 쓰며, 다른 필드와 함께 오면 거부합니다.
  */
-function patchDeckSpecsBySize(
+function patchSizeOption(
   product: CatalogProductRecord,
   body: Record<string, unknown>,
-): Record<string, CatalogDeckSpec> | null {
+): { sizes: string[]; deckSpecsBySize: Record<string, CatalogDeckSpec> } | null {
   const size = body.size;
+  const name = hasOwn(body, "sizeName") ? body.sizeName : size;
   const spec = readDeckSpec(body.sizeDeckSpec);
 
   if (
     !hasOwn(body, "sizeDeckSpec") ||
     Object.keys(body).some(
-      (field) => !["version", "size", "sizeDeckSpec"].includes(field),
+      (field) => !["version", "size", "sizeName", "sizeDeckSpec"].includes(field),
     ) ||
     typeof size !== "string" ||
     !isDeckSpecOption(product.sizes, size) ||
+    typeof name !== "string" ||
+    // Only a new name is checked, so an existing legacy option keeps its H-035 save and delete.
+    (name !== size && (!isSizeOptionName(name) || product.sizes.includes(name))) ||
     spec === null ||
     (spec === undefined && body.sizeDeckSpec !== null)
   ) {
     return null;
   }
 
-  return Object.fromEntries([
-    ...Object.entries(product.deckSpecsBySize ?? {}).filter(([key]) => key !== size),
-    ...(spec ? [[size, spec] as const] : []),
-  ]);
+  return {
+    sizes: product.sizes.map((option) => (option === size ? name : option)),
+    // A stale key already named like the new option must not resurface after the rename.
+    deckSpecsBySize: Object.fromEntries([
+      ...Object.entries(product.deckSpecsBySize ?? {}).filter(
+        ([key]) => key !== size && key !== name,
+      ),
+      ...(spec ? [[name, spec] as const] : []),
+    ]),
+  };
+}
+
+/** 상품 저장의 쉼표 목록 규칙(trim·50자·쉼표 없음)과 같고, 상세사이즈 키로 쓸 수 없는 이름은 거부합니다. */
+function isSizeOptionName(name: string) {
+  return (
+    name.length > 0 &&
+    name.length <= 50 &&
+    name === name.trim() &&
+    !/[,\r\n]/.test(name) &&
+    !UNSAFE_DECK_SPEC_OPTIONS.includes(name)
+  );
 }
 
 /** 저장 행의 옵션별 상세사이즈 중 현재 sizes에 있는 값만 응답에 담습니다. */
