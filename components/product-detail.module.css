@@ -21,6 +21,8 @@
 }
 
 .productInfo h1 {
+  /* A product name entered on two lines keeps its break here only; cards and the cart show one line. */
+  white-space: pre-line;
   font-family: var(--font-nav-product);
   font-size: clamp(2.6rem, 4vw, 4.5rem);
   font-weight: 700;
