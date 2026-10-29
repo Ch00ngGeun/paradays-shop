@@ -3,7 +3,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import {
-  AdminDeckSpecEditor,
   AdminDeckSpecForm,
   deckSpecFailureMessage,
   getDeckSpecSaveState,
@@ -111,54 +110,6 @@ describe("admin deck spec modal", () => {
   });
 
   const optionSpec = { ...spec, width: 8.25, wheelbase: 14 };
-  const editor = (props: Partial<Parameters<typeof AdminDeckSpecEditor>[0]> = {}) =>
-    renderToStaticMarkup(
-      createElement(AdminDeckSpecEditor, {
-        onCancel: () => {},
-        onSave: noop,
-        ...props,
-      }),
-    );
-
-  it("without size options the editor renders exactly the plain form", () => {
-    const plain = renderToStaticMarkup(
-      createElement(AdminDeckSpecForm, {
-        initialSpec: spec,
-        onCancel: () => {},
-        onSave: noop,
-      }),
-    );
-
-    expect(editor({ initialSpec: spec })).toBe(plain);
-    expect(editor({ initialSpec: spec, sizeOptions: [] })).toBe(plain);
-    expect(plain).not.toContain("<select");
-  });
-
-  it("offers the default first, then each saved option marked when it has values", () => {
-    const markup = editor({
-      initialSpec: spec,
-      initialSpecsBySize: { "8.25": optionSpec },
-      sizeOptions: ["8.25", "8.5", "8.25", "__proto__", "constructor", "prototype"],
-    });
-
-    const options = [
-      ...markup.matchAll(/<option value="([^"]*)"[^>]*>([^<]*)<\/option>/g),
-    ];
-    expect(options.map(([, value, label]) => [value, label])).toEqual([
-      ["", "기본 (모든 옵션 공통) · 등록됨"],
-      ["8.25", "8.25 · 등록됨"],
-      ["8.5", "8.5"],
-    ]);
-    expect(markup).toContain("적용 대상");
-    expect(markup).toContain(
-      "옵션을 고르지 않고 저장하면 모든 옵션 공통 기본값에 저장됩니다.",
-    );
-    // The default target is selected and its values fill the form.
-    expect(markup).toMatch(/<option value=""[^>]*selected=""/);
-    expect(markup).toContain('value="14.25"');
-    expect(markup).toContain(">삭제</button>");
-  });
-
   it("an option target shows its own values, or empty inputs with a default notice", () => {
     const own = renderToStaticMarkup(
       createElement(AdminDeckSpecForm, {
@@ -186,30 +137,19 @@ describe("admin deck spec modal", () => {
     );
   });
 
-  it("renders the option picker and notices in English without Korean", () => {
-    const markup =
-      editor({
+  it("renders the option form and its notice in English without Korean", () => {
+    const markup = renderToStaticMarkup(
+      createElement(AdminDeckSpecForm, {
         locale: "en",
-        initialSpec: spec,
-        initialSpecsBySize: { "8.25": optionSpec },
-        sizeOptions: ["8.25", "8.5"],
-      }) +
-      renderToStaticMarkup(
-        createElement(AdminDeckSpecForm, {
-          locale: "en",
-          onCancel: () => {},
-          onSave: noop,
-          size: "8.5",
-        }),
-      );
+        onCancel: () => {},
+        onSave: noop,
+        otherOptions: ["8.25"],
+        size: "8.5",
+      }),
+    );
 
     expect(markup).not.toMatch(/[가-힣]/u);
-    expect(markup).toContain("Applies to");
-    expect(markup).toContain(">Default (all options) · set</option>");
-    expect(markup).toContain(">8.25 · set</option>");
-    expect(markup).toContain(
-      "Without an option, saving updates the default for all options.",
-    );
+    expect(markup).toContain("Option name");
     expect(markup).toContain(
       "This option shows the default now. Saving applies to this option only.",
     );
@@ -335,18 +275,16 @@ describe("admin deck spec modal", () => {
     expect(withUndefined).toBe(plain);
     expect(noticed).toContain("CALLER_NOTICE");
     expect(noticed.indexOf("CALLER_NOTICE")).toBeLessThan(noticed.indexOf("옵션 이름"));
-    // The default-mode body forwards the same props, with or without size options.
-    for (const sizeOptions of [[], ["8.25"]])
-      expect(
-        renderToStaticMarkup(
-          createElement(AdminDeckSpecEditor, {
-            onCancel: () => {},
-            onSave: noop,
-            notice: "DEFAULT_NOTICE",
-            sizeOptions,
-          }),
-        ),
-      ).toContain("DEFAULT_NOTICE");
+    // The default-mode form, which the modal opens without a size, shows a notice too.
+    expect(
+      renderToStaticMarkup(
+        createElement(AdminDeckSpecForm, {
+          onCancel: () => {},
+          onSave: noop,
+          notice: "DEFAULT_NOTICE",
+        }),
+      ),
+    ).toContain("DEFAULT_NOTICE");
   });
 
   it("a save failure uses the caller's description and falls back to the general message", () => {
