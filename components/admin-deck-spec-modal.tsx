@@ -318,88 +318,10 @@ export function optionNameError(
   }
 }
 
-// The server refuses these option names, so they are never offered as a target.
-const UNSAFE_DECK_SPEC_OPTIONS = ["__proto__", "constructor", "prototype"];
-
-type AdminDeckSpecEditorProps = Omit<AdminDeckSpecFormProps, "size"> &
-  Readonly<{
-    /** 저장된 상품의 사이즈 옵션. 비어 있으면 대상 선택 없이 기본값만 편집합니다. */
-    sizeOptions?: readonly string[];
-    initialSpecsBySize?: Readonly<Record<string, DeckSpec>>;
-  }>;
-
-/** 적용 대상(기본값·옵션)을 고르고, 대상을 바꾸면 그 대상의 저장값으로 폼을 다시 채웁니다. */
-export function AdminDeckSpecEditor({
-  sizeOptions = [],
-  initialSpecsBySize = {},
-  initialSpec,
-  onBusyChange,
-  locale = "ko",
-  ...formProps
-}: AdminDeckSpecEditorProps) {
-  const isKorean = locale === "ko";
-  const [target, setTarget] = useState("");
-  const [busy, setBusy] = useState(false);
-  const options = [...new Set(sizeOptions)].filter(
-    (size) => size && !UNSAFE_DECK_SPEC_OPTIONS.includes(size),
-  );
-  const specFor = (size: string) =>
-    Object.hasOwn(initialSpecsBySize, size) ? initialSpecsBySize[size] : undefined;
-  const size = options.includes(target) ? target : undefined;
-  const setLabel = isKorean ? " · 등록됨" : " · set";
-
-  return (
-    <>
-      {options.length ? (
-        <div className={styles.field}>
-          <label className={styles.field}>
-            <span className={styles.fieldName}>
-              {isKorean ? "적용 대상" : "Applies to"}
-            </span>
-            <select
-              disabled={busy}
-              onChange={(event) => setTarget(event.target.value)}
-              value={size ?? ""}
-            >
-              <option value="">
-                {`${isKorean ? "기본 (모든 옵션 공통)" : "Default (all options)"}${initialSpec ? setLabel : ""}`}
-              </option>
-              {options.map((option) => (
-                <option key={option} value={option}>
-                  {`${option}${specFor(option) ? setLabel : ""}`}
-                </option>
-              ))}
-            </select>
-          </label>
-          <p className={styles.hint}>
-            {isKorean
-              ? "옵션을 고르지 않고 저장하면 모든 옵션 공통 기본값에 저장됩니다."
-              : "Without an option, saving updates the default for all options."}
-          </p>
-        </div>
-      ) : null}
-      <AdminDeckSpecForm
-        {...formProps}
-        initialSpec={size === undefined ? initialSpec : specFor(size)}
-        key={size ?? ""}
-        locale={locale}
-        onBusyChange={(next) => {
-          setBusy(next);
-          onBusyChange?.(next);
-        }}
-        size={size}
-      />
-    </>
-  );
-}
-
-type AdminDeckSpecModalProps = AdminDeckSpecEditorProps &
+type AdminDeckSpecModalProps = AdminDeckSpecFormProps &
   Readonly<{
     isOpen: boolean;
     productName: string;
-    /** 칩에서 연 옵션 모달이면 그 옵션과 이름 칸용 나머지 옵션입니다. */
-    size?: string;
-    otherOptions?: readonly string[];
   }>;
 
 /** body 아래 독립 layer에 띄우고 배경을 inert 처리합니다. 배경 클릭으로는 닫지 않고, 저장 중이 아닐 때 ESC·취소로만 닫습니다. */
@@ -407,8 +329,6 @@ export function AdminDeckSpecModal({
   isOpen,
   productName,
   initialSpec,
-  sizeOptions,
-  initialSpecsBySize,
   size,
   otherOptions,
   onCancel,
@@ -447,31 +367,18 @@ export function AdminDeckSpecModal({
           {locale === "ko" ? "상세사이즈" : "Size chart"} · {productName}
           {size === undefined ? "" : ` · ${size}`}
         </h2>
-        {size === undefined ? (
-          <AdminDeckSpecEditor
-            describeError={describeError}
-            initialSpec={initialSpec}
-            initialSpecsBySize={initialSpecsBySize}
-            locale={locale}
-            notice={notice}
-            onBusyChange={setBusy}
-            onCancel={onCancel}
-            onSave={onSave}
-            sizeOptions={sizeOptions}
-          />
-        ) : (
-          <AdminDeckSpecForm
-            describeError={describeError}
-            initialSpec={initialSpec}
-            locale={locale}
-            notice={notice}
-            onBusyChange={setBusy}
-            onCancel={onCancel}
-            onSave={onSave}
-            otherOptions={otherOptions}
-            size={size}
-          />
-        )}
+        {/* 칩에서 연 옵션 모달이면 size와 이름 칸용 otherOptions가 있고, 없으면 기본값 모달입니다. */}
+        <AdminDeckSpecForm
+          describeError={describeError}
+          initialSpec={initialSpec}
+          locale={locale}
+          notice={notice}
+          onBusyChange={setBusy}
+          onCancel={onCancel}
+          onSave={onSave}
+          otherOptions={otherOptions}
+          size={size}
+        />
       </section>
     </div>,
     layer,

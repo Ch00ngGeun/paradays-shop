@@ -2684,6 +2684,12 @@
   color: var(--product-danger);
 }
 
+/* A deck chip's name opens its size chart, so it underlines instead of turning the remove color. */
+.productScreen .productOptionChip > .productOptionChipRemove:first-child:hover {
+  color: inherit;
+  text-decoration: underline;
+}
+
 .productLegacyPrice {
   align-items: center;
   color: var(--admin-muted);
