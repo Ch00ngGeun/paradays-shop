@@ -2334,6 +2334,13 @@
   min-height: 2.75rem;
 }
 
+/* The product name may span two lines; the box grows with its content instead of scrolling. */
+.productScreen .editorForm .productNameInput {
+  field-sizing: content;
+  overflow: hidden;
+  resize: none;
+}
+
 .productScreen :is(input, textarea)::placeholder {
   color: var(--admin-muted);
   opacity: 1;

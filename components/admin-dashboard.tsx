@@ -9,7 +9,9 @@ import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -3176,6 +3178,35 @@ function OverviewSection({
   );
 }
 
+/**
+ * 상품명은 최대 2줄입니다. 빈 줄은 줄바꿈 하나로 합치고, 3번째 줄부터는 지우지 않고 2번째 줄 뒤에 공백으로 이어 붙입니다.
+ * 커서 위치는 커서 앞부분에 같은 처리를 한 길이로 옮깁니다.
+ */
+export function limitProductNameLines(value: string) {
+  const [first, second, ...extra] = value
+    .replace(/\r\n?/g, "\n")
+    .replace(/\n{2,}/g, "\n")
+    .split("\n");
+  // Empty extra lines (such as a trailing break) are dropped without adding a space.
+  const joined = extra.filter(Boolean);
+  if (second === undefined) return { value: first, merged: false };
+  return {
+    value: [first, [second, ...joined].join(" ")].join("\n"),
+    merged: joined.length > 0,
+  };
+}
+
+/** 자동 높이를 지원하지 않는 브라우저에서 상품명 상자 높이를 내용에 맞춥니다. */
+function fitProductNameInput(input: HTMLTextAreaElement) {
+  input.style.height = "auto";
+  input.style.height = `${input.scrollHeight + input.offsetHeight - input.clientHeight}px`;
+}
+
+/** 관리자 검색은 줄바꿈·연속 공백을 공백 하나로 보고 비교합니다. */
+function normalizeSearchText(value: string) {
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
 function ProductOptionControls({
   category,
   chartOptions = [],
@@ -3504,6 +3535,53 @@ function ProductSection({
 }>) {
   const { locale } = useLocale();
   const isKorean = locale === "ko";
+  const nameInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const nameResizeRef = useRef<ResizeObserver | null>(null);
+  const nameCaretRef = useRef<number | null>(null);
+  const [nameCaretTick, setNameCaretTick] = useState(0);
+  const [nameLineNotice, setNameLineNotice] = useState<"blocked" | "merged" | null>(
+    null,
+  );
+  // field-sizing grows the box in supporting browsers; elsewhere the height follows the content and the width.
+  // Stable, so a re-render never reconnects the observer and skips a width change it should see.
+  const attachNameInput = useCallback((input: HTMLTextAreaElement | null) => {
+    nameInputRef.current = input;
+    nameResizeRef.current?.disconnect();
+    nameResizeRef.current = null;
+    if (!input || CSS.supports("field-sizing", "content")) return;
+    fitProductNameInput(input);
+    let width = input.clientWidth;
+    nameResizeRef.current = new ResizeObserver(() => {
+      if (input.clientWidth === width) return;
+      width = input.clientWidth;
+      fitProductNameInput(input);
+    });
+    nameResizeRef.current.observe(input);
+  }, []);
+
+  useLayoutEffect(() => {
+    const input = nameInputRef.current;
+    if (!input) return;
+    if (!CSS.supports("field-sizing", "content")) fitProductNameInput(input);
+    // A rewritten value would put the caret at the end, so it goes back to where the edit was.
+    const caret = nameCaretRef.current;
+    nameCaretRef.current = null;
+    if (caret !== null && document.activeElement === input)
+      input.setSelectionRange(caret, caret);
+  }, [draft.name, nameCaretTick]);
+  const applyProductName = (input: HTMLTextAreaElement) => {
+    const raw = input.value;
+    const limited = limitProductNameLines(raw);
+    if (limited.value !== raw) {
+      nameCaretRef.current = Math.min(
+        limitProductNameLines(raw.slice(0, input.selectionStart)).value.length,
+        limited.value.length,
+      );
+      setNameCaretTick((tick) => tick + 1);
+    }
+    setNameLineNotice(limited.merged ? "merged" : null);
+    onTextChange("name", limited.value);
+  };
   const previewDescriptionLines = draft.description
     .split(/\n/)
     .map((line) => line.trim())
@@ -3599,7 +3677,7 @@ function ProductSection({
   }, [products]);
 
   const filteredProducts = useMemo(() => {
-    const normalizedQuery = filterQuery.trim().toLowerCase();
+    const normalizedQuery = normalizeSearchText(filterQuery);
 
     return products.filter((product) => {
       if (
@@ -3625,11 +3703,8 @@ function ProductSection({
         return true;
       }
 
-      return (
-        product.name.toLowerCase().includes(normalizedQuery) ||
-        product.brand.toLowerCase().includes(normalizedQuery) ||
-        product.category.toLowerCase().includes(normalizedQuery) ||
-        (product.sku?.toLowerCase().includes(normalizedQuery) ?? false)
+      return [product.name, product.brand, product.category, product.sku ?? ""].some(
+        (field) => normalizeSearchText(field).includes(normalizedQuery),
       );
     });
   }, [filterQuery, products, statusFilter, stockFilter]);
@@ -4042,14 +4117,50 @@ function ProductSection({
               <span>
                 {isKorean ? "상품명" : "Product name"} <em>*</em>
               </span>
-              <input
-                onChange={(event) => onTextChange("name", event.target.value)}
+              <textarea
+                className={styles.productNameInput}
+                onChange={(event) => {
+                  // While an IME is composing, the text is kept as typed and tidied when it ends.
+                  if ((event.nativeEvent as InputEvent).isComposing) {
+                    onTextChange("name", event.target.value);
+                    return;
+                  }
+                  applyProductName(event.target);
+                }}
+                onCompositionEnd={(event) => applyProductName(event.currentTarget)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+                  const input = event.currentTarget;
+                  const next = `${input.value.slice(0, input.selectionStart)}\n${input.value.slice(input.selectionEnd)}`;
+                  // A third line, even an empty one, is never started, so nothing after the caret is lost.
+                  const lines = next
+                    .replace(/\r\n?/g, "\n")
+                    .replace(/\n{2,}/g, "\n")
+                    .split("\n");
+                  if (lines.length > 2) {
+                    event.preventDefault();
+                    setNameLineNotice("blocked");
+                  }
+                }}
                 placeholder={
                   isKorean ? "예: O'Dwyer Deck [8.25”]" : "e.g. O'Dwyer Deck [8.25”]"
                 }
+                ref={attachNameInput}
                 required
+                rows={1}
                 value={draft.name}
               />
+              {nameLineNotice ? (
+                <small role="status">
+                  {nameLineNotice === "blocked"
+                    ? isKorean
+                      ? "상품명은 최대 2줄까지 입력할 수 있습니다."
+                      : "A product name can have up to 2 lines."
+                    : isKorean
+                      ? "상품명은 최대 2줄이라 3번째 줄부터는 2번째 줄 뒤에 이어 붙였습니다."
+                      : "A product name can have up to 2 lines, so lines from the third were joined to the second."}
+                </small>
+              ) : null}
             </label>
             <div className={styles.productBrandField}>
               <label htmlFor={`product-brand-${editorId}`}>
@@ -4728,7 +4839,7 @@ function InventorySection({
   };
 
   const filteredProducts = useMemo(() => {
-    const query = filterQuery.trim().toLowerCase();
+    const query = normalizeSearchText(filterQuery);
 
     return products
       .filter((product) => {
@@ -4741,8 +4852,9 @@ function InventorySection({
         }
 
         if (query) {
-          const haystack =
-            `${product.name} ${product.brand} ${product.sku ?? ""} ${product.category}`.toLowerCase();
+          const haystack = normalizeSearchText(
+            `${product.name} ${product.brand} ${product.sku ?? ""} ${product.category}`,
+          );
           if (!haystack.includes(query)) {
             return false;
           }
