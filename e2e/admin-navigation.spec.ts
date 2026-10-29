@@ -1409,6 +1409,12 @@ test("product form refinement: a two-line product name grows the box, keeps one 
   await name.pressSequentially("X");
   await expect(name).toHaveValue("FIRST\nXSECOND");
 
+  // Enter at the end of the second line does nothing but explain the two-line limit.
+  await caretAt("FIRST\nXSECOND".length);
+  await name.press("Enter");
+  await expect(name).toHaveValue("FIRST\nXSECOND");
+  await expect(status).toContainText("최대 2줄까지 입력할 수 있습니다");
+
   // Enter inside the second line cannot start a third line, so nothing after the caret is lost.
   await caretAt("FIRST\nXSECO".length);
   await name.press("Enter");
@@ -1462,6 +1468,8 @@ test("product form refinement: without field-sizing the product name box regrows
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await setup(page, { path: "/admin?section=products" });
+  // Chromium would still apply the stylesheet rule, so it is switched off to act like an older browser.
+  await page.addStyleTag({ content: "textarea { field-sizing: fixed !important; }" });
   await newProduct(page);
   const name = page.getByRole("textbox", { name: "상품명", exact: false });
   await name.fill(`SYNTHETIC ${"LONG NAME ".repeat(8)}`.trim());
@@ -1469,6 +1477,33 @@ test("product form refinement: without field-sizing the product name box regrows
     name.evaluate((input) => input.scrollHeight <= input.clientHeight + 1);
   await expect.poll(fits).toBe(true);
   const wide = (await name.boundingBox())!.height;
+
+  // Widening from 1023px to the 1024px desktop layout re-renders and narrows the box (about 305px to 238px).
+  await page.setViewportSize({ width: 1023, height: 1000 });
+  await expect.poll(fits).toBe(true);
+  await page.setViewportSize({ width: 1024, height: 1000 });
+  await expect.poll(fits).toBe(true);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect.poll(fits).toBe(true);
+
+  // A width change that lands together with a re-render (here a price edit in the same task)
+  // must still regrow the box; a reconnected observer would take the new width as its start.
+  await name.evaluate((input) => {
+    input.style.width = "120px";
+    const price = document.querySelector<HTMLInputElement>(
+      'input[inputmode="numeric"]',
+    )!;
+    const setValue = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )!.set!;
+    setValue.call(price, "12345");
+    price.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await expect.poll(fits).toBe(true);
+  await name.evaluate((input) => {
+    input.style.width = "";
+  });
 
   // Narrowing only the box (as a rotation or a narrower column would) must regrow it.
   await name.evaluate((input) => {

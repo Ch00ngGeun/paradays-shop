@@ -9,6 +9,7 @@ import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -3542,11 +3543,13 @@ function ProductSection({
     null,
   );
   // field-sizing grows the box in supporting browsers; elsewhere the height follows the content and the width.
-  const attachNameInput = (input: HTMLTextAreaElement | null) => {
+  // Stable, so a re-render never reconnects the observer and skips a width change it should see.
+  const attachNameInput = useCallback((input: HTMLTextAreaElement | null) => {
     nameInputRef.current = input;
     nameResizeRef.current?.disconnect();
     nameResizeRef.current = null;
     if (!input || CSS.supports("field-sizing", "content")) return;
+    fitProductNameInput(input);
     let width = input.clientWidth;
     nameResizeRef.current = new ResizeObserver(() => {
       if (input.clientWidth === width) return;
@@ -3554,7 +3557,8 @@ function ProductSection({
       fitProductNameInput(input);
     });
     nameResizeRef.current.observe(input);
-  };
+  }, []);
+
   useLayoutEffect(() => {
     const input = nameInputRef.current;
     if (!input) return;
@@ -4128,8 +4132,12 @@ function ProductSection({
                   if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
                   const input = event.currentTarget;
                   const next = `${input.value.slice(0, input.selectionStart)}\n${input.value.slice(input.selectionEnd)}`;
-                  // A third line is never started, so nothing typed after the caret is lost.
-                  if (limitProductNameLines(next).merged) {
+                  // A third line, even an empty one, is never started, so nothing after the caret is lost.
+                  const lines = next
+                    .replace(/\r\n?/g, "\n")
+                    .replace(/\n{2,}/g, "\n")
+                    .split("\n");
+                  if (lines.length > 2) {
                     event.preventDefault();
                     setNameLineNotice("blocked");
                   }
