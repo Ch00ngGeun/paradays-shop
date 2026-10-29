@@ -1,13 +1,16 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
   AdminGuideButton,
   adminGuideLabels,
   guideMarkShape,
+  isTopModalLayer,
   nextGuideStep,
   placeGuideBubble,
+  recoverGuideStep,
   type AdminGuideStep,
 } from "@/components/admin-guide";
 
@@ -125,5 +128,43 @@ describe("guide button", () => {
     expect(adminGuideLabels("ko").count(2, 4)).toBe("2/4단계");
     expect(adminGuideLabels("en").count(2, 4)).toBe("Step 2 of 4");
     expect(Object.values(adminGuideLabels("en")).join(" ")).not.toMatch(/[가-힣]/u);
+  });
+});
+
+describe("guide robustness", () => {
+  const steps: AdminGuideStep[] = ["a", "b", "c"].map((target) => ({
+    target,
+    title: target,
+    body: target,
+  }));
+
+  it("moves forward, then back, then to the empty state when the current target goes away", () => {
+    expect(recoverGuideStep(steps, 1, (step) => step.target !== "b")).toBe(2);
+    expect(recoverGuideStep(steps, 2, (step) => step.target === "a")).toBe(0);
+    expect(recoverGuideStep(steps, 1, () => false)).toBe(-1);
+  });
+
+  it("lets Esc close only the dialog in the last modal layer on the page", () => {
+    const layer = (name: string) => ({ name, dataset: { modalLayer: "true" } });
+    const app = { name: "app", dataset: {} };
+    const guide = layer("guide");
+    const help = layer("help");
+
+    expect(isTopModalLayer(guide, [app, guide])).toBe(true);
+    // Whichever opened later is on top; the one below ignores the key.
+    expect(isTopModalLayer(guide, [app, guide, help])).toBe(false);
+    expect(isTopModalLayer(help, [app, guide, help])).toBe(true);
+    expect(isTopModalLayer(guide, [app])).toBe(false);
+  });
+
+  it("announces steps politely and respects reduced motion when scrolling", () => {
+    // The overlay only renders in a browser, so this checks its wiring in the source.
+    const source = readFileSync(
+      new URL("../components/admin-guide.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain('aria-live="polite"');
+    expect(source).toContain('matchMedia("(prefers-reduced-motion: reduce)")');
+    expect(source).toContain('behavior: reduceMotion ? "instant" : "smooth"');
   });
 });

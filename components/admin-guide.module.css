@@ -91,6 +91,11 @@
   transform: translate(-50%, -50%);
 }
 
+.content {
+  display: grid;
+  gap: 0.5rem;
+}
+
 .count {
   color: var(--color-muted);
   font-size: 0.8125rem;

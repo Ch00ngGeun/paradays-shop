@@ -102,6 +102,31 @@ export function nextGuideStep(
   return -1;
 }
 
+/**
+ * Esc는 화면 맨 위 modal layer(body에 가장 나중에 붙은 것)의 대화상자만 닫습니다.
+ * 도움말('?')과 화면 안내는 열리면 나머지 화면을 모두 inert로 만들어 서로의 위에 열릴 수 없지만,
+ * 어떤 순서로 겹치더라도 맨 위 하나만 닫히도록 DOM 순서로 판단합니다.
+ */
+export function isTopModalLayer(layer: unknown, bodyChildren: readonly unknown[]) {
+  const layers = bodyChildren.filter(
+    (child) =>
+      typeof child === "object" &&
+      child !== null &&
+      (child as { dataset?: Record<string, string> }).dataset?.modalLayer === "true",
+  );
+  return layers.length > 0 && layers.at(-1) === layer;
+}
+
+/** 현재 단계의 대상이 사라졌을 때 갈 단계: 뒤쪽 먼저, 없으면 앞쪽, 둘 다 없으면 -1(빈 상태). */
+export function recoverGuideStep(
+  steps: readonly AdminGuideStep[],
+  index: number,
+  isAvailable: (step: AdminGuideStep) => boolean,
+) {
+  const forward = nextGuideStep(steps, index, 1, isAvailable);
+  return forward !== -1 ? forward : nextGuideStep(steps, index, -1, isAvailable);
+}
+
 export function adminGuideLabels(locale: Locale) {
   return locale === "ko"
     ? {
@@ -187,8 +212,24 @@ function GuideOverlay({
   onClose: () => void;
 }>) {
   const layer = useModalLayer(true);
-  const dialogRef = useFocusTrap(true, onClose);
+  // Esc is handled below so only the top layer closes; the trap still keeps Tab inside.
+  const dialogRef = useFocusTrap(true, () => {});
   const titleId = useId();
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || !layer) return;
+      if (!isTopModalLayer(layer, Array.from(document.body.children))) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onCloseRef.current();
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [layer]);
   const [index, setIndex] = useState(() => nextGuideStep(steps, -1, 1, isOnScreen));
   const [rect, setRect] = useState<GuideRect | null>(null);
   const [bubble, setBubble] = useState<Size>({ width: 320, height: 160 });
@@ -202,18 +243,28 @@ function GuideOverlay({
 
   const measure = useCallback(() => {
     setViewport({ width: window.innerWidth, height: window.innerHeight });
+    if (step && !isOnScreen(step)) {
+      // The target went away mid-guide: move on to another visible step, or show the empty state.
+      setIndex(recoverGuideStep(steps, index, isOnScreen));
+      return setRect(null);
+    }
     const element = step ? findTarget(step.target) : null;
     if (!element) return setRect(null);
     const { left, top, width, height } = element.getBoundingClientRect();
-    setRect(width > 0 && height > 0 ? { left, top, width, height } : null);
+    setRect({ left, top, width, height });
     const box = (dialogRef.current as HTMLElement | null)?.getBoundingClientRect();
     if (box) setBubble({ width: box.width, height: box.height });
-  }, [step, dialogRef]);
+  }, [step, steps, index, dialogRef]);
 
   // Bring the target into view, then follow it through scrolling, resizing and layout changes.
   useEffect(() => {
     const element = step ? findTarget(step.target) : null;
-    element?.scrollIntoView({ block: "center", inline: "nearest" });
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    element?.scrollIntoView({
+      block: "center",
+      inline: "nearest",
+      behavior: reduceMotion ? "instant" : "smooth",
+    });
     let frame = 0;
     const schedule = () => {
       cancelAnimationFrame(frame);
@@ -328,19 +379,22 @@ function GuideOverlay({
         style={place ? { left: place.left, top: place.top } : undefined}
         tabIndex={-1}
       >
-        {step ? (
-          <>
-            <p className={styles.count}>{labels.count(position, available.length)}</p>
+        {/* Announces each new step to screen readers while focus stays on the buttons. */}
+        <div aria-live="polite" className={styles.content}>
+          {step ? (
+            <>
+              <p className={styles.count}>{labels.count(position, available.length)}</p>
+              <h2 className={styles.title} id={titleId}>
+                {step.title}
+              </h2>
+              <p className={styles.body}>{step.body}</p>
+            </>
+          ) : (
             <h2 className={styles.title} id={titleId}>
-              {step.title}
+              {labels.empty}
             </h2>
-            <p className={styles.body}>{step.body}</p>
-          </>
-        ) : (
-          <h2 className={styles.title} id={titleId}>
-            {labels.empty}
-          </h2>
-        )}
+          )}
+        </div>
         <div className={styles.actions}>
           <button className={styles.secondary} onClick={onClose} type="button">
             {labels.close}
