@@ -1,4 +1,4 @@
-// 역할: 관리자가 데크 상세사이즈(인치)를 입력·미리보기하고, 모달의 저장 버튼으로 서버에 즉시 저장하게 합니다.
+// 역할: 관리자가 데크 상세사이즈(인치)를 기본값 또는 사이즈 옵션별로 입력·미리보기하고, 모달의 저장 버튼으로 서버에 즉시 저장하게 합니다.
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
@@ -57,8 +57,10 @@ function toInputs(spec?: DeckSpec): DeckSpecInputs {
 
 type AdminDeckSpecFormProps = Readonly<{
   initialSpec?: DeckSpec;
+  /** 저장 대상 사이즈 옵션. 없으면 상품 공통 기본값입니다. */
+  size?: string;
   onCancel: () => void;
-  onSave: (spec: DeckSpec | null) => Promise<void>;
+  onSave: (spec: DeckSpec | null, size?: string) => Promise<void>;
   /** 저장 중 여부를 모달에 알려 ESC로 닫히지 않게 합니다. */
   onBusyChange?: (busy: boolean) => void;
   /** 단위 테스트가 provider 없이 렌더하므로 언어는 prop으로 받습니다. */
@@ -68,6 +70,7 @@ type AdminDeckSpecFormProps = Readonly<{
 /** 모달 본문. 저장 성공 시 caller가 모달을 닫고, 실패하면 입력값을 그대로 두고 오류를 보여 줍니다. */
 export function AdminDeckSpecForm({
   initialSpec,
+  size,
   onCancel,
   onSave,
   onBusyChange,
@@ -85,7 +88,7 @@ export function AdminDeckSpecForm({
     setFailed(false);
 
     try {
-      await onSave(next);
+      await onSave(next, size);
     } catch {
       setFailed(true);
       setSaving(false);
@@ -141,6 +144,13 @@ export function AdminDeckSpecForm({
             ? "인치로 입력하면 cm는 자동으로 계산됩니다. 0 초과 100 이하."
             : "Enter inches; cm is calculated automatically. Above 0, up to 100."}
         </p>
+        {size !== undefined && !initialSpec ? (
+          <p className={styles.hint}>
+            {isKorean
+              ? "이 옵션은 지금 기본값을 표시합니다. 저장하면 이 옵션에만 적용됩니다."
+              : "This option shows the default now. Saving applies to this option only."}
+          </p>
+        ) : null}
       </div>
 
       <div className={styles.preview}>
@@ -190,7 +200,82 @@ export function AdminDeckSpecForm({
   );
 }
 
-type AdminDeckSpecModalProps = AdminDeckSpecFormProps &
+// The server refuses these option names, so they are never offered as a target.
+const UNSAFE_DECK_SPEC_OPTIONS = ["__proto__", "constructor", "prototype"];
+
+type AdminDeckSpecEditorProps = Omit<AdminDeckSpecFormProps, "size"> &
+  Readonly<{
+    /** 저장된 상품의 사이즈 옵션. 비어 있으면 대상 선택 없이 기본값만 편집합니다. */
+    sizeOptions?: readonly string[];
+    initialSpecsBySize?: Readonly<Record<string, DeckSpec>>;
+  }>;
+
+/** 적용 대상(기본값·옵션)을 고르고, 대상을 바꾸면 그 대상의 저장값으로 폼을 다시 채웁니다. */
+export function AdminDeckSpecEditor({
+  sizeOptions = [],
+  initialSpecsBySize = {},
+  initialSpec,
+  onBusyChange,
+  locale = "ko",
+  ...formProps
+}: AdminDeckSpecEditorProps) {
+  const isKorean = locale === "ko";
+  const [target, setTarget] = useState("");
+  const [busy, setBusy] = useState(false);
+  const options = [...new Set(sizeOptions)].filter(
+    (size) => size && !UNSAFE_DECK_SPEC_OPTIONS.includes(size),
+  );
+  const specFor = (size: string) =>
+    Object.hasOwn(initialSpecsBySize, size) ? initialSpecsBySize[size] : undefined;
+  const size = options.includes(target) ? target : undefined;
+  const setLabel = isKorean ? " · 등록됨" : " · set";
+
+  return (
+    <>
+      {options.length ? (
+        <div className={styles.field}>
+          <label className={styles.field}>
+            <span className={styles.fieldName}>
+              {isKorean ? "적용 대상" : "Applies to"}
+            </span>
+            <select
+              disabled={busy}
+              onChange={(event) => setTarget(event.target.value)}
+              value={size ?? ""}
+            >
+              <option value="">
+                {`${isKorean ? "기본 (모든 옵션 공통)" : "Default (all options)"}${initialSpec ? setLabel : ""}`}
+              </option>
+              {options.map((option) => (
+                <option key={option} value={option}>
+                  {`${option}${specFor(option) ? setLabel : ""}`}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className={styles.hint}>
+            {isKorean
+              ? "옵션을 고르지 않고 저장하면 모든 옵션 공통 기본값에 저장됩니다."
+              : "Without an option, saving updates the default for all options."}
+          </p>
+        </div>
+      ) : null}
+      <AdminDeckSpecForm
+        {...formProps}
+        initialSpec={size === undefined ? initialSpec : specFor(size)}
+        key={size ?? ""}
+        locale={locale}
+        onBusyChange={(next) => {
+          setBusy(next);
+          onBusyChange?.(next);
+        }}
+        size={size}
+      />
+    </>
+  );
+}
+
+type AdminDeckSpecModalProps = AdminDeckSpecEditorProps &
   Readonly<{ isOpen: boolean; productName: string }>;
 
 /** body 아래 독립 layer에 띄우고 배경을 inert 처리합니다. 배경 클릭으로는 닫지 않고, 저장 중이 아닐 때 ESC·취소로만 닫습니다. */
@@ -198,6 +283,8 @@ export function AdminDeckSpecModal({
   isOpen,
   productName,
   initialSpec,
+  sizeOptions,
+  initialSpecsBySize,
   onCancel,
   onSave,
   locale = "ko",
@@ -227,14 +314,16 @@ export function AdminDeckSpecModal({
         <h2 className={styles.title} id="admin-deck-spec-title">
           {locale === "ko" ? "상세사이즈" : "Size chart"} · {productName}
         </h2>
-        <AdminDeckSpecForm
+        <AdminDeckSpecEditor
           initialSpec={initialSpec}
+          initialSpecsBySize={initialSpecsBySize}
           locale={locale}
           onBusyChange={(busy) => {
             busyRef.current = busy;
           }}
           onCancel={onCancel}
           onSave={onSave}
+          sizeOptions={sizeOptions}
         />
       </section>
     </div>,
