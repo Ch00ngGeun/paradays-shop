@@ -64,6 +64,7 @@ import {
   PRODUCT_DECK_WIDTHS,
   PRODUCT_WHEEL_DIAMETERS,
   PRODUCT_WHEEL_HARDNESSES,
+  renameProductOption,
   validateProductOptions,
 } from "@/lib/admin-ui/product-form";
 import {
@@ -1364,7 +1365,11 @@ function AdminWorkspace({
    * 폼이 기준으로 삼은 version으로만 보내므로, 그 사이 다른 곳에서 바뀌었으면 409로 멈추고 덮어쓰지 않습니다.
    * 직접 받은 성공 응답일 때만 폼 version을 올려 이후 상품 저장이 409가 나지 않게 합니다.
    */
-  const saveProductDeckSpec = async (deckSpec: DeckSpec | null, size?: string) => {
+  const saveProductDeckSpec = async (
+    deckSpec: DeckSpec | null,
+    size?: string,
+    sizeName?: string,
+  ) => {
     const editor = productEditor;
     const productId = editor?.draft.productId;
     const version = editor?.draft.version;
@@ -1380,8 +1385,14 @@ function AdminWorkspace({
         version,
         deckSpec,
         ...(size === undefined ? {} : { size }),
+        ...(sizeName === undefined ? {} : { sizeName }),
       });
     } catch (error) {
+      const code =
+        error instanceof AdminApiRequestError ? error.responseCode : undefined;
+      // A rename refused for reserved stock or a duplicate leaves the product unchanged; the modal explains it.
+      if (code === "CATALOG_PRODUCT_RESERVED" || code === "CATALOG_PRODUCT_DUPLICATE")
+        throw error;
       // Success is never guessed from a re-read; a conflict only refreshes the list and asks to reopen.
       if (error instanceof AdminApiRequestError && error.status === 409) {
         void refreshCatalogProducts();
@@ -1403,9 +1414,16 @@ function AdminWorkspace({
       ),
     );
     // 버튼 옆 요약이 바뀌는 것으로 저장을 알립니다. 상품 저장 완료 알림(productSaved)과 섞지 않습니다.
+    // A rename also renames the chip, so the next product save sends the new name instead of undoing it.
     productEditors.updateDraft(editor.id, (current) =>
       current.productId === updated.id && current.version === version
-        ? { ...current, version: updated.version }
+        ? {
+            ...current,
+            version: updated.version,
+            ...(size !== undefined && sizeName !== undefined
+              ? { sizes: renameProductOption(current.sizes, size, sizeName) }
+              : {}),
+          }
         : current,
     );
   };
@@ -3163,6 +3181,7 @@ function ProductOptionControls({
   chartOptions = [],
   editorId,
   onChange,
+  onOpenOption,
   value,
 }: Readonly<{
   category: string;
@@ -3170,6 +3189,8 @@ function ProductOptionControls({
   chartOptions?: readonly string[];
   editorId: string;
   onChange: (value: string) => void;
+  /** 있으면 칩 이름이 버튼이 됩니다. 저장 전 칩처럼 열 수 없으면 false를 돌려줍니다. */
+  onOpenOption?: (option: string) => boolean;
   value: string;
 }>) {
   const { locale } = useLocale();
@@ -3333,7 +3354,29 @@ function ProductOptionControls({
         >
           {options.map((item, index) => (
             <li className={styles.productOptionChip} key={`${index}:${item}`}>
-              <span>{item}</span>
+              {onOpenOption ? (
+                <button
+                  className={styles.productOptionChipRemove}
+                  onClick={() => {
+                    if (onOpenOption(item)) {
+                      setNotice(null);
+                      return;
+                    }
+                    setNotice({
+                      kind: "error",
+                      message: {
+                        ko: "상품을 먼저 저장해 주세요. 저장된 옵션만 상세사이즈를 편집할 수 있습니다.",
+                        en: "Save the product first. Only saved options can have a size chart edited.",
+                      },
+                    });
+                  }}
+                  type="button"
+                >
+                  {item}
+                </button>
+              ) : (
+                <span>{item}</span>
+              )}
               {category === "Deck" && chartOptions.includes(item) ? (
                 <small className={styles.productOptionChipMark}>
                   {isKorean ? "상세" : "chart"}
@@ -3421,7 +3464,11 @@ function ProductSection({
   onOpenCreate: () => void;
   onReset: () => void;
   onSave: (event: FormEvent<HTMLFormElement>) => void;
-  onSaveDeckSpec?: (deckSpec: DeckSpec | null, size?: string) => Promise<void>;
+  onSaveDeckSpec?: (
+    deckSpec: DeckSpec | null,
+    size?: string,
+    sizeName?: string,
+  ) => Promise<void>;
   onTextChange: (
     field: Exclude<
       keyof AdminProductDraft,
@@ -3454,20 +3501,21 @@ function ProductSection({
   const deckSpec = currentProduct?.deckSpec;
   const deckSpecsBySize = currentProduct?.deckSpecsBySize;
   const optionDeckSpecCount = Object.keys(deckSpecsBySize ?? {}).length;
-  // 모달은 서버가 검증하는 저장된 옵션만 대상으로 씁니다. 편집 중인 옵션과 다르면 먼저 상품 저장을 안내합니다.
-  const splitSizes = (value: string) =>
-    value
-      .split(",")
-      .map((size) => size.trim())
-      .filter(Boolean);
-  const savedSizes = splitSizes(currentProduct?.sizes ?? "");
-  const hasUnsavedSizes = savedSizes.join(",") !== splitSizes(draft.sizes).join(",");
+  // 옵션 모달은 서버가 검증하는 저장된 옵션만 엽니다. 새로 추가한 칩은 상품 저장 뒤에 열 수 있습니다.
+  const savedSizes = listProductOptions(currentProduct?.sizes ?? "");
   // 모달은 열 때마다 새 번호를 받고, 저장 응답은 자기 번호의 모달만 닫습니다. 편집기를 벗어나면 모달을 비웁니다.
   const deckSpecSessionRef = useRef(0);
   const [deckSpecModal, setDeckSpecModal] = useState<{
     editorKey: string;
     session: number;
+    /** 칩에서 연 옵션. 없으면 기본값(모든 옵션 공통) 모달입니다. */
+    size?: string;
   } | null>(null);
+  const modalSize = deckSpecModal?.size;
+  // The server renames every equal entry, so a duplicated legacy name only edits its chart.
+  const modalNameEditable =
+    modalSize !== undefined &&
+    savedSizes.filter((size) => size === modalSize).length === 1;
   const editorKey = `${view}:${editorId}`;
   const [deckSpecEditorKey, setDeckSpecEditorKey] = useState(editorKey);
   if (deckSpecEditorKey !== editorKey) {
@@ -4104,6 +4152,20 @@ function ProductSection({
               key={`${editorId}:${draft.category}:${optionResetKey}`}
               chartOptions={Object.keys(deckSpecsBySize ?? {})}
               onChange={(value) => onTextChange("sizes", value)}
+              onOpenOption={
+                draft.category === "Deck" && onSaveDeckSpec
+                  ? (option) => {
+                      if (!canEditDeckSpec || !savedSizes.includes(option))
+                        return false;
+                      setDeckSpecModal({
+                        editorKey,
+                        session: ++deckSpecSessionRef.current,
+                        size: option,
+                      });
+                      return true;
+                    }
+                  : undefined
+              }
               value={draft.sizes}
             />
             {draft.category === "Deck" ? (
@@ -4147,35 +4209,73 @@ function ProductSection({
                 </button>
                 {onSaveDeckSpec && deckSpecModal?.editorKey === editorKey ? (
                   <AdminDeckSpecModal
-                    initialSpec={deckSpec}
-                    initialSpecsBySize={deckSpecsBySize}
+                    initialSpec={
+                      modalSize === undefined
+                        ? deckSpec
+                        : deckSpecsBySize && Object.hasOwn(deckSpecsBySize, modalSize)
+                          ? deckSpecsBySize[modalSize]
+                          : undefined
+                    }
                     isOpen
                     key={deckSpecModal.session}
                     locale={locale}
                     onCancel={() => setDeckSpecModal(null)}
-                    onSave={async (next, size) => {
+                    onSave={async (next, size, sizeName) => {
                       const { session } = deckSpecModal;
-                      await onSaveDeckSpec(next, size);
+                      await onSaveDeckSpec(next, size, sizeName);
                       setDeckSpecModal((current) =>
                         current?.session === session ? null : current,
                       );
                     }}
+                    describeError={(error) => {
+                      const code =
+                        error instanceof AdminApiRequestError
+                          ? error.responseCode
+                          : undefined;
+                      return code === "CATALOG_PRODUCT_RESERVED"
+                        ? isKorean
+                          ? "결제 대기 중인 주문이 있어 지금은 옵션 이름을 바꿀 수 없습니다. 주문이 결제되거나 취소된 뒤 다시 시도하거나, 이름은 그대로 두고 상세사이즈만 저장해 주세요."
+                          : "An order awaiting payment holds this product, so the option name cannot change now. Try again after the order is paid or canceled, or keep the name and save only the size chart."
+                        : code === "CATALOG_PRODUCT_DUPLICATE"
+                          ? isKorean
+                            ? "같은 이름·브랜드의 다른 상품에 이 옵션이 있어 이 이름으로 바꿀 수 없습니다."
+                            : "Another product with the same name and brand already has this option, so this name cannot be used."
+                          : undefined;
+                    }}
+                    notice={
+                      modalSize !== undefined && !modalNameEditable
+                        ? isKorean
+                          ? "같은 이름의 옵션이 여러 개 저장돼 있어 이름은 바꿀 수 없고 상세사이즈만 편집합니다. 중복 칩을 지우고 상품을 저장하면 이름도 바꿀 수 있습니다."
+                          : "Several saved options share this name, so only the size chart can be edited. Remove the duplicate chip and save the product to rename it."
+                        : undefined
+                    }
+                    otherOptions={
+                      modalNameEditable
+                        ? // Draft chips count too, so a rename cannot collide with an option added but not saved.
+                          [
+                            ...new Set([
+                              ...savedSizes,
+                              ...listProductOptions(draft.sizes),
+                            ]),
+                          ].filter((size) => size !== modalSize)
+                        : undefined
+                    }
                     productName={previewName}
-                    sizeOptions={savedSizes}
+                    size={modalSize}
                   />
                 ) : null}
-                {canEditDeckSpec && hasUnsavedSizes ? (
+                {onSaveDeckSpec ? (
                   <small>
                     {isKorean
-                      ? "바뀐 옵션은 상품을 먼저 저장해야 상세사이즈 대상으로 고를 수 있습니다."
-                      : "Save the product first to pick changed options for the size chart."}
+                      ? "옵션 칩을 누르면 그 옵션의 상세사이즈와 이름을 편집합니다. 이름을 바꾸면 상세사이즈도 함께 옮겨집니다."
+                      : "Press an option chip to edit its size chart and name. A renamed option keeps its size chart."}
                   </small>
                 ) : null}
                 {optionDeckSpecCount ? (
                   <small>
                     {isKorean
-                      ? "옵션 이름을 바꾸거나 지우고 상품을 저장하면 그 옵션의 상세사이즈는 지워집니다."
-                      : "Renaming or removing an option and saving the product deletes that option's size chart."}
+                      ? "옵션 칩을 지우고 상품을 저장하면 그 옵션의 상세사이즈도 지워집니다."
+                      : "Removing an option chip and saving the product deletes that option's size chart."}
                   </small>
                 ) : null}
                 {canEditDeckSpec ? (
