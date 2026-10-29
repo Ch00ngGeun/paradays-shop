@@ -3352,46 +3352,57 @@ function ProductOptionControls({
           aria-label={isKorean ? "추가된 옵션" : "Added options"}
           className={styles.productOptionChips}
         >
-          {options.map((item, index) => (
-            <li className={styles.productOptionChip} key={`${index}:${item}`}>
-              {onOpenOption ? (
-                <button
-                  className={styles.productOptionChipRemove}
-                  onClick={() => {
-                    if (onOpenOption(item)) {
-                      setNotice(null);
-                      return;
-                    }
-                    setNotice({
-                      kind: "error",
-                      message: {
-                        ko: "상품을 먼저 저장해 주세요. 저장된 옵션만 상세사이즈를 편집할 수 있습니다.",
-                        en: "Save the product first. Only saved options can have a size chart edited.",
-                      },
-                    });
-                  }}
-                  type="button"
-                >
-                  {item}
-                </button>
-              ) : (
-                <span>{item}</span>
-              )}
-              {category === "Deck" && chartOptions.includes(item) ? (
-                <small className={styles.productOptionChipMark}>
+          {options.map((item, index) => {
+            const markId = `${editorId}-option-${index}-chart`;
+            const mark =
+              category === "Deck" && chartOptions.includes(item) ? (
+                <small className={styles.productOptionChipMark} id={markId}>
                   {isKorean ? "상세" : "chart"}
                 </small>
-              ) : null}
-              <button
-                aria-label={isKorean ? `${item} 삭제` : `Remove ${item}`}
-                className={styles.productOptionChipRemove}
-                onClick={() => removeOption(index)}
-                type="button"
-              >
-                ×
-              </button>
-            </li>
-          ))}
+              ) : null;
+            // The box holds the name and its chart mark; the remove button sits outside it.
+            return (
+              <li className={styles.productOptionChip} key={`${index}:${item}`}>
+                {onOpenOption ? (
+                  <button
+                    aria-describedby={mark ? markId : undefined}
+                    aria-label={item}
+                    className={styles.productOptionChipBox}
+                    onClick={() => {
+                      if (onOpenOption(item)) {
+                        setNotice(null);
+                        return;
+                      }
+                      setNotice({
+                        kind: "error",
+                        message: {
+                          ko: "상품을 먼저 저장해 주세요. 저장된 옵션만 상세사이즈를 편집할 수 있습니다.",
+                          en: "Save the product first. Only saved options can have a size chart edited.",
+                        },
+                      });
+                    }}
+                    type="button"
+                  >
+                    <span>{item}</span>
+                    {mark}
+                  </button>
+                ) : (
+                  <span className={styles.productOptionChipBox}>
+                    <span>{item}</span>
+                    {mark}
+                  </span>
+                )}
+                <button
+                  aria-label={isKorean ? `${item} 삭제` : `Remove ${item}`}
+                  className={styles.productOptionChipRemove}
+                  onClick={() => removeOption(index)}
+                  type="button"
+                >
+                  ×
+                </button>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
       <small>
