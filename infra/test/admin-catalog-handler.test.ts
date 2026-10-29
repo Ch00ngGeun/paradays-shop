@@ -3,12 +3,14 @@ import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import { CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";
 import { GetCommand, ScanCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
 } from "aws-lambda";
 import {
   handler,
+  isCatalogProductRecord,
   toPublicCatalogProduct,
   type CatalogProductRecord,
 } from "../lambda/admin-catalog-handler.js";
@@ -924,6 +926,197 @@ test("deckSpec-only PATCH saves, publishes, survives other edits and clears with
     toPublicCatalogProduct(db.records.get("prd_deck") as CatalogProductRecord)
       ?.deckSpec,
     undefined,
+  );
+});
+
+test("sizeDeckSpec PATCH saves and clears one option, keeps the default, and drops renamed options", async (t) => {
+  const db = fixture(t, [
+    product({
+      status: "PUBLISHED",
+      publicationStatus: "PUBLISHED",
+      image: "/deck.webp",
+      sizes: ["8.0", "8.25", "8.5"],
+    }),
+  ]);
+  const base = { nose: 6.875, tail: 6.5, width: 8.25, length: 31.75, wheelbase: 14.25 };
+  const small = { ...base, width: 8, wheelbase: 14 };
+  const large = { ...base, width: 8.5, length: 32 };
+  const stored = () => db.records.get("prd_deck") as CatalogProductRecord;
+  const patch = async (body: Record<string, unknown>) =>
+    unpack(await handler(event("PATCH", body, "prd_deck")));
+
+  assert.equal((await patch({ version: 3, deckSpec: base })).status, 200);
+  const savedSmall = await patch({ version: 4, size: "8.0", sizeDeckSpec: small });
+  assert.equal(savedSmall.status, 200);
+  assert.deepEqual(savedSmall.body.product.deckSpec, base);
+  assert.deepEqual(savedSmall.body.product.deckSpecsBySize, { "8.0": small });
+  const savedLarge = await patch({ version: 5, size: "8.5", sizeDeckSpec: large });
+  assert.deepEqual(savedLarge.body.product.deckSpecsBySize, {
+    "8.0": small,
+    "8.5": large,
+  });
+  assert.deepEqual(toPublicCatalogProduct(stored())?.deckSpecsBySize, {
+    "8.0": small,
+    "8.5": large,
+  });
+  assert.deepEqual(toPublicCatalogProduct(stored())?.deckSpec, base);
+
+  // A default-only save leaves the option values alone.
+  const defaultEdit = await patch({ version: 6, deckSpec: { ...base, tail: 6.625 } });
+  assert.deepEqual(defaultEdit.body.product.deckSpecsBySize, {
+    "8.0": small,
+    "8.5": large,
+  });
+
+  const writes = db.transactions.length;
+  for (const invalid of [
+    { version: 7, size: "9.0", sizeDeckSpec: small },
+    { version: 7, size: " 8.0", sizeDeckSpec: small },
+    { version: 7, size: 8, sizeDeckSpec: small },
+    { version: 7, sizeDeckSpec: small },
+    { version: 7, size: "8.0" },
+    { version: 7, size: "8.0", deckSpec: small },
+    { version: 7, size: "8.0", sizeDeckSpec: small, deckSpec: base },
+    { version: 7, size: "8.0", sizeDeckSpec: small, sizes: "8.0" },
+    { version: 7, size: "8.0", sizeDeckSpec: { ...small, tail: 0 } },
+    { version: 7, size: "8.0", sizeDeckSpec: "8.5" },
+  ]) {
+    assert.equal((await patch(invalid)).status, 400, JSON.stringify(invalid));
+  }
+  // The full map is server-built and cannot be replaced directly through PATCH.
+  const ignored = await patch({ version: 7, deckSpecsBySize: { "8.25": base } });
+  assert.equal(ignored.status, 200);
+  assert.deepEqual(ignored.body.product.deckSpecsBySize, {
+    "8.0": small,
+    "8.5": large,
+  });
+  assert.equal(db.transactions.length, writes + 1);
+
+  const stale = await patch({ version: 7, size: "8.0", sizeDeckSpec: null });
+  assert.equal(stale.status, 409);
+  assert.deepEqual(stored().deckSpecsBySize, { "8.0": small, "8.5": large });
+
+  const cleared = await patch({ version: 8, size: "8.0", sizeDeckSpec: null });
+  assert.equal(cleared.status, 200);
+  assert.deepEqual(cleared.body.product.deckSpecsBySize, { "8.5": large });
+  assert.deepEqual(cleared.body.product.deckSpec, { ...base, tail: 6.625 });
+
+  // Renaming 8.5 through a product save drops its value; the empty map leaves the row.
+  const renamed = await patch({ version: 9, sizes: "8.0, 8.25, 8.75" });
+  assert.equal(renamed.status, 200);
+  assert.equal(renamed.body.product.deckSpecsBySize, undefined);
+  assert.equal(Object.hasOwn(stored(), "deckSpecsBySize"), false);
+  assert.deepEqual(stored().deckSpec, { ...base, tail: 6.625 });
+});
+
+test("only option values whose size still exists are kept or returned", async (t) => {
+  const spec = { nose: 6.875, tail: 6.5, width: 8.25, length: 31.75, wheelbase: 14.25 };
+  // A row written while an older server ignored the pruning may still hold a removed option.
+  const legacy = product({
+    status: "PUBLISHED",
+    publicationStatus: "PUBLISHED",
+    image: "/deck.webp",
+    sizes: ["8.25", "8.5"],
+    deckSpecsBySize: { "8.25": spec, "8.0": spec },
+  });
+  const db = fixture(t, [legacy]);
+  assert.deepEqual(toPublicCatalogProduct(legacy)?.deckSpecsBySize, { "8.25": spec });
+  const read = unpack(await handler(event("GET", undefined, "prd_deck")));
+  assert.deepEqual(read.body.product.deckSpecsBySize, { "8.25": spec });
+
+  const saved = unpack(
+    await handler(event("PATCH", { version: 3, featured: true }, "prd_deck")),
+  );
+  assert.equal(saved.status, 200);
+  assert.deepEqual(db.records.get("prd_deck")!.deckSpecsBySize, { "8.25": spec });
+  assert.equal(
+    isCatalogProductRecord(
+      product({ deckSpecsBySize: { "8.25": { ...spec, tail: 0 } } }),
+    ),
+    false,
+  );
+});
+
+test("option size charts are never taken from a create body", async (t) => {
+  const db = fixture(t, []);
+  const spec = { nose: 6.875, tail: 6.5, width: 8.25, length: 31.75, wheelbase: 14.25 };
+  const created = unpack(
+    await handler(
+      event("POST", {
+        name: "New deck",
+        brandName: "Example",
+        sizes: ["8.25"],
+        category: "Deck",
+        price: 80_000,
+        deckSpecsBySize: { "8.25": spec },
+      }),
+    ),
+  );
+  assert.equal(created.status, 201);
+  assert.equal(created.body.product.deckSpecsBySize, undefined);
+  const row = [...db.records.values()].find((item) => item.name === "New deck")!;
+  assert.equal(Object.hasOwn(row, "deckSpecsBySize"), false);
+});
+
+test("unsafe option names are refused and saved option charts survive DynamoDB marshalling", async (t) => {
+  const unsafe = ["__proto__", "constructor", "prototype"];
+  const db = fixture(t, [product({ sizes: [...unsafe, "8.25"] })]);
+  const spec = { nose: 6.875, tail: 6.5, width: 8.25, length: 31.75, wheelbase: 14.25 };
+  for (const size of unsafe) {
+    const refused = unpack(
+      await handler(
+        event("PATCH", { version: 3, size, sizeDeckSpec: spec }, "prd_deck"),
+      ),
+    );
+    assert.equal(refused.status, 400, size);
+  }
+  assert.equal(db.transactions.length, 0);
+
+  const saved = unpack(
+    await handler(
+      event("PATCH", { version: 3, size: "8.25", sizeDeckSpec: spec }, "prd_deck"),
+    ),
+  );
+  assert.equal(saved.status, 200);
+  // The in-memory transport skips the SDK conversion, so round-trip the stored row through it.
+  const row = db.records.get("prd_deck")!;
+  const restored = unmarshall(marshall(row, { removeUndefinedValues: true }));
+  assert.deepEqual(restored.deckSpecsBySize, { "8.25": spec });
+  assert.equal(isCatalogProductRecord(restored), true);
+
+  // A row that somehow holds such a key never returns it.
+  const legacy = product({
+    status: "PUBLISHED",
+    publicationStatus: "PUBLISHED",
+    image: "/deck.webp",
+    sizes: [...unsafe, "8.25"],
+    deckSpecsBySize: JSON.parse(
+      JSON.stringify({ "8.25": spec, constructor: spec, prototype: spec }).replace(
+        '"prototype"',
+        '"__proto__"',
+      ),
+    ),
+  });
+  assert.deepEqual(toPublicCatalogProduct(legacy)?.deckSpecsBySize, { "8.25": spec });
+});
+
+test("a key left for a removed option does not count against the option limit", async (t) => {
+  const spec = { nose: 6.875, tail: 6.5, width: 8.25, length: 31.75, wheelbase: 14.25 };
+  const sizes = Array.from({ length: 20 }, (_, index) => `S${index}`);
+  const legacy = Object.fromEntries([
+    ...sizes.slice(0, 19).map((size) => [size, spec]),
+    ["removed", spec],
+  ]);
+  const db = fixture(t, [product({ sizes, deckSpecsBySize: legacy })]);
+  const saved = unpack(
+    await handler(
+      event("PATCH", { version: 3, size: "S19", sizeDeckSpec: spec }, "prd_deck"),
+    ),
+  );
+  assert.equal(saved.status, 200);
+  assert.deepEqual(
+    Object.keys(db.records.get("prd_deck")!.deckSpecsBySize as object).sort(),
+    [...sizes].sort(),
   );
 });
 

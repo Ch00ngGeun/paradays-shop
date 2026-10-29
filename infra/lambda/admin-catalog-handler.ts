@@ -46,6 +46,8 @@ export type CatalogDeckSpec = Readonly<{
   wheelbase: number;
 }>;
 
+export type CatalogDeckSpecsBySize = Readonly<Record<string, CatalogDeckSpec>>;
+
 /** DynamoDB catalog table에 저장하는 정규화된 상품 행입니다. */
 export type CatalogProductRecord = Readonly<{
   productId: string;
@@ -74,6 +76,8 @@ export type CatalogProductRecord = Readonly<{
   descriptionI18n?: CatalogDescriptionI18n;
   sizes: readonly string[];
   deckSpec?: CatalogDeckSpec;
+  /** 사이즈 옵션별 상세사이즈. 키는 sizes 값이며, 없는 옵션은 deckSpec(기본값)을 씁니다. */
+  deckSpecsBySize?: CatalogDeckSpecsBySize;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -101,6 +105,7 @@ export type PublicCatalogProduct = Readonly<{
   /** 신상품 New 배지 */
   featured: boolean;
   deckSpec?: CatalogDeckSpec;
+  deckSpecsBySize?: CatalogDeckSpecsBySize;
 }>;
 
 /** 관리자 UI에 반환하는 allowlist 기반 상품 shape입니다. audit subject 등 저장 원본은 제외합니다. */
@@ -125,6 +130,7 @@ export type AdminCatalogProduct = Readonly<{
   descriptionI18n?: CatalogDescriptionI18n;
   sizes: readonly string[];
   deckSpec?: CatalogDeckSpec;
+  deckSpecsBySize?: CatalogDeckSpecsBySize;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -298,7 +304,10 @@ async function createProduct(
       ? commitCatalogIntake(catalogTableName, intake, userSub)
       : jsonResponse(400, { code: "OCR_INTAKE_INVALID" });
   }
-  const input = parseProductInput(body);
+  // Option size charts are saved only through the dedicated sizeDeckSpec PATCH.
+  const input = parseProductInput(
+    isRecord(body) ? { ...body, deckSpecsBySize: undefined } : body,
+  );
 
   if (!input) {
     return jsonResponse(400, { code: "CATALOG_PRODUCT_INVALID" });
@@ -784,7 +793,14 @@ async function updateProduct(
     });
   }
 
-  const input = parseProductInput(mergeProductPatch(existingProduct, body));
+  const merged = mergeProductPatch(existingProduct, body);
+  if (hasOwn(body, "sizeDeckSpec") || hasOwn(body, "size")) {
+    const deckSpecsBySize = patchDeckSpecsBySize(existingProduct, body);
+    if (deckSpecsBySize === null)
+      return jsonResponse(400, { code: "CATALOG_PRODUCT_INVALID" });
+    merged.deckSpecsBySize = deckSpecsBySize;
+  }
+  const input = parseProductInput(merged);
 
   if (!input) {
     return jsonResponse(400, { code: "CATALOG_PRODUCT_INVALID" });
@@ -804,6 +820,8 @@ async function updateProduct(
   const existingBase = { ...existingProduct };
   if (hasOwn(body, "compareAtPrice")) delete existingBase.compareAtPrice;
   if (hasOwn(body, "deckSpec")) delete existingBase.deckSpec;
+  // The parsed input already drops entries for options no longer in sizes.
+  delete existingBase.deckSpecsBySize;
   const updatedProduct: CatalogProductRecord = {
     ...existingBase,
     ...input,
@@ -954,6 +972,9 @@ export function isCatalogProductRecord(value: unknown): value is CatalogProductR
       isCatalogDescriptionI18n(value.descriptionI18n)) &&
     isStringArray(value.sizes) &&
     (value.deckSpec === undefined || isCatalogDeckSpec(value.deckSpec)) &&
+    (value.deckSpecsBySize === undefined ||
+      (isRecord(value.deckSpecsBySize) &&
+        Object.values(value.deckSpecsBySize).every(isCatalogDeckSpec))) &&
     typeof value.version === "number" &&
     Number.isSafeInteger(value.version) &&
     value.version > 0 &&
@@ -996,6 +1017,7 @@ export function toPublicCatalogProduct(
     inventoryQuantity: product.inventoryQuantity - (product.inventoryReserved ?? 0),
     featured: product.featured,
     ...(product.deckSpec ? { deckSpec: { ...product.deckSpec } } : {}),
+    ...deckSpecsBySizeOutput(product),
   };
 }
 
@@ -1031,6 +1053,7 @@ export function toAdminCatalogProduct(
       : {}),
     sizes: product.sizes,
     ...(product.deckSpec ? { deckSpec: { ...product.deckSpec } } : {}),
+    ...deckSpecsBySizeOutput(product),
     version: product.version,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
@@ -1111,6 +1134,7 @@ function parseProductInput(body: unknown): ProductInput | null {
   const nameI18n = readNameI18n(body.nameI18n);
   const descriptionI18n = readDescriptionI18n(body.descriptionI18n);
   const deckSpec = readDeckSpec(body.deckSpec);
+  const deckSpecsBySize = sizes && readDeckSpecsBySize(body.deckSpecsBySize, sizes);
 
   if (
     !images ||
@@ -1118,7 +1142,8 @@ function parseProductInput(body: unknown): ProductInput | null {
     !sizes ||
     nameI18n === null ||
     descriptionI18n === null ||
-    deckSpec === null
+    deckSpec === null ||
+    deckSpecsBySize === null
   ) {
     return null;
   }
@@ -1148,6 +1173,7 @@ function parseProductInput(body: unknown): ProductInput | null {
     ...(descriptionI18n ? { descriptionI18n } : {}),
     sizes,
     ...(deckSpec ? { deckSpec } : {}),
+    ...(deckSpecsBySize ? { deckSpecsBySize } : {}),
   };
 }
 
@@ -1182,6 +1208,9 @@ function mergeProductPatch(
       : {}),
     sizes: [...product.sizes],
     ...(product.deckSpec ? { deckSpec: { ...product.deckSpec } } : {}),
+    ...(product.deckSpecsBySize
+      ? { deckSpecsBySize: { ...product.deckSpecsBySize } }
+      : {}),
   };
 
   const directFields = [
@@ -1556,6 +1585,15 @@ function readDescriptionI18n(
 
 const DECK_SPEC_FIELDS = ["nose", "tail", "width", "length", "wheelbase"] as const;
 const MAX_DECK_SPEC_INCHES = 100;
+// Matches the sizes list limit, so every option can have its own spec.
+const MAX_DECK_SPECS_BY_SIZE = 20;
+// The DynamoDB marshaller assigns map keys onto a plain object, which these names would break.
+const UNSAFE_DECK_SPEC_OPTIONS = ["__proto__", "constructor", "prototype"];
+
+/** 옵션별 상세사이즈 키로 쓸 수 있는 현재 sizes 값인지 확인합니다. */
+function isDeckSpecOption(sizes: readonly string[], size: string) {
+  return sizes.includes(size) && !UNSAFE_DECK_SPEC_OPTIONS.includes(size);
+}
 // Up to 4 decimals (1/16" = 0.0625), matching what the admin modal can type and reopen unchanged.
 const DECK_SPEC_INCHES_PATTERN = /^\d+(?:\.\d{1,4})?$/;
 
@@ -1574,6 +1612,79 @@ function readDeckSpec(value: unknown): CatalogDeckSpec | undefined | null {
         wheelbase: value.wheelbase,
       }
     : null;
+}
+
+/**
+ * 옵션별 상세사이즈를 읽습니다. 형식 오류는 null이고, sizes에 없는 옵션(이름 변경·삭제)의 값은 버립니다.
+ * 남은 값이 없으면 undefined라 저장 행에서 필드가 빠집니다.
+ */
+function readDeckSpecsBySize(
+  value: unknown,
+  sizes: readonly string[],
+): CatalogDeckSpecsBySize | undefined | null {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  // Prune first, so a key left by an older server never counts against the limit.
+  const entries: [string, CatalogDeckSpec][] = [];
+  for (const [size, spec] of Object.entries(value)) {
+    if (!isDeckSpecOption(sizes, size)) continue;
+    const parsed = readDeckSpec(spec);
+    if (!parsed) return null;
+    entries.push([size, parsed]);
+  }
+
+  if (entries.length > MAX_DECK_SPECS_BY_SIZE) {
+    return null;
+  }
+
+  // fromEntries defines own keys, so an option named __proto__ is stored like any other.
+  return entries.length ? Object.fromEntries(entries) : undefined;
+}
+
+/**
+ * PATCH { version, size, sizeDeckSpec }: 저장된 sizes에 있는 옵션 하나만 넣거나(null이면) 지운 map을 만듭니다.
+ * 구 서버가 무시하도록 deckSpec과 다른 이름을 쓰며, 다른 필드와 함께 오면 거부합니다.
+ */
+function patchDeckSpecsBySize(
+  product: CatalogProductRecord,
+  body: Record<string, unknown>,
+): Record<string, CatalogDeckSpec> | null {
+  const size = body.size;
+  const spec = readDeckSpec(body.sizeDeckSpec);
+
+  if (
+    !hasOwn(body, "sizeDeckSpec") ||
+    Object.keys(body).some(
+      (field) => !["version", "size", "sizeDeckSpec"].includes(field),
+    ) ||
+    typeof size !== "string" ||
+    !isDeckSpecOption(product.sizes, size) ||
+    spec === null ||
+    (spec === undefined && body.sizeDeckSpec !== null)
+  ) {
+    return null;
+  }
+
+  return Object.fromEntries([
+    ...Object.entries(product.deckSpecsBySize ?? {}).filter(([key]) => key !== size),
+    ...(spec ? [[size, spec] as const] : []),
+  ]);
+}
+
+/** 저장 행의 옵션별 상세사이즈 중 현재 sizes에 있는 값만 응답에 담습니다. */
+function deckSpecsBySizeOutput(product: CatalogProductRecord) {
+  const deckSpecsBySize = Object.fromEntries(
+    Object.entries(product.deckSpecsBySize ?? {})
+      .filter(([size]) => isDeckSpecOption(product.sizes, size))
+      .map(([size, spec]) => [size, { ...spec }]),
+  );
+  return Object.keys(deckSpecsBySize).length ? { deckSpecsBySize } : {};
 }
 
 function isCatalogDeckSpec(value: unknown): value is CatalogDeckSpec {
