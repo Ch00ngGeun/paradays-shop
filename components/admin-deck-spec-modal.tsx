@@ -449,9 +449,11 @@ export function AdminDeckSpecModal({
         </h2>
         {size === undefined ? (
           <AdminDeckSpecEditor
+            describeError={describeError}
             initialSpec={initialSpec}
             initialSpecsBySize={initialSpecsBySize}
             locale={locale}
+            notice={notice}
             onBusyChange={setBusy}
             onCancel={onCancel}
             onSave={onSave}

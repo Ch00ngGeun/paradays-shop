@@ -335,6 +335,18 @@ describe("admin deck spec modal", () => {
     expect(withUndefined).toBe(plain);
     expect(noticed).toContain("CALLER_NOTICE");
     expect(noticed.indexOf("CALLER_NOTICE")).toBeLessThan(noticed.indexOf("옵션 이름"));
+    // The default-mode body forwards the same props, with or without size options.
+    for (const sizeOptions of [[], ["8.25"]])
+      expect(
+        renderToStaticMarkup(
+          createElement(AdminDeckSpecEditor, {
+            onCancel: () => {},
+            onSave: noop,
+            notice: "DEFAULT_NOTICE",
+            sizeOptions,
+          }),
+        ),
+      ).toContain("DEFAULT_NOTICE");
   });
 
   it("a save failure uses the caller's description and falls back to the general message", () => {
