@@ -1388,28 +1388,96 @@ test("product form refinement: a two-line product name grows the box, keeps one 
   await newProduct(page);
   await fillProduct(page, "SYNTHETIC_ONE_LINE");
   const name = page.getByRole("textbox", { name: "상품명", exact: false });
+  await name.fill("A");
   const oneLine = (await name.boundingBox())!.height;
+  const status = page.getByRole("status").filter({ hasText: "최대 2줄" });
 
-  await name.fill("SYNTHETIC_FIRST_LINE\nSYNTHETIC_SECOND_LINE");
+  await name.fill("FIRST\nSECOND");
   await expect
     .poll(async () => (await name.boundingBox())!.height)
     .toBeGreaterThan(oneLine * 1.4);
-  // Enter at the end of the second line cannot start a third line.
-  await name.press("Control+End");
-  await name.press("Enter");
-  await expect(name).toHaveValue("SYNTHETIC_FIRST_LINE\nSYNTHETIC_SECOND_LINE");
-  await expect(page.getByRole("status").filter({ hasText: "최대 2줄" })).toBeVisible();
-  // A pasted third line and blank lines are dropped the same way.
-  await name.fill(
-    "SYNTHETIC_FIRST_LINE\n\n\nSYNTHETIC_SECOND_LINE\nSYNTHETIC_THIRD_LINE",
-  );
-  await expect(name).toHaveValue("SYNTHETIC_FIRST_LINE\nSYNTHETIC_SECOND_LINE");
 
+  // Enter at the end of the first line collapses the blank line and keeps the caret in place.
+  const caretAt = (position: number) =>
+    name.evaluate(
+      (input: HTMLTextAreaElement, at) => input.setSelectionRange(at, at),
+      position,
+    );
+  await caretAt("FIRST".length);
+  await name.press("Enter");
+  await expect(name).toHaveValue("FIRST\nSECOND");
+  await name.pressSequentially("X");
+  await expect(name).toHaveValue("FIRST\nXSECOND");
+
+  // Enter inside the second line cannot start a third line, so nothing after the caret is lost.
+  await caretAt("FIRST\nXSECO".length);
+  await name.press("Enter");
+  await expect(name).toHaveValue("FIRST\nXSECOND");
+  await expect(status).toContainText("최대 2줄까지 입력할 수 있습니다");
+  await name.pressSequentially("Y");
+  await expect(name).toHaveValue("FIRST\nXSECOYND");
+
+  // A pasted third line and blank lines are joined to the second line instead of being dropped.
+  await name.fill("FIRST\n\n\nSECOND\nTHIRD");
+  await expect(name).toHaveValue("FIRST\nSECOND THIRD");
+  await expect(status).toContainText("2번째 줄 뒤에 이어 붙였습니다");
+
+  await name.fill("SYNTHETIC_FIRST_LINE\nSYNTHETIC_SECOND_LINE");
   await page.getByRole("button", { name: "비공개로 저장", exact: true }).click();
   await expect.poll(() => commands.length).toBe(1);
   const saved = String(commands[0]!.name);
   expect(saved.match(/\n/g)).toHaveLength(1);
   expect(saved).toBe("SYNTHETIC_FIRST_LINE\nSYNTHETIC_SECOND_LINE");
+});
+
+test("product form refinement: Enter that commits Korean IME input never starts a third product name line", async ({
+  page,
+}) => {
+  await setup(page, { path: "/admin?section=products" });
+  await newProduct(page);
+  const name = page.getByRole("textbox", { name: "상품명", exact: false });
+  await name.fill("FIRST\nSECOND");
+  await name.evaluate((input: HTMLTextAreaElement) =>
+    input.setSelectionRange(input.value.length, input.value.length),
+  );
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.imeSetComposition", {
+    text: "한",
+    selectionStart: 1,
+    selectionEnd: 1,
+  });
+  await page.keyboard.press("Enter");
+  await cdp.send("Input.insertText", { text: "한" });
+  await expect(name).toHaveValue("FIRST\nSECOND한");
+});
+
+test("product form refinement: without field-sizing the product name box regrows when it gets narrower", async ({
+  page,
+}) => {
+  // Forces the fallback path that Chromium would otherwise skip.
+  await page.addInitScript(() => {
+    const supports = CSS.supports.bind(CSS) as (...args: string[]) => boolean;
+    CSS.supports = ((...args: string[]) =>
+      args[0] === "field-sizing" ? false : supports(...args)) as typeof CSS.supports;
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await setup(page, { path: "/admin?section=products" });
+  await newProduct(page);
+  const name = page.getByRole("textbox", { name: "상품명", exact: false });
+  await name.fill(`SYNTHETIC ${"LONG NAME ".repeat(8)}`.trim());
+  const fits = () =>
+    name.evaluate((input) => input.scrollHeight <= input.clientHeight + 1);
+  await expect.poll(fits).toBe(true);
+  const wide = (await name.boundingBox())!.height;
+
+  // Narrowing only the box (as a rotation or a narrower column would) must regrow it.
+  await name.evaluate((input) => {
+    input.style.width = "160px";
+  });
+  await expect
+    .poll(async () => (await name.boundingBox())!.height)
+    .toBeGreaterThan(wide);
+  await expect.poll(fits).toBe(true);
 });
 
 test("product form refinement: a spaced search finds a product whose name has a line break", async ({
@@ -1418,7 +1486,11 @@ test("product form refinement: a spaced search finds a product whose name has a 
   await setup(page, {
     path: "/admin?section=products",
     catalogProducts: [
-      { ...products[0]!, name: "[TEST] Two line\nsearch deck" },
+      {
+        ...products[0]!,
+        name: "[TEST] Two line\nsearch deck",
+        brandName: "NEW  BALANCE",
+      },
       products[1]!,
     ],
   });
@@ -1431,6 +1503,10 @@ test("product form refinement: a spaced search finds a product whose name has a 
   await expect(list.getByRole("listitem")).toContainText("search deck");
   await search.fill("TWO   LINE\tSEARCH");
   await expect(list.getByRole("listitem")).toHaveCount(1);
+  // A brand stored with two spaces is found by the same text typed as is.
+  await search.fill("NEW  BALANCE");
+  await expect(list.getByRole("listitem")).toHaveCount(1);
+  await expect(list.getByRole("listitem")).toContainText("search deck");
 });
 
 test("product redesign: publishing requires a deliberate confirmation and dismissing it leaves the draft untouched", async ({
