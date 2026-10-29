@@ -514,14 +514,18 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       return;
     }
     root.setAttribute(LOCALE_PENDING_ATTRIBUTE, "");
-    // 저장값 복원이 끝나지 않아도 화면이 숨겨진 채 남지 않게 합니다.
-    const release = window.setTimeout(
-      () => root.removeAttribute(LOCALE_PENDING_ATTRIBUTE),
-      3_000,
-    );
+    // 저장값 복원이 끝나지 않아도 화면이 숨겨진 채 남지 않게 합니다(head 스크립트와 같은 10초).
+    // 이때 보이는 본문은 아직 en이므로 문서 언어도 en으로 맞춥니다.
+    const release = () => {
+      if (!root.hasAttribute(LOCALE_PENDING_ATTRIBUTE)) return;
+      root.removeAttribute(LOCALE_PENDING_ATTRIBUTE);
+      root.lang = "en";
+    };
+    const timer = window.setTimeout(release, 10_000);
     // 복원 전에 해제돼도(재마운트·오류 경계) 숨김이 남지 않게 정리 때 함께 풂.
+    // 문서 언어는 아래 lang effect가 현재 locale로 맞춥니다.
     return () => {
-      window.clearTimeout(release);
+      window.clearTimeout(timer);
       root.removeAttribute(LOCALE_PENDING_ATTRIBUTE);
     };
   }, [hasLoadedPreference]);

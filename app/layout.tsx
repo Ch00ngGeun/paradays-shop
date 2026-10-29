@@ -17,12 +17,14 @@ export const metadata: Metadata = {
 };
 
 /**
- * 정적 HTML은 en으로 고정이라, 저장 언어가 ko면 첫 그리기 전에 본문을 숨겨 영어가 보이지 않게 합니다.
- * LocaleProvider가 ko를 반영한 커밋에서 해제하고, JS가 실패해도 3초 뒤 스스로 해제합니다.
+ * 정적 HTML은 en으로 고정이라, 저장 언어가 ko면 첫 그리기 전에 본문 전체를 투명하게 숨깁니다.
+ * opacity는 자식의 visibility:visible로도 뚫리지 않고, 배경은 html이 칠해 테마 화면은 유지됩니다.
+ * 해제: LocaleProvider가 ko를 반영한 커밋에서 해제(정상), 앱 스크립트 로드 실패 시 즉시,
+ * 그 밖에는 10초 뒤 최종 해제. 실패 해제 때는 보이는 본문이 영어이므로 lang도 en으로 되돌립니다.
  * 키·속성 이름은 contexts/locale-context.tsx와 같아야 합니다.
  */
-const LOCALE_PENDING_STYLE = "html[data-locale-pending] body{visibility:hidden}";
-const LOCALE_PENDING_SCRIPT = `(function(){try{if(localStorage.getItem("paradays-locale")!=="ko")return;var r=document.documentElement;r.lang="ko";r.setAttribute("data-locale-pending","");setTimeout(function(){r.removeAttribute("data-locale-pending")},3000)}catch(e){}})()`;
+const LOCALE_PENDING_STYLE = "html[data-locale-pending] body{opacity:0!important}";
+const LOCALE_PENDING_SCRIPT = `(function(){try{if(localStorage.getItem("paradays-locale")!=="ko")return;var r=document.documentElement,a="data-locale-pending",t;r.lang="ko";r.setAttribute(a,"");var f=function(){clearTimeout(t);removeEventListener("error",e,true);if(r.hasAttribute(a)){r.removeAttribute(a);r.lang="en"}},e=function(v){var n=v.target;if(n&&n.tagName==="SCRIPT")f()};addEventListener("error",e,true);t=setTimeout(f,10000)}catch(x){}})()`;
 
 /**
  * 앱 루트 레이아웃.
