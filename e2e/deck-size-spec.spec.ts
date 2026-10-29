@@ -125,6 +125,13 @@ async function setup(
         if (body.deckSpec) item.deckSpec = body.deckSpec as typeof SPEC;
         else delete item.deckSpec;
       }
+      if ("sizeDeckSpec" in body) {
+        const map = { ...item.deckSpecsBySize };
+        if (body.sizeDeckSpec)
+          map[body.size as string] = body.sizeDeckSpec as typeof SPEC;
+        else delete map[body.size as string];
+        item.deckSpecsBySize = Object.keys(map).length ? map : undefined;
+      }
       item.version += 1;
       return respond(route, { product: adminShape(item) });
     }
@@ -244,6 +251,120 @@ test("admin saves the deck size spec from its own modal and the product form sav
   expect(audit.patchedIds).toEqual([DECK.id, DECK.id]);
   expect(audit.patches[1]).toMatchObject({ version: 4 });
   expect(audit.patches[1]).not.toHaveProperty("deckSpec");
+  expect(audit.blocked).toEqual([]);
+});
+
+test("admin saves, switches and deletes per-option size charts without touching the default", async ({
+  page,
+}) => {
+  const option85 = { ...SPEC, width: 8.5, wheelbase: 14.5 };
+  const option825 = { ...SPEC, width: 8.25, wheelbase: 14 };
+  const audit = await setup(page, "/admin?section=products", SPEC, {
+    sizes: ["8.25", "8.5"],
+    deckSpecsBySize: { "8.5": option85 },
+  });
+  const item = audit.store.find((entry) => entry.productId === DECK.id)!;
+  await page
+    .getByRole("list", { name: "상품 목록" })
+    .getByRole("listitem")
+    .filter({ hasText: "[TEST] Deck size A" })
+    .getByRole("button", { name: "수정", exact: true })
+    .click();
+  await expect(
+    page.getByText('기본 8.5" × 31.75" · WB 14.25" · 옵션별 1개'),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "옵션 이름을 바꾸거나 지우고 상품을 저장하면 그 옵션의 상세사이즈는 지워집니다.",
+    ),
+  ).toBeVisible();
+  const dialog = page.getByRole("dialog");
+  const target = dialog.getByRole("combobox", { name: "적용 대상" });
+  const input = (field: string) => dialog.getByRole("textbox", { name: field });
+  const openModal = async () => {
+    await page.getByRole("button", { name: "상세사이즈 수정" }).click();
+    await expect(target).toHaveValue("");
+  };
+
+  // Switching the target refills the inputs with that target's saved values.
+  await openModal();
+  await expect(input("wheelbase")).toHaveValue("14.25");
+  await target.selectOption("8.5");
+  await expect(input("wheelbase")).toHaveValue("14.5");
+  await expect(dialog.getByRole("button", { name: "삭제", exact: true })).toBeVisible();
+  await target.selectOption("8.25");
+  await expect(input("wheelbase")).toHaveValue("");
+  await expect(dialog).toContainText("이 옵션은 지금 기본값을 표시합니다.");
+  await expect(dialog.getByRole("button", { name: "삭제", exact: true })).toHaveCount(
+    0,
+  );
+  for (const [field, value] of Object.entries(option825))
+    await input(field).fill(String(value));
+  await dialog.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  expect(audit.patches).toEqual([
+    { version: 3, size: "8.25", sizeDeckSpec: option825 },
+  ]);
+  expect(item.deckSpec).toEqual(SPEC);
+  await expect(
+    page.getByText('기본 8.5" × 31.75" · WB 14.25" · 옵션별 2개'),
+  ).toBeVisible();
+
+  // Deleting an option removes only that option.
+  await openModal();
+  await target.selectOption("8.5");
+  await dialog.getByRole("button", { name: "삭제", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  expect(audit.patches[1]).toEqual({ version: 4, size: "8.5", sizeDeckSpec: null });
+  expect(item.deckSpecsBySize).toEqual({ "8.25": option825 });
+  expect(item.deckSpec).toEqual(SPEC);
+
+  // Saving without picking an option keeps the old default-only body.
+  await openModal();
+  await input("tail").fill("6.625");
+  await dialog.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  expect(audit.patches[2]).toEqual({ version: 5, deckSpec: { ...SPEC, tail: 6.625 } });
+  expect(item.deckSpecsBySize).toEqual({ "8.25": option825 });
+  expect(audit.blocked).toEqual([]);
+});
+
+test("without a default, the summary counts option charts and unsaved options are not offered", async ({
+  page,
+}) => {
+  const audit = await setup(page, "/admin?section=products", undefined, {
+    sizes: ["8.25", "8.5"],
+    deckSpecsBySize: { "8.5": SPEC },
+  });
+  await page
+    .getByRole("list", { name: "상품 목록" })
+    .getByRole("listitem")
+    .filter({ hasText: "[TEST] Deck size A" })
+    .getByRole("button", { name: "수정", exact: true })
+    .click();
+  await expect(page.getByText("기본 미등록 · 옵션별 1개")).toBeVisible();
+  await expect(page.getByRole("button", { name: "상세사이즈 수정" })).toBeVisible();
+  await expect(
+    page.getByText(
+      "바뀐 옵션은 상품을 먼저 저장해야 상세사이즈 대상으로 고를 수 있습니다.",
+    ),
+  ).toHaveCount(0);
+
+  // An option typed in the editor is not offered until the product is saved.
+  await page.getByRole("textbox", { name: "사이즈 / 옵션" }).fill("8.25, 8.75");
+  await expect(
+    page.getByText(
+      "바뀐 옵션은 상품을 먼저 저장해야 상세사이즈 대상으로 고를 수 있습니다.",
+    ),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "상세사이즈 수정" }).click();
+  const target = page.getByRole("dialog").getByRole("combobox", { name: "적용 대상" });
+  await expect(target.locator("option")).toHaveText([
+    "기본 (모든 옵션 공통)",
+    "8.25",
+    "8.5 · 등록됨",
+  ]);
+  await page.keyboard.press("Escape");
   expect(audit.blocked).toEqual([]);
 });
 
