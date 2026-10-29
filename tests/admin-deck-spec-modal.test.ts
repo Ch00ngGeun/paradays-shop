@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import {
+  AdminDeckSpecEditor,
   AdminDeckSpecForm,
   parseDeckInches,
   parseDeckSpecInputs,
@@ -104,5 +105,110 @@ describe("admin deck spec modal", () => {
     expect(filled).toMatch(/<button[^>]*type="submit"[^>]*>Save<\/button>/);
     expect(filled).toContain(">Delete</button>");
     expect(filled).toContain(">Cancel</button>");
+  });
+
+  const optionSpec = { ...spec, width: 8.25, wheelbase: 14 };
+  const editor = (props: Partial<Parameters<typeof AdminDeckSpecEditor>[0]> = {}) =>
+    renderToStaticMarkup(
+      createElement(AdminDeckSpecEditor, {
+        onCancel: () => {},
+        onSave: noop,
+        ...props,
+      }),
+    );
+
+  it("without size options the editor renders exactly the plain form", () => {
+    const plain = renderToStaticMarkup(
+      createElement(AdminDeckSpecForm, {
+        initialSpec: spec,
+        onCancel: () => {},
+        onSave: noop,
+      }),
+    );
+
+    expect(editor({ initialSpec: spec })).toBe(plain);
+    expect(editor({ initialSpec: spec, sizeOptions: [] })).toBe(plain);
+    expect(plain).not.toContain("<select");
+  });
+
+  it("offers the default first, then each saved option marked when it has values", () => {
+    const markup = editor({
+      initialSpec: spec,
+      initialSpecsBySize: { "8.25": optionSpec },
+      sizeOptions: ["8.25", "8.5", "8.25", "__proto__", "constructor", "prototype"],
+    });
+
+    const options = [
+      ...markup.matchAll(/<option value="([^"]*)"[^>]*>([^<]*)<\/option>/g),
+    ];
+    expect(options.map(([, value, label]) => [value, label])).toEqual([
+      ["", "기본 (모든 옵션 공통) · 등록됨"],
+      ["8.25", "8.25 · 등록됨"],
+      ["8.5", "8.5"],
+    ]);
+    expect(markup).toContain("적용 대상");
+    expect(markup).toContain(
+      "옵션을 고르지 않고 저장하면 모든 옵션 공통 기본값에 저장됩니다.",
+    );
+    // The default target is selected and its values fill the form.
+    expect(markup).toMatch(/<option value=""[^>]*selected=""/);
+    expect(markup).toContain('value="14.25"');
+    expect(markup).toContain(">삭제</button>");
+  });
+
+  it("an option target shows its own values, or empty inputs with a default notice", () => {
+    const own = renderToStaticMarkup(
+      createElement(AdminDeckSpecForm, {
+        initialSpec: optionSpec,
+        onCancel: () => {},
+        onSave: noop,
+        size: "8.25",
+      }),
+    );
+    const missing = renderToStaticMarkup(
+      createElement(AdminDeckSpecForm, {
+        onCancel: () => {},
+        onSave: noop,
+        size: "8.5",
+      }),
+    );
+
+    expect(own).toContain('value="14"');
+    expect(own).toContain(">삭제</button>");
+    expect(own).not.toContain("이 옵션은 지금 기본값을 표시합니다.");
+    expect(missing).not.toContain('value="6.875"');
+    expect(missing).not.toContain("삭제");
+    expect(missing).toContain(
+      "이 옵션은 지금 기본값을 표시합니다. 저장하면 이 옵션에만 적용됩니다.",
+    );
+  });
+
+  it("renders the option picker and notices in English without Korean", () => {
+    const markup =
+      editor({
+        locale: "en",
+        initialSpec: spec,
+        initialSpecsBySize: { "8.25": optionSpec },
+        sizeOptions: ["8.25", "8.5"],
+      }) +
+      renderToStaticMarkup(
+        createElement(AdminDeckSpecForm, {
+          locale: "en",
+          onCancel: () => {},
+          onSave: noop,
+          size: "8.5",
+        }),
+      );
+
+    expect(markup).not.toMatch(/[가-힣]/u);
+    expect(markup).toContain("Applies to");
+    expect(markup).toContain(">Default (all options) · set</option>");
+    expect(markup).toContain(">8.25 · set</option>");
+    expect(markup).toContain(
+      "Without an option, saving updates the default for all options.",
+    );
+    expect(markup).toContain(
+      "This option shows the default now. Saving applies to this option only.",
+    );
   });
 });
