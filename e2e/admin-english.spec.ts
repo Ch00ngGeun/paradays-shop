@@ -576,16 +576,28 @@ test("product editor, size chart dialog and stock stepper show no Korean in Engl
   await page.getByRole("button", { name: "+ Add size chart" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await scan(page, "size chart dialog", found);
-  // Option labels are scanned even while the picker is closed; also check the option-target notice.
-  await page
-    .getByRole("dialog")
-    .getByRole("combobox", { name: "Applies to" })
-    .selectOption({ index: 1 });
-  await expect(page.getByRole("dialog")).toContainText(
-    "This option shows the default now.",
-  );
-  await scan(page, "size chart dialog option target", found);
   await page.keyboard.press("Escape");
+  // A saved chip opens the option dialog; a rename shows the name check and the sales notice.
+  const chips = page.getByRole("list", { name: "Added options", exact: true });
+  await chips.getByRole("button").first().click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("This option shows the default now.");
+  const optionName = dialog.getByRole("textbox", { name: "Option name" });
+  await optionName.fill("");
+  await expect(dialog).toContainText("Enter an option name.");
+  await scan(page, "option dialog name error", found);
+  await optionName.fill("Synthetic wide");
+  await expect(dialog).toContainText("Saving changes the option name");
+  await scan(page, "option dialog rename notice", found);
+  await page.keyboard.press("Escape");
+  // A chip added but not yet saved only asks to save the product first.
+  await page.getByRole("textbox", { name: "Size / options" }).fill("9.0");
+  await page.getByRole("button", { name: "Add option", exact: true }).click();
+  await chips.getByRole("button", { name: "9.0", exact: true }).click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Save the product first." }),
+  ).toBeVisible();
+  await scan(page, "unsaved option chip", found);
   await openSection(page, "Stock editing");
   await page
     .getByRole("button", { name: "Adjust stock for [TEST] English deck", exact: true })
