@@ -175,7 +175,12 @@ export async function buildProductI18nFields(input: {
   nameI18n: Readonly<{ en: string; ko: string }>;
   descriptionI18n: Readonly<{ en: string[]; ko: string[] }>;
 }> {
-  const name = input.name.trim();
+  // A name may span lines; blank lines are dropped so the source and translation keep the same line count.
+  const nameLines = input.name
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const name = nameLines.join("\n");
 
   if (!name) {
     throw new TranslateError("TRANSLATE_EMPTY", "상품명이 비어 있습니다.");
@@ -189,7 +194,11 @@ export async function buildProductI18nFields(input: {
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const translatedName = await translateText(name, sourceLocale, targetLocale);
+  // Each line is translated on its own, because joined chunks would lose the line break.
+  const translatedName =
+    nameLines.length > 1
+      ? (await translateLines(nameLines, sourceLocale, targetLocale)).join("\n")
+      : await translateText(name, sourceLocale, targetLocale);
   const translatedDescription =
     sourceDescription.length > 0
       ? await translateLines(sourceDescription, sourceLocale, targetLocale)
