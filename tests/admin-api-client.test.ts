@@ -1659,6 +1659,73 @@ describe("createAdminApiClient", () => {
       expect(fetchImplementation).not.toHaveBeenCalled();
     });
 
+    it.each([
+      "CATALOG_PRODUCT_RESERVED",
+      "CATALOG_PRODUCT_DUPLICATE",
+      "CATALOG_PRODUCT_VERSION_CONFLICT",
+    ])(
+      "a single product PATCH keeps the safe %s code without the server message",
+      async (code) => {
+        const fetchImplementation = vi
+          .fn<typeof fetch>()
+          .mockResolvedValue(
+            Response.json({ code, message: "PRIVATE_SERVER_MESSAGE" }, { status: 409 }),
+          );
+        const { client } = createClient(fetchImplementation);
+        const error = await client
+          .updateProductDeckSpec({
+            id: "prd_deck",
+            version: 3,
+            deckSpec,
+            size: "8.25",
+            sizeName: "8.75",
+          })
+          .catch((caught) => caught);
+
+        expect(error).toBeInstanceOf(AdminApiRequestError);
+        expect(error).toMatchObject({ status: 409, responseCode: code });
+        expect(error.message).not.toContain("PRIVATE_SERVER_MESSAGE");
+        expect(fetchImplementation).toHaveBeenCalledOnce();
+      },
+    );
+
+    it("a single product PATCH drops codes outside its list", async () => {
+      for (const code of [
+        "OCR_INTAKE_INVALID",
+        "CATALOG_PRODUCT_INVALID",
+        "ANYTHING",
+      ]) {
+        const { client } = createClient(
+          vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(Response.json({ code }, { status: 400 })),
+        );
+        await expect(
+          client.updateProductDeckSpec({ id: "prd_deck", version: 3, deckSpec }),
+        ).rejects.toMatchObject({ status: 400, responseCode: undefined });
+      }
+      // A non-JSON body is still a plain request error.
+      const { client } = createClient(
+        vi.fn<typeof fetch>().mockResolvedValue(new Response("oops", { status: 409 })),
+      );
+      await expect(
+        client.updateProductDeckSpec({ id: "prd_deck", version: 3, deckSpec }),
+      ).rejects.toMatchObject({ status: 409, responseCode: undefined });
+    });
+
+    it("other endpoints keep ignoring catalog codes", async () => {
+      const fetchImplementation = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(
+          Response.json({ code: "CATALOG_PRODUCT_RESERVED" }, { status: 409 }),
+        );
+      const { client } = createClient(fetchImplementation);
+      await expect(client.loadOverviewMetrics()).rejects.toMatchObject({
+        status: 409,
+        responseCode: undefined,
+      });
+    });
+
     it("keeps only well-formed option charts when listing products", async () => {
       const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
         new Response(
