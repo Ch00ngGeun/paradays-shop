@@ -76,4 +76,57 @@ describe("public catalog deckSpec", () => {
 
     expect(product).not.toHaveProperty("deckSpec");
   });
+
+  const optionSpec = { ...deckSpec, width: 8.25, wheelbase: 14 };
+  const withOptions = (deckSpecsBySize: unknown) =>
+    getPublishedCatalogProduct(
+      baseProduct.slug,
+      fetchReturning({
+        ...baseProduct,
+        sizes: ["8.25", "8.5", "__proto__", "constructor", "prototype"],
+        deckSpec,
+        deckSpecsBySize,
+      }),
+    );
+
+  it("keeps per-option size charts next to the default", async () => {
+    const product = await withOptions({ "8.25": optionSpec });
+
+    expect(product?.deckSpec).toEqual(deckSpec);
+    expect(product?.deckSpecsBySize).toEqual({ "8.25": optionSpec });
+  });
+
+  it("drops only malformed, unknown-size and unsafe option entries", async () => {
+    const product = await withOptions(
+      JSON.parse(
+        JSON.stringify({
+          "8.25": optionSpec,
+          "8.5": { ...optionSpec, width: 0 },
+          "9.0": optionSpec,
+          constructor: optionSpec,
+          prototype: optionSpec,
+          proto: optionSpec,
+        }).replace('"proto"', '"__proto__"'),
+      ),
+    );
+
+    expect(product?.id).toBe(baseProduct.id);
+    expect(product?.deckSpecsBySize).toEqual({ "8.25": optionSpec });
+    expect(Object.getPrototypeOf(product?.deckSpecsBySize)).toBe(Object.prototype);
+  });
+
+  it("omits the option map when no entry survives, keeping the product", async () => {
+    for (const invalid of [
+      { "8.5": {} },
+      { "9.0": optionSpec },
+      "8.25",
+      [optionSpec],
+    ]) {
+      const product = await withOptions(invalid);
+
+      expect(product?.id).toBe(baseProduct.id);
+      expect(product?.deckSpec).toEqual(deckSpec);
+      expect(product).not.toHaveProperty("deckSpecsBySize");
+    }
+  });
 });
