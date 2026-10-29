@@ -34,6 +34,7 @@ import {
   type OcrMappingTemplate,
   type OcrMappingTemplatesResult,
 } from "@/lib/admin-ui/ocr-mapping-templates";
+import { AdminHelpButton } from "./admin-help-button";
 import styles from "./ocr-region-mapping.module.css";
 
 export type OcrRegionMappingProps = Readonly<{
@@ -796,7 +797,8 @@ export function OcrRegionMappingPanel({
                   ? " · 첫 상품의 해당 글자를 둘러싸도록 드래그하세요."
                   : " · Drag around the matching text of the first product."}
           </p>
-          <p className={styles.help} id={`${id}-keyboard`}>
+          {/* Still the image area's description; seen on screen through the help button below. */}
+          <p className="srOnly" id={`${id}-keyboard`}>
             {isKorean
               ? "키보드로는 이미지에 초점을 둔 뒤 방향키로 이동하고 Space로 시작, Enter로 끝을 지정합니다. Shift와 방향키를 함께 누르면 더 크게 이동합니다."
               : "With a keyboard, focus the image, move with the arrow keys, press Space to start and Enter to finish. Hold Shift with the arrow keys to move further."}
@@ -831,15 +833,23 @@ export function OcrRegionMappingPanel({
             >
               {isKorean ? "이미지 이동" : "Move image"}
             </button>
-            <p className={styles.help}>
-              {pan
-                ? isKorean
-                  ? "이동 모드입니다. 확대된 이미지를 스크롤하거나 손가락으로 이동하세요. 영역을 선택하려면 항목 버튼을 누르세요."
-                  : "Move mode. Scroll or swipe the zoomed image. Press a field button to select areas."
-                : isKorean
-                  ? "작은 글자는 확대해서 선택하세요. 이미지 이동을 켜면 확대된 이미지를 스크롤할 수 있습니다."
-                  : "Zoom in to select small text. Turn on Move image to scroll the zoomed image."}
-            </p>
+            <div className={styles.help}>
+              <AdminHelpButton
+                locale={locale}
+                target={isKorean ? "이미지 영역 선택" : "Image area selection"}
+              >
+                <p>
+                  {isKorean
+                    ? "작은 글자는 확대해서 선택하세요. 이미지 이동을 켜면 확대된 이미지를 스크롤하거나 손가락으로 이동할 수 있고, 영역을 선택하려면 항목 버튼을 누르세요."
+                    : "Zoom in to select small text. With Move image on, scroll or swipe the zoomed image; press a field button to select areas."}
+                </p>
+                <p>
+                  {isKorean
+                    ? "키보드로는 이미지에 초점을 둔 뒤 방향키로 이동하고 Space로 시작, Enter로 끝을 지정합니다. Shift와 방향키를 함께 누르면 더 크게 이동합니다."
+                    : "With a keyboard, focus the image, move with the arrow keys, press Space to start and Enter to finish. Hold Shift with the arrow keys to move further."}
+                </p>
+              </AdminHelpButton>
+            </div>
           </div>
           <div className={styles.imageFrame}>
             <div
@@ -989,11 +999,19 @@ export function OcrRegionMappingPanel({
             </label>
           </fieldset>
           {draft.firstRow.quantity === null && (
-            <p className={styles.help}>
-              {isKorean
-                ? "수량 영역이 없으면 두 번째 상품 위치를 지정해 반복 간격을 알려 주세요. 미리보기에서 모든 상품이 포함됐는지 확인하세요."
-                : "Without a quantity area, set the second product position to show the row spacing. Check in the preview that every product is included."}
-            </p>
+            <div className={styles.help}>
+              <AdminHelpButton
+                locale={locale}
+                // Not the mode button's name, so a search for that button finds only the button.
+                target={isKorean ? "반복 간격" : "Row spacing"}
+              >
+                <p>
+                  {isKorean
+                    ? "수량 영역이 없으면 두 번째 상품 위치를 지정해 반복 간격을 알려 주세요. 미리보기에서 모든 상품이 포함됐는지 확인하세요."
+                    : "Without a quantity area, set the second product position to show the row spacing. Check in the preview that every product is included."}
+                </p>
+              </AdminHelpButton>
+            </div>
           )}
           {!allFieldsChosen && (
             <p className={styles.help}>
