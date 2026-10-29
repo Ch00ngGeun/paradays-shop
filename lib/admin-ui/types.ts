@@ -55,6 +55,8 @@ export type AdminCatalogListItem = Readonly<{
   nameI18n?: Readonly<{ en: string; ko: string }>;
   descriptionI18n?: Readonly<{ en: readonly string[]; ko: readonly string[] }>;
   deckSpec?: DeckSpec;
+  /** 사이즈 옵션별 상세사이즈. 없는 옵션은 deckSpec(기본값)을 씁니다. */
+  deckSpecsBySize?: Readonly<Record<string, DeckSpec>>;
 }>;
 
 /** OCR provider가 반환하는 다각형 좌표입니다. 검토 UI에서는 읽기 전용 metadata로만 표시합니다. */
@@ -219,7 +221,13 @@ export type AdminDashboardActions = Readonly<{
   ) => Promise<AdminCatalogListItem>;
   /** 상세사이즈만 즉시 저장(null이면 삭제). 성공 시 최신 version이 반영된 목록 행을 반환합니다. */
   updateProductDeckSpec?: (
-    input: Readonly<{ id: string; version: number; deckSpec: DeckSpec | null }>,
+    input: Readonly<{
+      id: string;
+      version: number;
+      deckSpec: DeckSpec | null;
+      /** 있으면 그 사이즈 옵션만, 없으면 기본값을 저장(null이면 삭제)합니다. */
+      size?: string;
+    }>,
   ) => Promise<AdminCatalogListItem>;
   deleteCatalogProducts?: (
     items: ReadonlyArray<Readonly<{ id: string; version: number }>>,

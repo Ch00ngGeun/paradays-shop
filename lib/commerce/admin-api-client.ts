@@ -117,7 +117,13 @@ export type AdminApiClient = Readonly<{
     input: Readonly<{ id: string; version: number; stock: number }>,
   ) => Promise<AdminCatalogListItem>;
   updateProductDeckSpec: (
-    input: Readonly<{ id: string; version: number; deckSpec: DeckSpec | null }>,
+    input: Readonly<{
+      id: string;
+      version: number;
+      deckSpec: DeckSpec | null;
+      /** 있으면 그 사이즈 옵션의 상세사이즈만, 없으면 기본값을 저장합니다. */
+      size?: string;
+    }>,
   ) => Promise<AdminCatalogListItem>;
   deleteCatalogProducts: (
     items: ReadonlyArray<Readonly<{ id: string; version: number }>>,
@@ -449,25 +455,28 @@ export function createAdminApiClient(
         !Number.isSafeInteger(input.version) ||
         input.version < 1 ||
         input.version > 1_000_000 ||
-        (input.deckSpec !== null && !isDeckSpec(input.deckSpec))
+        (input.deckSpec !== null && !isDeckSpec(input.deckSpec)) ||
+        (input.size !== undefined &&
+          (typeof input.size !== "string" ||
+            !input.size.trim() ||
+            input.size.length > 50))
       ) {
         throw new AdminApiResponseError();
       }
 
-      const deckSpec = input.deckSpec && {
-        nose: input.deckSpec.nose,
-        tail: input.deckSpec.tail,
-        width: input.deckSpec.width,
-        length: input.deckSpec.length,
-        wheelbase: input.deckSpec.wheelbase,
-      };
+      const deckSpec = input.deckSpec && copyDeckSpec(input.deckSpec);
+      const { size } = input;
       const body = await requestJson({
         apiBaseUrl,
         authorizationTokenProvider: dependencies.authorizationTokenProvider,
         fetchImplementation,
         endpoint: `admin/catalog/products/${encodeURIComponent(productId)}`,
         method: "PATCH",
-        body: { version: input.version, deckSpec },
+        // An option save uses its own field, so a server without it cannot overwrite the default.
+        body:
+          size === undefined
+            ? { version: input.version, deckSpec }
+            : { version: input.version, size, sizeDeckSpec: deckSpec },
       });
 
       if (!isRecord(body) || !("product" in body)) {
@@ -476,7 +485,14 @@ export function createAdminApiClient(
 
       const product = parseCatalogListItem(body.product);
       // Compare the raw response: the list parser drops a malformed spec, which would look like a delete.
-      const savedDeckSpec = isRecord(body.product) ? body.product.deckSpec : undefined;
+      const raw = isRecord(body.product) ? body.product : {};
+      // shortcut: an older server never returns the option map, so an ignored option delete looks like success; add a handled marker to the server response to tell them apart.
+      const savedDeckSpec =
+        size === undefined
+          ? raw.deckSpec
+          : isRecord(raw.deckSpecsBySize) && Object.hasOwn(raw.deckSpecsBySize, size)
+            ? raw.deckSpecsBySize[size]
+            : undefined;
       if (
         product.id !== productId ||
         product.version !== input.version + 1 ||
@@ -1338,18 +1354,31 @@ function parseCatalogListItem(value: unknown): AdminCatalogListItem {
     isFeatured: value.featured,
     ...(nameI18n ? { nameI18n } : {}),
     ...(descriptionI18n ? { descriptionI18n } : {}),
-    ...(isDeckSpec(value.deckSpec)
-      ? {
-          deckSpec: {
-            nose: value.deckSpec.nose,
-            tail: value.deckSpec.tail,
-            width: value.deckSpec.width,
-            length: value.deckSpec.length,
-            wheelbase: value.deckSpec.wheelbase,
-          },
-        }
-      : {}),
+    ...(isDeckSpec(value.deckSpec) ? { deckSpec: copyDeckSpec(value.deckSpec) } : {}),
+    ...parseDeckSpecsBySize(value.deckSpecsBySize),
   };
+}
+
+function copyDeckSpec(spec: DeckSpec): DeckSpec {
+  return {
+    nose: spec.nose,
+    tail: spec.tail,
+    width: spec.width,
+    length: spec.length,
+    wheelbase: spec.wheelbase,
+  };
+}
+
+/** 옵션별 상세사이즈는 올바른 항목만 남기고, 남은 항목이 없으면 필드를 생략합니다. */
+function parseDeckSpecsBySize(value: unknown) {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  const entries = Object.entries(value).flatMap(([size, spec]) =>
+    isDeckSpec(spec) ? [[size, copyDeckSpec(spec)] as const] : [],
+  );
+  return entries.length ? { deckSpecsBySize: Object.fromEntries(entries) } : {};
 }
 
 /** 서버 검증과 같은 범위(0 초과 100인치 이하)만 상세사이즈로 인정합니다. */
