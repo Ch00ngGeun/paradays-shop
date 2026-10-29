@@ -6,6 +6,10 @@ import { createPortal } from "react-dom";
 
 import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { useModalLayer } from "@/hooks/use-modal-layer";
+import {
+  validateProductOptionName,
+  type ProductOptionNameResult,
+} from "@/lib/admin-ui/product-form";
 import type { DeckSpec, Locale } from "@/types/store";
 
 import styles from "./admin-deck-spec-modal.module.css";
@@ -45,6 +49,27 @@ export function parseDeckSpecInputs(inputs: DeckSpecInputs): DeckSpec | null {
   return { nose, tail, width, length, wheelbase };
 }
 
+/**
+ * 저장할 상세사이즈와 바뀐 옵션 이름, 저장 가능 여부를 계산합니다.
+ * 바뀌지 않은 이름은 다시 검사하지 않아 예전 규칙으로 저장된 옵션도 상세사이즈를 저장할 수 있습니다.
+ * 이름이 바뀌면 5칸을 모두 비운 채 이름만 저장할 수 있습니다.
+ */
+export function getDeckSpecSaveState(
+  inputs: DeckSpecInputs,
+  option?: Readonly<{ size: string; name: string; otherOptions: readonly string[] }>,
+) {
+  const spec = parseDeckSpecInputs(inputs);
+  const nameResult: ProductOptionNameResult | null =
+    !option || option.name.trim() === option.size
+      ? null
+      : validateProductOptionName(option.name, option.otherOptions);
+  const sizeName = nameResult?.ok ? nameResult.name : undefined;
+  const allEmpty = DECK_SPEC_FIELDS.every((field) => !inputs[field].trim());
+  const ready =
+    nameResult?.ok !== false && (spec !== null || (sizeName !== undefined && allEmpty));
+  return { spec, nameResult, sizeName, ready };
+}
+
 function toInputs(spec?: DeckSpec): DeckSpecInputs {
   return {
     nose: spec ? String(spec.nose) : "",
@@ -59,8 +84,11 @@ type AdminDeckSpecFormProps = Readonly<{
   initialSpec?: DeckSpec;
   /** 저장 대상 사이즈 옵션. 없으면 상품 공통 기본값입니다. */
   size?: string;
+  /** 있으면 size 옵션의 이름 칸을 보여 줍니다. 이름을 바꾸는 옵션을 뺀 저장된 옵션 목록입니다. */
+  otherOptions?: readonly string[];
   onCancel: () => void;
-  onSave: (spec: DeckSpec | null, size?: string) => Promise<void>;
+  /** sizeName은 옵션 이름이 실제로 바뀐 저장에만 넘깁니다. */
+  onSave: (spec: DeckSpec | null, size?: string, sizeName?: string) => Promise<void>;
   /** 저장 중 여부를 모달에 알려 ESC로 닫히지 않게 합니다. */
   onBusyChange?: (busy: boolean) => void;
   /** 단위 테스트가 provider 없이 렌더하므로 언어는 prop으로 받습니다. */
@@ -71,6 +99,7 @@ type AdminDeckSpecFormProps = Readonly<{
 export function AdminDeckSpecForm({
   initialSpec,
   size,
+  otherOptions,
   onCancel,
   onSave,
   onBusyChange,
@@ -80,15 +109,21 @@ export function AdminDeckSpecForm({
   const [inputs, setInputs] = useState(() => toInputs(initialSpec));
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
-  const spec = parseDeckSpecInputs(inputs);
+  const nameEditable = size !== undefined && otherOptions !== undefined;
+  const [name, setName] = useState(size ?? "");
+  const { spec, nameResult, sizeName, ready } = getDeckSpecSaveState(
+    inputs,
+    nameEditable ? { size, name, otherOptions } : undefined,
+  );
+  const canSave = ready && !saving;
 
-  const submit = async (next: DeckSpec | null) => {
+  const submit = async (next: DeckSpec | null, nextName?: string) => {
     setSaving(true);
     onBusyChange?.(true);
     setFailed(false);
 
     try {
-      await onSave(next, size);
+      await onSave(next, size, nextName);
     } catch {
       setFailed(true);
       setSaving(false);
@@ -102,14 +137,45 @@ export function AdminDeckSpecForm({
     // The portal still bubbles React events into the product form, which must not save too.
     event.stopPropagation();
 
-    if (spec && !saving) {
-      void submit(spec);
+    if (canSave) {
+      void submit(spec, sizeName);
     }
   };
 
   return (
     <form className={styles.form} noValidate onSubmit={handleSubmit}>
       <div className={styles.fields}>
+        {nameEditable ? (
+          <label className={styles.field}>
+            <span className={styles.fieldName}>
+              {isKorean ? "옵션 이름" : "Option name"}
+            </span>
+            <span className={styles.inputRow}>
+              <input
+                aria-describedby={
+                  nameResult ? "admin-deck-spec-option-name-note" : undefined
+                }
+                aria-invalid={nameResult?.ok === false || undefined}
+                disabled={saving}
+                name="optionName"
+                onChange={(event) => setName(event.target.value)}
+                value={name}
+              />
+            </span>
+          </label>
+        ) : null}
+        {nameResult ? (
+          <p
+            className={nameResult.ok ? styles.hint : styles.error}
+            id="admin-deck-spec-option-name-note"
+          >
+            {nameResult.ok
+              ? isKorean
+                ? "저장하면 옵션 이름과 상세사이즈가 함께 바뀝니다. 예전 이름으로 적힌 매출 초안은 옵션을 다시 골라 저장해야 반영할 수 있고, 이미 반영된 매출은 '입고·검수 완료' 확인 없이 취소한 뒤 재고 수정에서 수량을 맞춰야 합니다."
+                : "Saving changes the option name and its size chart together. Sales drafts with the old name need the option picked again and saved before posting; reverse already posted sales without the received-and-inspected check, then fix the quantity in Stock editing."
+              : optionNameError(nameResult.reason, isKorean)}
+          </p>
+        ) : null}
         {DECK_SPEC_FIELDS.map((field) => {
           const inches = parseDeckInches(inputs[field]);
           const invalid = inputs[field].trim() !== "" && inches === null;
@@ -192,12 +258,38 @@ export function AdminDeckSpecForm({
         >
           {isKorean ? "취소" : "Cancel"}
         </button>
-        <button className={styles.saveButton} disabled={!spec || saving} type="submit">
+        <button className={styles.saveButton} disabled={!canSave} type="submit">
           {saving ? (isKorean ? "저장 중…" : "Saving…") : isKorean ? "저장" : "Save"}
         </button>
       </div>
     </form>
   );
+}
+
+export function optionNameError(
+  reason: Extract<ProductOptionNameResult, { ok: false }>["reason"],
+  isKorean: boolean,
+) {
+  switch (reason) {
+    case "empty-option":
+      return isKorean ? "옵션 이름을 입력해 주세요." : "Enter an option name.";
+    case "multiple-options":
+      return isKorean
+        ? "쉼표나 줄바꿈 없이 옵션 하나의 이름만 입력해 주세요."
+        : "Enter one option name without commas or line breaks.";
+    case "option-too-long":
+      return isKorean
+        ? "옵션 이름은 50자 이하로 입력해 주세요."
+        : "Use 50 characters or fewer for the option name.";
+    case "reserved-option":
+      return isKorean
+        ? "이 이름은 옵션 이름으로 쓸 수 없습니다."
+        : "This name cannot be used for an option.";
+    case "duplicate-option":
+      return isKorean
+        ? "이미 있는 옵션 이름입니다."
+        : "This option name already exists.";
+  }
 }
 
 // The server refuses these option names, so they are never offered as a target.
@@ -276,7 +368,13 @@ export function AdminDeckSpecEditor({
 }
 
 type AdminDeckSpecModalProps = AdminDeckSpecEditorProps &
-  Readonly<{ isOpen: boolean; productName: string }>;
+  Readonly<{
+    isOpen: boolean;
+    productName: string;
+    /** 칩에서 연 옵션 모달이면 그 옵션과 이름 칸용 나머지 옵션입니다. */
+    size?: string;
+    otherOptions?: readonly string[];
+  }>;
 
 /** body 아래 독립 layer에 띄우고 배경을 inert 처리합니다. 배경 클릭으로는 닫지 않고, 저장 중이 아닐 때 ESC·취소로만 닫습니다. */
 export function AdminDeckSpecModal({
@@ -285,6 +383,8 @@ export function AdminDeckSpecModal({
   initialSpec,
   sizeOptions,
   initialSpecsBySize,
+  size,
+  otherOptions,
   onCancel,
   onSave,
   locale = "ko",
@@ -296,6 +396,10 @@ export function AdminDeckSpecModal({
       onCancel();
     }
   });
+
+  const setBusy = (busy: boolean) => {
+    busyRef.current = busy;
+  };
 
   if (!layer) {
     return null;
@@ -313,18 +417,29 @@ export function AdminDeckSpecModal({
       >
         <h2 className={styles.title} id="admin-deck-spec-title">
           {locale === "ko" ? "상세사이즈" : "Size chart"} · {productName}
+          {size === undefined ? "" : ` · ${size}`}
         </h2>
-        <AdminDeckSpecEditor
-          initialSpec={initialSpec}
-          initialSpecsBySize={initialSpecsBySize}
-          locale={locale}
-          onBusyChange={(busy) => {
-            busyRef.current = busy;
-          }}
-          onCancel={onCancel}
-          onSave={onSave}
-          sizeOptions={sizeOptions}
-        />
+        {size === undefined ? (
+          <AdminDeckSpecEditor
+            initialSpec={initialSpec}
+            initialSpecsBySize={initialSpecsBySize}
+            locale={locale}
+            onBusyChange={setBusy}
+            onCancel={onCancel}
+            onSave={onSave}
+            sizeOptions={sizeOptions}
+          />
+        ) : (
+          <AdminDeckSpecForm
+            initialSpec={initialSpec}
+            locale={locale}
+            onBusyChange={setBusy}
+            onCancel={onCancel}
+            onSave={onSave}
+            otherOptions={otherOptions}
+            size={size}
+          />
+        )}
       </section>
     </div>,
     layer,
