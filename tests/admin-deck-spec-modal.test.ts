@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import {
   AdminDeckSpecEditor,
   AdminDeckSpecForm,
+  getDeckSpecSaveState,
+  optionNameError,
   parseDeckInches,
   parseDeckSpecInputs,
 } from "@/components/admin-deck-spec-modal";
@@ -210,5 +212,108 @@ describe("admin deck spec modal", () => {
     expect(markup).toContain(
       "This option shows the default now. Saving applies to this option only.",
     );
+  });
+
+  const filled = {
+    nose: "6.875",
+    tail: "6.5",
+    width: "8.25",
+    length: "31.75",
+    wheelbase: "14",
+  };
+  const empty = { nose: "", tail: "", width: "", length: "", wheelbase: "" };
+  const option = (name: string, otherOptions: readonly string[] = ["8.5"]) => ({
+    size: "8.25",
+    name,
+    otherOptions,
+  });
+
+  it("an option form shows its current name, while the default form has no name field", () => {
+    const optionForm = renderToStaticMarkup(
+      createElement(AdminDeckSpecForm, {
+        onCancel: () => {},
+        onSave: noop,
+        otherOptions: ["8.5"],
+        size: "8.25",
+      }),
+    );
+    const defaultForm = renderToStaticMarkup(
+      createElement(AdminDeckSpecForm, { onCancel: () => {}, onSave: noop }),
+    );
+
+    expect(optionForm).toContain("옵션 이름");
+    expect(optionForm).toMatch(/<input[^>]*name="optionName"[^>]*value="8.25"/);
+    expect(optionForm.match(/<input/g)).toHaveLength(6);
+    // An unchanged name with empty fields cannot save, exactly like the H-035 option form.
+    expect(optionForm).toMatch(/<button[^>]*disabled=""[^>]*type="submit"/);
+    expect(defaultForm).not.toContain("옵션 이름");
+    expect(defaultForm.match(/<input/g)).toHaveLength(5);
+  });
+
+  it("an unchanged name saves only a valid chart and is never re-checked", () => {
+    expect(getDeckSpecSaveState(filled, option("8.25"))).toMatchObject({
+      ready: true,
+      sizeName: undefined,
+      nameResult: null,
+    });
+    expect(getDeckSpecSaveState(empty, option(" 8.25 ")).ready).toBe(false);
+    // A legacy name the new-name rules refuse still saves its chart while unchanged.
+    expect(
+      getDeckSpecSaveState(filled, {
+        size: "8.5, wide",
+        name: "8.5, wide",
+        otherOptions: [],
+      }),
+    ).toMatchObject({ ready: true, nameResult: null });
+    expect(getDeckSpecSaveState(filled).ready).toBe(true);
+    expect(getDeckSpecSaveState(empty).ready).toBe(false);
+  });
+
+  it("a valid new name saves with a chart or alone with all five fields empty", () => {
+    expect(getDeckSpecSaveState(filled, option(" 8.25 wide "))).toMatchObject({
+      ready: true,
+      sizeName: "8.25 wide",
+    });
+    expect(getDeckSpecSaveState(empty, option("8.25 wide"))).toMatchObject({
+      ready: true,
+      spec: null,
+      sizeName: "8.25 wide",
+    });
+    // A half-filled chart never saves, even with a valid new name.
+    expect(
+      getDeckSpecSaveState({ ...empty, nose: "6.875" }, option("8.25 wide")).ready,
+    ).toBe(false);
+  });
+
+  it("an invalid new name blocks saving with a reason", () => {
+    for (const [name, reason] of [
+      ["", "empty-option"],
+      ["8.75, 9.0", "multiple-options"],
+      ["x".repeat(51), "option-too-long"],
+      ["constructor", "reserved-option"],
+      ["8.5", "duplicate-option"],
+    ] as const) {
+      expect(getDeckSpecSaveState(filled, option(name))).toMatchObject({
+        ready: false,
+        nameResult: { ok: false, reason },
+      });
+    }
+  });
+
+  it("option name errors read in Korean and English without Korean in English", () => {
+    const reasons = [
+      "empty-option",
+      "multiple-options",
+      "option-too-long",
+      "reserved-option",
+      "duplicate-option",
+    ] as const;
+    const korean = reasons.map((reason) => optionNameError(reason, true));
+    const english = reasons.map((reason) => optionNameError(reason, false));
+
+    expect(new Set(korean).size).toBe(reasons.length);
+    expect(korean.every((text) => /[가-힣]/u.test(text))).toBe(true);
+    expect(english.join("")).not.toMatch(/[가-힣]/u);
+    expect(english).toContain("This option name already exists.");
   });
 });
