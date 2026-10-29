@@ -1675,8 +1675,8 @@ function patchSizeOption(
     typeof size !== "string" ||
     !isDeckSpecOption(product.sizes, size) ||
     typeof name !== "string" ||
-    !isSizeOptionName(name) ||
-    (name !== size && product.sizes.includes(name)) ||
+    // Only a new name is checked, so an existing legacy option keeps its H-035 save and delete.
+    (name !== size && (!isSizeOptionName(name) || product.sizes.includes(name))) ||
     spec === null ||
     (spec === undefined && body.sizeDeckSpec !== null)
   ) {

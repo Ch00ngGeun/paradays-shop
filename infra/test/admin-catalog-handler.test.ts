@@ -1213,6 +1213,46 @@ test("sizeName renames one option in place and moves its size chart atomically",
   assert.equal(isCatalogProductRecord(restored), true);
 });
 
+test("a rename onto a stale key with an empty chart does not bring the stale chart back", async (t) => {
+  const spec = { nose: 6.875, tail: 6.5, width: 8.25, length: 31.75, wheelbase: 14.25 };
+  // "8.75" is left by an older server for an option that no longer exists.
+  const db = fixture(t, [
+    product({ sizes: ["8.25", "8.5"], deckSpecsBySize: { "8.75": spec } }),
+  ]);
+  const renamed = unpack(
+    await handler(
+      event(
+        "PATCH",
+        { version: 3, size: "8.5", sizeName: "8.75", sizeDeckSpec: null },
+        "prd_deck",
+      ),
+    ),
+  );
+  assert.equal(renamed.status, 200);
+  assert.deepEqual(renamed.body.product.sizes, ["8.25", "8.75"]);
+  assert.equal(renamed.body.product.deckSpecsBySize, undefined);
+  assert.equal(Object.hasOwn(db.records.get("prd_deck")!, "deckSpecsBySize"), false);
+});
+
+test("an existing option the new-name rules would refuse still saves and deletes its chart", async (t) => {
+  const spec = { nose: 6.875, tail: 6.5, width: 8.25, length: 31.75, wheelbase: 14.25 };
+  // An array-sent product body can store a comma inside one option, which a new name may not use.
+  const legacy = "8.5, wide";
+  const db = fixture(t, [product({ sizes: ["8.25", legacy] })]);
+  for (const [version, body] of [
+    [3, { size: legacy, sizeDeckSpec: spec }],
+    [4, { size: legacy, sizeName: legacy, sizeDeckSpec: spec }],
+    [5, { size: legacy, sizeDeckSpec: null }],
+  ] as const) {
+    const saved = unpack(
+      await handler(event("PATCH", { version, ...body }, "prd_deck")),
+    );
+    assert.equal(saved.status, 200, JSON.stringify(body));
+  }
+  assert.deepEqual(db.records.get("prd_deck")!.sizes, ["8.25", legacy]);
+  assert.equal(Object.hasOwn(db.records.get("prd_deck")!, "deckSpecsBySize"), false);
+});
+
 test("an option rename is refused while stock is reserved or when it duplicates another product", async (t) => {
   const spec = { nose: 6.875, tail: 6.5, width: 8.25, length: 31.75, wheelbase: 14.25 };
   const db = fixture(t, [
