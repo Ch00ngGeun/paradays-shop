@@ -880,6 +880,46 @@ test("missing brand and option stay blank; changing a region clears the ready pr
   ).toHaveCount(0);
 });
 
+test("area mapping help opens on demand; keyboard steps stay the image's description and warnings stay", async ({
+  page,
+}) => {
+  await setupRegionApi(page);
+  await recognize(page);
+  const dialog = page.getByRole("dialog");
+  const check = async (target: string, text: string) => {
+    const help = page.getByRole("button", { name: `${target} 도움말`, exact: true });
+    await help.click();
+    await expect(dialog).toContainText(text);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(help).toBeFocused();
+  };
+  // The keyboard steps are hidden from the screen but still describe the image area.
+  await expect(
+    page.getByRole("group", { name: "이미지 영역 선택", exact: true }),
+  ).toHaveAccessibleDescription(
+    /방향키로 이동하고 Space로 시작, Enter로 끝을 지정합니다/,
+  );
+  await expect(
+    page.getByText("작은 글자는 확대해서 선택하세요", { exact: false }),
+  ).toHaveCount(0);
+  await check("이미지 영역 선택", "Space로 시작, Enter로 끝을 지정합니다");
+  // The saved-template sharing and privacy notice stays visible.
+  await expect(
+    page.getByText("이 브라우저를 쓰는 계정들이 공유하는 설정입니다.", {
+      exact: false,
+    }),
+  ).toBeVisible();
+
+  await dragRegion(page, "productName");
+  for (const name of ["브랜드 없음", "옵션 없음", "수량 없음"])
+    await page.getByRole("button", { name, exact: true }).click();
+  await expect(page.getByText("반복 간격을 알려 주세요", { exact: false })).toHaveCount(
+    0,
+  );
+  await check("반복 간격", "두 번째 상품 위치를 지정해 반복 간격을 알려 주세요");
+});
+
 test("headerless rows without quantity require a valid aligned second-product hint", async ({
   page,
 }) => {
