@@ -11,7 +11,10 @@ const auth = vi.hoisted(() => ({
   } | null,
 }));
 vi.mock("@/contexts/auth-context", () => ({ useAuth: () => auth }));
-import { AdminOrderSimulationPanel } from "@/components/admin-order-simulation";
+import {
+  AdminOrderSimulationPanel,
+  AdminOrderSimulationSession,
+} from "@/components/admin-order-simulation";
 beforeEach(() => {
   auth.status = "authenticated";
   auth.isAuthenticated = true;
@@ -19,7 +22,9 @@ beforeEach(() => {
 });
 describe("simulation access and IO isolation", () => {
   it("admin sees distinct permanent warning and opt-in only; no pre-created active test order", () => {
-    const html = renderToStaticMarkup(createElement(AdminOrderSimulationPanel));
+    const html = renderToStaticMarkup(
+      createElement(AdminOrderSimulationSession, { locale: "ko" }),
+    );
     expect(html).toContain("모의 주문·재고 테스트");
     expect(html).toContain("실제 결제나 재고 검증 결과가 아닙니다.");
     expect(html).toContain("브라우저 메모리");
@@ -30,7 +35,7 @@ describe("simulation access and IO isolation", () => {
   });
   it("renders the opt-in warning in English when the admin locale is English", () => {
     const html = renderToStaticMarkup(
-      createElement(AdminOrderSimulationPanel, { locale: "en" }),
+      createElement(AdminOrderSimulationSession, { locale: "en" }),
     );
     expect(html).toContain("Mock order and stock test");
     expect(html).toMatch(/<button[^>]*disabled[^>]*>\s*Start mock test\s*<\/button>/);

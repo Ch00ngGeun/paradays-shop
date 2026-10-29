@@ -18,10 +18,11 @@ export function AdminOrderSimulationPanel({ locale = "ko" }: { locale?: Locale }
   const { isAuthenticated, status, user } = useAuth();
   if (status !== "authenticated" || !isAuthenticated || !user?.groups.includes("admin"))
     return null;
-  return <SimulationSession key={user.sub} locale={locale} />;
+  return <AdminOrderSimulationSession key={user.sub} locale={locale} />;
 }
 type Notice = string | Readonly<Record<Locale, string>>;
-function SimulationSession({ locale }: { locale: Locale }) {
+/** The mock test body. Exported so unit tests can render it without the panel's auth gate. */
+export function AdminOrderSimulationSession({ locale }: { locale: Locale }) {
   const isKorean = locale === "ko";
   const [state, setState] = useState<SimulationState | null>(null);
   const current = useRef<SimulationState | null>(null);
