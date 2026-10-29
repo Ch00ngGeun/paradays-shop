@@ -155,6 +155,27 @@ test("returns KST paid revenue and sold units without including pending or refun
   );
 });
 
+test("low stock counts products with 1 to 5 in stock, never sold-out ones", async (t) => {
+  configureTables(t);
+  const send = t.mock.method(documentClient, "send", async (command: unknown) => {
+    assert.ok(command instanceof ScanCommand);
+    return command.input.TableName === "catalog"
+      ? {
+          Items: [0, 1, 3, 5, 6, 0, -1, 2.5].map((inventoryQuantity) => ({
+            inventoryQuantity,
+          })),
+        }
+      : { Items: [] };
+  });
+  t.after(() => send.mock.restore());
+
+  const result = unpack(await handler(adminEvent()));
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.lowStockCount, 3);
+  assert.equal(result.body.lowStockThreshold, 5);
+});
+
 for (const [label, orders] of [
   [
     "a PAID order without paidAt",
