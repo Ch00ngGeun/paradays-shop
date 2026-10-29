@@ -2684,10 +2684,17 @@
   color: var(--product-danger);
 }
 
-/* A deck chip's name opens its size chart, so it underlines instead of turning the remove color. */
-.productScreen .productOptionChip > .productOptionChipRemove:first-child:hover {
-  color: inherit;
-  text-decoration: underline;
+/* A deck chip's name opens its size chart, so it fills like the product form's secondary buttons. */
+.productScreen .productOptionChip > .productOptionChipRemove:first-child {
+  border-radius: 4px;
+  padding-inline: 0.45rem;
+}
+
+.productScreen
+  .productOptionChip
+  > .productOptionChipRemove:first-child:is(:hover, :focus-visible) {
+  background: var(--color-ink);
+  color: var(--color-paper);
 }
 
 .productLegacyPrice {
