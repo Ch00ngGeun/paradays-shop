@@ -21,10 +21,13 @@ export const metadata: Metadata = {
  * opacity는 자식의 visibility:visible로도 뚫리지 않고, 배경은 html이 칠해 테마 화면은 유지됩니다.
  * 해제: LocaleProvider가 ko를 반영한 커밋에서 해제(정상), 앱 스크립트 로드 실패 시 즉시,
  * 그 밖에는 10초 뒤 최종 해제. 실패 해제 때는 보이는 본문이 영어이므로 lang도 en으로 되돌립니다.
+ * 보류 중에는 안 보이는 링크가 Tab·Enter·클릭으로 동작하지 않게 입력·포커스를 막습니다.
+ * 입력 차단은 속성이 있을 때만 동작하므로 어느 경로로 해제돼도 함께 풀립니다.
  * 키·속성 이름은 contexts/locale-context.tsx와 같아야 합니다.
  */
-const LOCALE_PENDING_STYLE = "html[data-locale-pending] body{opacity:0!important}";
-const LOCALE_PENDING_SCRIPT = `(function(){try{if(localStorage.getItem("paradays-locale")!=="ko")return;var r=document.documentElement,a="data-locale-pending",t;r.lang="ko";r.setAttribute(a,"");var f=function(){clearTimeout(t);removeEventListener("error",e,true);if(r.hasAttribute(a)){r.removeAttribute(a);r.lang="en"}},e=function(v){var n=v.target;if(n&&n.tagName==="SCRIPT")f()};addEventListener("error",e,true);t=setTimeout(f,10000)}catch(x){}})()`;
+const LOCALE_PENDING_STYLE =
+  "html[data-locale-pending] body{opacity:0!important;pointer-events:none!important}";
+const LOCALE_PENDING_SCRIPT = `(function(){try{if(localStorage.getItem("paradays-locale")!=="ko")return;var r=document.documentElement,a="data-locale-pending",t;r.lang="ko";r.setAttribute(a,"");var b=function(v){if(!r.hasAttribute(a))return;v.preventDefault();v.stopImmediatePropagation();if(v.type==="focusin"&&v.target&&v.target.blur)v.target.blur()};["keydown","keypress","keyup","click","auxclick","dblclick","contextmenu","mousedown","mouseup","pointerdown","pointerup","touchstart","touchend","submit","focusin"].forEach(function(n){addEventListener(n,b,true)});var f=function(){clearTimeout(t);removeEventListener("error",e,true);if(r.hasAttribute(a)){r.removeAttribute(a);r.lang="en"}},e=function(v){var n=v.target;if(n&&n.tagName==="SCRIPT")f()};addEventListener("error",e,true);t=setTimeout(f,10000)}catch(x){}})()`;
 
 /**
  * 앱 루트 레이아웃.
