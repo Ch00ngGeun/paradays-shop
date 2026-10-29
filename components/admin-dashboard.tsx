@@ -59,6 +59,7 @@ import {
   createProductSku,
   formatProductDeckOption,
   formatProductWheelOption,
+  listProductOptions,
   mergeProductBrandNames,
   PRODUCT_DECK_WIDTHS,
   PRODUCT_WHEEL_DIAMETERS,
@@ -3159,11 +3160,14 @@ function OverviewSection({
 
 function ProductOptionControls({
   category,
+  chartOptions = [],
   editorId,
   onChange,
   value,
 }: Readonly<{
   category: string;
+  /** 옵션별 상세사이즈가 저장된 옵션. 칩에 등록 표시를 붙입니다. */
+  chartOptions?: readonly string[];
   editorId: string;
   onChange: (value: string) => void;
   value: string;
@@ -3171,16 +3175,20 @@ function ProductOptionControls({
   const { locale } = useLocale();
   const isKorean = locale === "ko";
   const inputRef = useRef<HTMLInputElement>(null);
+  const [typed, setTyped] = useState("");
   const [deckWidth, setDeckWidth] = useState("");
   const [wheelDiameter, setWheelDiameter] = useState("");
   const [wheelHardness, setWheelHardness] = useState("");
   const [notice, setNotice] = useState<Notice>(null);
-  const option =
+  const options = listProductOptions(value);
+  const chosen =
     category === "Deck"
       ? formatProductDeckOption(deckWidth)
       : category === "Wheels"
         ? formatProductWheelOption(wheelDiameter, wheelHardness)
         : null;
+  // Typed text wins over a pending choice, so what the admin sees in the input is what gets added.
+  const option = typed.trim() || chosen;
   const addOption = () => {
     if (!option) return;
     const result = appendProductOption(value, option);
@@ -3207,10 +3215,33 @@ function ProductOptionControls({
         ? { ko: `${option} 옵션을 추가했습니다.`, en: `Added the ${option} option.` }
         : { ko: "이미 있는 옵션입니다.", en: "This option already exists." },
     });
+    setTyped("");
     setDeckWidth("");
     setWheelDiameter("");
     setWheelHardness("");
   };
+  // Removes by position, so one chip of a legacy duplicate such as "M, M, L" goes alone.
+  const removeOption = (index: number) => {
+    const removed = options[index];
+    onChange(options.filter((_, position) => position !== index).join(", "));
+    setNotice({
+      kind: "success",
+      message: {
+        ko: `${removed} 옵션을 뺐습니다. 상품을 저장하면 반영됩니다.`,
+        en: `Removed the ${removed} option. It applies when the product is saved.`,
+      },
+    });
+  };
+  const addButton = (
+    <button
+      className={styles.secondaryButton}
+      disabled={!option}
+      onClick={addOption}
+      type="button"
+    >
+      {isKorean ? "옵션 추가" : "Add option"}
+    </button>
+  );
 
   return (
     <div
@@ -3222,11 +3253,17 @@ function ProductOptionControls({
           id={`product-options-${editorId}`}
           onChange={(event) => {
             setNotice(null);
-            onChange(event.target.value);
+            setTyped(event.target.value);
           }}
-          placeholder={category === "Wheels" ? "54mm / 99a" : "8.25”, 8.5”"}
+          onKeyDown={(event) => {
+            // Enter adds the typed option instead of submitting the product form; IME input is still composing.
+            if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+            event.preventDefault();
+            addOption();
+          }}
+          placeholder={category === "Wheels" ? "54mm / 99a" : "8.25”"}
           ref={inputRef}
-          value={value}
+          value={typed}
         />
       </label>
       {category === "Deck" ? (
@@ -3248,14 +3285,7 @@ function ProductOptionControls({
             ))}
             <option value="manual">{isKorean ? "직접 입력" : "Enter manually"}</option>
           </select>
-          <button
-            className={styles.secondaryButton}
-            disabled={!option}
-            onClick={addOption}
-            type="button"
-          >
-            {isKorean ? "옵션 추가" : "Add option"}
-          </button>
+          {addButton}
         </div>
       ) : category === "Wheels" ? (
         <>
@@ -3291,25 +3321,47 @@ function ProductOptionControls({
               ))}
             </select>
           </div>
-          <button
-            className={styles.secondaryButton}
-            disabled={!option}
-            onClick={addOption}
-            type="button"
-          >
-            {isKorean ? "옵션 추가" : "Add option"}
-          </button>
+          {addButton}
         </>
+      ) : (
+        addButton
+      )}
+      {options.length ? (
+        <ul
+          aria-label={isKorean ? "추가된 옵션" : "Added options"}
+          className={styles.productOptionChips}
+        >
+          {options.map((item, index) => (
+            <li className={styles.productOptionChip} key={`${index}:${item}`}>
+              <span>{item}</span>
+              {category === "Deck" && chartOptions.includes(item) ? (
+                <small className={styles.productOptionChipMark}>
+                  {isKorean ? "상세" : "chart"}
+                </small>
+              ) : null}
+              <button
+                aria-label={isKorean ? `${item} 삭제` : `Remove ${item}`}
+                className={styles.productOptionChipRemove}
+                onClick={() => removeOption(index)}
+                type="button"
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
       ) : null}
       <small>
         {category === "Deck" || category === "Wheels"
           ? isKorean
-            ? "선택 후 ‘옵션 추가’를 누르세요. 추가 전 선택값은 저장되지 않습니다. "
-            : "After choosing, press ‘Add option’. A choice is not saved until it is added. "
-          : ""}
+            ? "직접 입력하거나 선택한 뒤 ‘옵션 추가’를 누르세요. 추가 전 입력값은 저장되지 않습니다. "
+            : "Type or choose, then press ‘Add option’. Nothing is saved until it is added. "
+          : isKorean
+            ? "입력한 뒤 ‘옵션 추가’나 Enter를 누르세요. "
+            : "Type, then press ‘Add option’ or Enter. "}
         {isKorean
-          ? "여러 옵션은 쉼표로 구분 · 최대 20개"
-          : "Separate options with commas · Up to 20"}
+          ? "옵션은 하나씩 추가 · 최대 20개 · 삭제는 상품 저장 때 반영"
+          : "One option at a time · Up to 20 · Removals apply when the product is saved"}
       </small>
       {notice ? (
         <small
@@ -4050,6 +4102,7 @@ function ProductSection({
               category={draft.category}
               editorId={editorId}
               key={`${editorId}:${draft.category}:${optionResetKey}`}
+              chartOptions={Object.keys(deckSpecsBySize ?? {})}
               onChange={(value) => onTextChange("sizes", value)}
               value={draft.sizes}
             />
@@ -4377,7 +4430,7 @@ function ProductSection({
                             className={
                               index === 0 ? styles.storeCardSizeActive : undefined
                             }
-                            key={size}
+                            key={`${index}:${size}`}
                           >
                             {size}
                           </span>
