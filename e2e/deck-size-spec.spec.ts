@@ -662,6 +662,22 @@ test("the storefront shows a size chart with inches and cm only when the product
   expect(audit.blocked).toEqual([]);
 });
 
+test("a product name entered on two lines shows on two lines on the product page", async ({
+  page,
+}) => {
+  const audit = await setup(page, `/products/${DECK.slug}`, undefined, {
+    name: "[TEST] Two line\nDeck",
+  });
+  const heading = page.getByRole("heading", { level: 1 });
+  await expect(heading).toBeVisible();
+  expect(await heading.innerText()).toBe("[TEST] Two line\nDeck");
+  const lineHeight = await heading.evaluate((h1) =>
+    parseFloat(getComputedStyle(h1).lineHeight),
+  );
+  expect((await heading.boundingBox())!.height).toBeGreaterThan(lineHeight * 1.5);
+  expect(audit.blocked).toEqual([]);
+});
+
 test("the storefront size chart follows the selected size and falls back to the default", async ({
   page,
 }) => {
