@@ -1846,6 +1846,14 @@ test("product form refinement: deck choices append only explicitly and category 
   await chooser.selectOption("manual");
   await expect(raw).toBeFocused();
   await expect(raw).toHaveValue("");
+  // Counts real form submissions, so a missing preventDefault fails even when validation would stop the save.
+  await page.evaluate(() => {
+    const state = window as unknown as { __submits: number };
+    state.__submits = 0;
+    document.addEventListener("submit", () => (state.__submits += 1), true);
+  });
+  const submits = () =>
+    page.evaluate(() => (window as unknown as { __submits: number }).__submits);
   await raw.fill("TEST_CUSTOM_8.375");
   await raw.press("Enter");
   await expect(raw).toHaveValue("");
@@ -1861,6 +1869,10 @@ test("product form refinement: deck choices append only explicitly and category 
   expect(removeBox.height).toBeGreaterThanOrEqual(44);
   expect(removeBox.width).toBeGreaterThanOrEqual(44);
   // Enter only added the option; it never submitted the product form.
+  expect(await submits()).toBe(0);
+  // Control: the save button does submit, so the counter would have caught one.
+  await page.getByRole("button", { name: "비공개로 저장", exact: true }).click();
+  await expect.poll(submits).toBe(1);
   expect(audit.syntheticWrites).toEqual([]);
 });
 

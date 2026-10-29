@@ -64,7 +64,6 @@ import {
   PRODUCT_DECK_WIDTHS,
   PRODUCT_WHEEL_DIAMETERS,
   PRODUCT_WHEEL_HARDNESSES,
-  removeProductOption,
   validateProductOptions,
 } from "@/lib/admin-ui/product-form";
 import {
@@ -3221,8 +3220,10 @@ function ProductOptionControls({
     setWheelDiameter("");
     setWheelHardness("");
   };
-  const removeOption = (removed: string) => {
-    onChange(removeProductOption(value, removed));
+  // Removes by position, so one chip of a legacy duplicate such as "M, M, L" goes alone.
+  const removeOption = (index: number) => {
+    const removed = options[index];
+    onChange(options.filter((_, position) => position !== index).join(", "));
     setNotice({
       kind: "success",
       message: {
@@ -3330,8 +3331,8 @@ function ProductOptionControls({
           aria-label={isKorean ? "추가된 옵션" : "Added options"}
           className={styles.productOptionChips}
         >
-          {options.map((item) => (
-            <li className={styles.productOptionChip} key={item}>
+          {options.map((item, index) => (
+            <li className={styles.productOptionChip} key={`${index}:${item}`}>
               <span>{item}</span>
               {category === "Deck" && chartOptions.includes(item) ? (
                 <small className={styles.productOptionChipMark}>
@@ -3341,7 +3342,7 @@ function ProductOptionControls({
               <button
                 aria-label={isKorean ? `${item} 삭제` : `Remove ${item}`}
                 className={styles.productOptionChipRemove}
-                onClick={() => removeOption(item)}
+                onClick={() => removeOption(index)}
                 type="button"
               >
                 ×
@@ -4429,7 +4430,7 @@ function ProductSection({
                             className={
                               index === 0 ? styles.storeCardSizeActive : undefined
                             }
-                            key={size}
+                            key={`${index}:${size}`}
                           >
                             {size}
                           </span>

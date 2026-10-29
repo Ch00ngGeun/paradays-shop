@@ -351,8 +351,12 @@ test("without a default, the summary counts option charts and unsaved options ar
   ).toHaveCount(0);
 
   // An option typed in the editor is not offered until the product is saved.
+  await page.getByRole("button", { name: "8.5 삭제", exact: true }).click();
   await page.getByRole("textbox", { name: "사이즈 / 옵션" }).fill("8.75");
   await page.getByRole("button", { name: "옵션 추가", exact: true }).click();
+  await expect(
+    page.getByRole("list", { name: "추가된 옵션" }).locator("li > :first-child"),
+  ).toHaveText(["8.25", "8.75"]);
   await expect(
     page.getByText(
       "바뀐 옵션은 상품을 먼저 저장해야 상세사이즈 대상으로 고를 수 있습니다.",
@@ -590,5 +594,31 @@ test("without a default, only a size with its own values shows the size chart", 
 
   await page.getByRole("button", { name: "8.25", exact: true }).click();
   await expect(page.getByRole("button", { name: "상세사이즈" })).toHaveCount(0);
+  expect(audit.blocked).toEqual([]);
+});
+
+test("a legacy duplicate option chip is removed alone, by its position", async ({
+  page,
+}) => {
+  const audit = await setup(page, "/admin?section=products", undefined, {
+    sizes: ["M", "M", "L"],
+  });
+  await page
+    .getByRole("list", { name: "상품 목록" })
+    .getByRole("listitem")
+    .filter({ hasText: "[TEST] Deck size A" })
+    .getByRole("button", { name: "수정", exact: true })
+    .click();
+  const chips = page
+    .getByRole("list", { name: "추가된 옵션" })
+    .locator("li > :first-child");
+  await expect(chips).toHaveText(["M", "M", "L"]);
+  await page.getByRole("button", { name: "M 삭제", exact: true }).nth(1).click();
+  await expect(chips).toHaveText(["M", "L"]);
+
+  page.once("dialog", (prompt) => void prompt.accept());
+  await page.getByRole("button", { name: /수정 저장/ }).click();
+  await expect.poll(() => audit.patches.length).toBe(1);
+  expect(audit.patches[0]).toMatchObject({ version: 3, sizes: "M, L" });
   expect(audit.blocked).toEqual([]);
 });
