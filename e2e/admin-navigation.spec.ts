@@ -1515,6 +1515,53 @@ test("product form refinement: without field-sizing the product name box regrows
   await expect.poll(fits).toBe(true);
 });
 
+test("product form refinement: a long brand grows its box while typing and stays on one line", async ({
+  page,
+}) => {
+  const audit = await setup(page, { path: "/admin?section=products" });
+  await newProduct(page);
+  const brand = page
+    .locator("#admin-panel-products")
+    .getByRole("textbox", { name: "브랜드", exact: false });
+  await brand.fill("A");
+  const oneLine = (await brand.boundingBox())!.height;
+  await brand.fill(`SYNTHETIC ${"LONG BRAND ".repeat(8)}`.trim());
+  await expect
+    .poll(async () => (await brand.boundingBox())!.height)
+    .toBeGreaterThan(oneLine * 1.4);
+  expect(
+    await brand.evaluate((input) => input.scrollHeight <= input.clientHeight + 1),
+  ).toBe(true);
+  // A pasted line break becomes a space, and Enter never adds a line.
+  await brand.fill("Synthetic\nBrand");
+  await expect(brand).toHaveValue("Synthetic Brand");
+  await brand.press("Enter");
+  await expect(brand).toHaveValue("Synthetic Brand");
+  expect(audit.syntheticWrites).toEqual([]);
+});
+
+test("product form refinement: the two-line notice does not follow the admin to another product", async ({
+  page,
+}) => {
+  await setup(page, { path: "/admin?section=products", products: true });
+  const openEditor = async (productName: string) => {
+    await page
+      .getByRole("listitem")
+      .filter({ hasText: productName })
+      .getByRole("button", { name: "수정", exact: true })
+      .click();
+  };
+  await openEditor(products[0]!.name);
+  const name = page.getByRole("textbox", { name: "상품명", exact: false });
+  await name.fill("FIRST\nSECOND\nTHIRD");
+  const notice = page.getByRole("status").filter({ hasText: "최대 2줄" });
+  await expect(notice).toBeVisible();
+  await select(page, "products");
+  await openEditor(products[1]!.name);
+  await expect(name).toHaveValue(products[1]!.name);
+  await expect(notice).toHaveCount(0);
+});
+
 test("product form refinement: a spaced search finds a product whose name has a line break", async ({
   page,
 }) => {
@@ -4457,6 +4504,39 @@ test("coupon redesign: editing the live ticket never issues a coupon or loads fa
   expect(audit.reads.filter((path) => /coupons|members|campaigns/.test(path))).toEqual(
     [],
   );
+});
+
+test("coupon redesign: Enter in the growing coupon name saves only when the save button is enabled", async ({
+  page,
+}) => {
+  const commands: unknown[] = [];
+  await setup(page, {
+    path: "/admin?section=coupons",
+    handleCouponMutation: async (route) => {
+      commands.push(route.request().postDataJSON());
+      await savedCoupon(route);
+    },
+  });
+  const panel = couponWorkspace(page);
+  const name = couponField(page, "쿠폰명 (필수)");
+  const save = panel.getByRole("button", { name: "쿠폰 초안 저장", exact: true });
+  // With only a name the form is incomplete, so Enter does what a one-line input would: nothing.
+  await name.fill("[TEST] Enter coupon");
+  await expect(save).toBeDisabled();
+  await name.press("Enter");
+  await expect(name).toHaveValue("[TEST] Enter coupon");
+  await page.waitForTimeout(300);
+  expect(commands).toEqual([]);
+  await expect(panel.getByText("아직 고객에게 발급되지 않았습니다")).toHaveCount(0);
+  // The submit handler never ran, so no error notice appeared either.
+  await expect(panel.getByRole("alert")).toHaveCount(0);
+
+  // Once the form is complete, Enter submits through the save button as before.
+  await fillCoupon(page, { name: "[TEST] Enter coupon", code: "test_enter10" });
+  await expect(save).toBeEnabled();
+  await name.press("Enter");
+  await expect.poll(() => commands.length).toBe(1);
+  await expect(name).not.toHaveValue(/\n/);
 });
 
 test("coupon redesign: explicit percent and amount draft saves preserve uppercase codes supported fields and KST expiration", async ({
