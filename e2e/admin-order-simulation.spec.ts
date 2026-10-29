@@ -89,7 +89,15 @@ async function setup(
     },
   );
   await page.goto("/admin");
+  if (groups.includes("admin") && !anonymous) await openSimulation(page);
   return page.getByRole("region", { name: "모의 주문·재고 테스트", exact: true });
+}
+/** The home shows only a launcher; the test itself lives in a modal. */
+async function openSimulation(page: Page) {
+  await page
+    .getByRole("button", { name: "모의 주문·재고 테스트", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toBeVisible();
 }
 async function start(panel: Locator) {
   await expect(
@@ -231,6 +239,9 @@ test("reset/end/refresh discard memory; no URL or storage persistence; TEST real
     ),
   ).toBe(false);
   expect(page.url()).not.toContain(old!);
+  // Closing the modal ends the test; the real order panel behind it is usable again.
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   const real = page.getByRole("region", {
     name: "주문 취소·반품 재고 관리",
     exact: true,
@@ -238,9 +249,19 @@ test("reset/end/refresh discard memory; no URL or storage persistence; TEST real
   await real.getByRole("textbox", { name: "주문번호", exact: true }).fill(old!);
   await real.getByRole("button", { name: "주문 조회", exact: true }).click();
   await expect(real.getByRole("status")).toContainText("서버가 요청을 거절했습니다");
+  await openSimulation(page);
+  await expect(
+    panel.getByRole("button", { name: "모의 테스트 시작", exact: true }),
+  ).toBeDisabled();
+  await expect(panel.getByLabel("모의 주문번호", { exact: true })).toHaveCount(0);
+  await start(panel);
+  await approve(panel);
+  const again = await panel.getByLabel("모의 주문번호", { exact: true }).textContent();
   await panel.getByRole("button", { name: "모의 테스트 초기화", exact: true }).click();
   await expect(panel.getByLabel("테스트 재고", { exact: true })).toHaveText("10");
-  await expect(panel.getByLabel("모의 주문번호", { exact: true })).not.toHaveText(old!);
+  await expect(panel.getByLabel("모의 주문번호", { exact: true })).not.toHaveText(
+    again!,
+  );
   await expect(
     panel.getByRole("button", { name: "마지막 모의 요청 재시도" }),
   ).toBeDisabled();
@@ -251,10 +272,52 @@ test("reset/end/refresh discard memory; no URL or storage persistence; TEST real
   await start(panel);
   await approve(panel);
   await page.reload();
+  await openSimulation(page);
   await expect(
     panel.getByRole("button", { name: "모의 테스트 시작", exact: true }),
   ).toBeDisabled();
   await expect(panel.getByLabel("모의 주문번호", { exact: true })).toHaveCount(0);
+});
+test("the mock test opens in a modal with its warnings, closes with Esc or the button and returns focus", async ({
+  page,
+}) => {
+  await setup(page);
+  const launcher = page.getByRole("button", {
+    name: "모의 주문·재고 테스트",
+    exact: true,
+  });
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("모의 테스트 전용 · 실서비스 미연결");
+  await expect(dialog.getByRole("note")).toContainText("서버·PG·실제 상품");
+  await expect(dialog).toContainText("브라우저 메모리에서만 동작합니다.");
+  await expect(
+    dialog.getByLabel("실제 주문·재고를 바꾸지 않는 모의 테스트임을 이해했습니다"),
+  ).not.toBeChecked();
+
+  // While open, the real order panel behind the modal sits inside an inert ancestor.
+  const orderInput = page.getByRole("textbox", { name: "주문번호", exact: true });
+  const isInert = () =>
+    orderInput.evaluate((element) => element.closest("[inert]") !== null);
+  expect(await isInert()).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(launcher).toBeFocused();
+  expect(await isInert()).toBe(false);
+  // Closed, nothing of the test stays on the home screen and the background works again.
+  await expect(
+    page.getByRole("heading", { name: "모의 주문·재고 테스트", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("textbox", { name: "주문번호", exact: true }),
+  ).toBeEditable();
+
+  await launcher.click();
+  await expect(dialog).toBeVisible();
+  expect(await isInert()).toBe(true);
+  await dialog.getByRole("button", { name: "모의 테스트 닫기", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(launcher).toBeFocused();
+  expect(await isInert()).toBe(false);
 });
 test("member/anonymous cannot enable local simulation through URL or stored flags", async ({
   page,
@@ -270,6 +333,9 @@ test("member/anonymous cannot enable local simulation through URL or stored flag
   await expect(
     page.getByRole("heading", { name: "관리자 권한이 없습니다", exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "모의 주문·재고 테스트", exact: true }),
+  ).toHaveCount(0);
   await page.evaluate(() => sessionStorage.removeItem("paradays.auth.session"));
   await page.reload();
   await expect(
@@ -288,6 +354,9 @@ test("logout removes the mock auth session and hides all simulation controls", a
   await page.goto("/admin");
   await expect(
     page.getByRole("heading", { name: "모의 주문·재고 테스트", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "모의 주문·재고 테스트", exact: true }),
   ).toHaveCount(0);
   expect(
     await page.evaluate(() => sessionStorage.getItem("paradays.auth.session")),

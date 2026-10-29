@@ -543,6 +543,10 @@ test("all nine menus and the overview order panels show no Korean in English", a
   await expect(page.getByRole("heading", { name: /pd_order_001/ })).toBeVisible();
   await scan(page, "order stock panel", found);
 
+  // The mock test opens from a launcher into a modal.
+  await page
+    .getByRole("button", { name: "Mock order and stock test", exact: true })
+    .click();
   await page
     .getByLabel("I understand this mock test does not change real orders or stock", {
       exact: true,

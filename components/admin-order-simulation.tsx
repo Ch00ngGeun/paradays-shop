@@ -1,6 +1,9 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "@/contexts/auth-context";
+import { useFocusTrap } from "@/hooks/use-focus-trap";
+import { useModalLayer } from "@/hooks/use-modal-layer";
 import type { Locale } from "@/types/store";
 import {
   applySimulation,
@@ -13,12 +16,68 @@ import {
 } from "@/lib/admin-ui/order-inventory-simulation";
 import styles from "./admin-order-simulation.module.css";
 
-/** Separate teaching panel, never an adapter for the real order/checkout APIs. */
+/**
+ * Separate teaching panel, never an adapter for the real order/checkout APIs.
+ * The home shows only a button; the test runs in a modal and closing it ends the test.
+ */
 export function AdminOrderSimulationPanel({ locale = "ko" }: { locale?: Locale }) {
   const { isAuthenticated, status, user } = useAuth();
   if (status !== "authenticated" || !isAuthenticated || !user?.groups.includes("admin"))
     return null;
-  return <AdminOrderSimulationSession key={user.sub} locale={locale} />;
+  return <SimulationLauncher key={user.sub} locale={locale} />;
+}
+function SimulationLauncher({ locale }: { locale: Locale }) {
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+  // Runs after the modal layer is gone, so the background is no longer inert when focus returns.
+  useEffect(() => {
+    if (wasOpen.current && !open) buttonRef.current?.focus();
+    wasOpen.current = open;
+  }, [open]);
+  return (
+    <>
+      <button
+        aria-haspopup="dialog"
+        className={styles.launch}
+        onClick={() => setOpen(true)}
+        ref={buttonRef}
+        type="button"
+      >
+        {locale === "ko" ? "모의 주문·재고 테스트" : "Mock order and stock test"}
+      </button>
+      {open ? <SimulationModal locale={locale} onClose={() => setOpen(false)} /> : null}
+    </>
+  );
+}
+function SimulationModal({ locale, onClose }: { locale: Locale; onClose: () => void }) {
+  const layer = useModalLayer(true);
+  const dialogRef = useFocusTrap(true, onClose);
+  if (!layer) return null;
+  return createPortal(
+    <div className={styles.overlay}>
+      <section
+        aria-labelledby="order-simulation-title"
+        aria-modal="true"
+        className={styles.dialog}
+        ref={dialogRef}
+        role="dialog"
+        tabIndex={-1}
+      >
+        <button
+          aria-label={locale === "ko" ? "모의 테스트 닫기" : "Close mock test"}
+          className={styles.close}
+          onClick={onClose}
+          type="button"
+        >
+          ×
+        </button>
+        {/* Unmounting the session on close discards the whole mock state. */}
+        <AdminOrderSimulationSession locale={locale} />
+      </section>
+    </div>,
+    layer,
+  );
 }
 type Notice = string | Readonly<Record<Locale, string>>;
 /** The mock test body. Exported so unit tests can render it without the panel's auth gate. */
