@@ -5627,3 +5627,9 @@
   gap: 0.15rem;
   min-width: 0;
 }
+
+/* A field whose label wraps its input; its '?' sits at the label line's right end. */
+.helpField {
+  min-width: 0;
+  position: relative;
+}
