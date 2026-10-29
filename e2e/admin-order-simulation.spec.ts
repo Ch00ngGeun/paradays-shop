@@ -294,9 +294,15 @@ test("the mock test opens in a modal with its warnings, closes with Esc or the b
     dialog.getByLabel("실제 주문·재고를 바꾸지 않는 모의 테스트임을 이해했습니다"),
   ).not.toBeChecked();
 
+  // While open, the real order panel behind the modal sits inside an inert ancestor.
+  const orderInput = page.getByRole("textbox", { name: "주문번호", exact: true });
+  const isInert = () =>
+    orderInput.evaluate((element) => element.closest("[inert]") !== null);
+  expect(await isInert()).toBe(true);
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(launcher).toBeFocused();
+  expect(await isInert()).toBe(false);
   // Closed, nothing of the test stays on the home screen and the background works again.
   await expect(
     page.getByRole("heading", { name: "모의 주문·재고 테스트", exact: true }),
@@ -306,9 +312,12 @@ test("the mock test opens in a modal with its warnings, closes with Esc or the b
   ).toBeEditable();
 
   await launcher.click();
+  await expect(dialog).toBeVisible();
+  expect(await isInert()).toBe(true);
   await dialog.getByRole("button", { name: "모의 테스트 닫기", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(launcher).toBeFocused();
+  expect(await isInert()).toBe(false);
 });
 test("member/anonymous cannot enable local simulation through URL or stored flags", async ({
   page,
