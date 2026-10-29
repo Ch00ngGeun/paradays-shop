@@ -105,8 +105,15 @@ export function deckSpecFailureMessage(
   describeError: ((error: unknown) => string | undefined) | undefined,
   isKorean: boolean,
 ) {
+  let described: string | undefined;
+  try {
+    described = describeError?.(error);
+  } catch {
+    // A failing description must not leave the form stuck in its saving state.
+    described = undefined;
+  }
   return (
-    describeError?.(error) ??
+    described ??
     (isKorean
       ? "저장하지 못했습니다. 입력값은 그대로 두었으니 다시 저장해 주세요."
       : "Could not save. Your input is kept, so save again.")

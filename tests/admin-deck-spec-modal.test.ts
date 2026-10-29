@@ -349,5 +349,12 @@ describe("admin deck spec modal", () => {
     expect(deckSpecFailureMessage(reserved, undefined, false)).toBe(
       "Could not save. Your input is kept, so save again.",
     );
+    // A throwing description falls back instead of escaping the save handler.
+    const throwing = () => {
+      throw new Error("describe failed");
+    };
+    expect(deckSpecFailureMessage(reserved, throwing, true)).toBe(
+      "저장하지 못했습니다. 입력값은 그대로 두었으니 다시 저장해 주세요.",
+    );
   });
 });
