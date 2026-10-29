@@ -259,7 +259,8 @@ async function countLowStockProducts(tableName: string) {
         isRecord(item) &&
         typeof item.inventoryQuantity === "number" &&
         Number.isSafeInteger(item.inventoryQuantity) &&
-        item.inventoryQuantity >= 0 &&
+        // Sold-out items (0) are not restocked, so only 1 to the threshold needs attention.
+        item.inventoryQuantity >= 1 &&
         item.inventoryQuantity <= LOW_STOCK_THRESHOLD
       ) {
         count += 1;
