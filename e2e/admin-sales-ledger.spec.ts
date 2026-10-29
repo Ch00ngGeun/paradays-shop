@@ -223,6 +223,7 @@ async function setup(
     load?: boolean;
     readReply?: MockReply;
     handle?: (command: SalesCommand, state: LedgerMock) => MockReply | undefined;
+    productName?: string;
   } = {},
 ) {
   const state: LedgerMock = {
@@ -286,7 +287,7 @@ async function setup(
         products: [
           {
             productId: "prd_deck",
-            name: "Deck",
+            name: options.productName ?? "Deck",
             brandName: "Synthetic Maker",
             category: "Deck",
             price: 10000,
@@ -428,6 +429,36 @@ test("unmatched draft saves the KST time without changing stock or guessing a pr
   });
   expect(state.stock).toBe(10);
   expect(state.stockMoves).toBe(0);
+});
+
+test("a product name entered on two lines is saved as one line in the sale line", async ({
+  page,
+}) => {
+  // The ledger server refuses control characters such as a line break in a line name.
+  const state = await setup(page, { productName: "Synthetic\nDeck  \t8.25" });
+  await page.getByRole("button", { name: NEW_ENTRY, exact: true }).click();
+  await page.getByLabel("상품 이름 검색", { exact: true }).fill("Deck");
+  await page
+    .getByRole("button", { name: "Synthetic Deck 8.25 연결", exact: true })
+    .click();
+  await expect(page.getByLabel("1번 상품명", { exact: true })).toHaveValue(
+    "Synthetic Deck 8.25",
+  );
+  await page.getByLabel("판매일시 (한국 시간)", { exact: true }).fill(`${DAY}T09:30`);
+  await page
+    .getByRole("combobox", { name: "결제 구분", exact: true })
+    .selectOption("CARD");
+  await page.getByLabel("전표 참조번호", { exact: true }).fill("CARD-LOCAL-002");
+  await page.getByLabel("전표 금액", { exact: true }).fill("10000");
+  await page.getByLabel("1번 수량", { exact: true }).fill("1");
+  await page.getByLabel("1번 단가", { exact: true }).fill("10000");
+  await page.getByRole("button", { name: "초안 저장", exact: true }).click();
+  await expect.poll(() => state.posts.length).toBe(1);
+  const save = state.posts[0]!;
+  if (save.action !== "save") throw new Error(`expected a save, got ${save.action}`);
+  const name = save.lines[0]!.name;
+  expect(name).toBe("Synthetic Deck 8.25");
+  expect(name).not.toMatch(/[\u0000-\u001f\u007f]/);
 });
 
 test("matched sale needs a stock preview and explicit confirmation before a single stock debit", async ({

@@ -1182,7 +1182,8 @@ function ActualSalesLedgerPanel({
                                   ...draft.lines,
                                   {
                                     productId: p.id,
-                                    name: p.name,
+                                    // The ledger server refuses control characters, so a two-line product name becomes one line.
+                                    name: p.name.replace(/\s+/g, " ").trim(),
                                     option: options.length === 1 ? options[0] : "",
                                     quantity: "1",
                                     unitAmount: String(p.price),
