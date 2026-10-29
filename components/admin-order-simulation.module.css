@@ -123,3 +123,59 @@
   margin: 0.5rem 0;
   line-height: 1.5;
 }
+/* The home shows only this launcher; the mock test opens in the modal below. */
+.launch {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  margin: 1rem 0 2rem;
+  border: 2px dashed #6b4bb3;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  background: #f7f3ff;
+  color: #54328b;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.launch:hover {
+  background: #ece4ff;
+}
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(37 32 54 / 55%);
+}
+.dialog {
+  position: relative;
+  width: 100%;
+  max-width: 52rem;
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+}
+.dialog .panel {
+  margin: 0;
+}
+.close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 1;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #252036;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.close:hover {
+  background: #ece4ff;
+}
