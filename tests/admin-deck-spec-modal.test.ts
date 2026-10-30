@@ -42,7 +42,7 @@ describe("admin deck spec modal", () => {
     }
   });
 
-  it("builds a spec only when all five fields are valid", () => {
+  it("builds a spec with blank fields as null, refusing a wrong field or no number at all", () => {
     const inputs = {
       nose: "6.875",
       tail: "6.5",
@@ -51,8 +51,17 @@ describe("admin deck spec modal", () => {
       wheelbase: "14.25",
     };
     expect(parseDeckSpecInputs(inputs)).toEqual(spec);
-    expect(parseDeckSpecInputs({ ...inputs, tail: "" })).toBeNull();
+    // A blank field is saved as null.
+    expect(parseDeckSpecInputs({ ...inputs, tail: " " })).toEqual({
+      ...spec,
+      tail: null,
+    });
+    // One wrong field still blocks the spec, and so does having no number at all.
     expect(parseDeckSpecInputs({ ...inputs, width: "0" })).toBeNull();
+    expect(parseDeckSpecInputs({ ...inputs, tail: "", width: "0" })).toBeNull();
+    expect(
+      parseDeckSpecInputs({ nose: "", tail: "", width: "", length: "", wheelbase: "" }),
+    ).toBeNull();
   });
 
   it("a new spec starts empty with save disabled and no delete button", () => {
@@ -103,7 +112,7 @@ describe("admin deck spec modal", () => {
     );
 
     expect(empty + filled).not.toMatch(/[가-힣]/u);
-    expect(empty).toContain("Fill in all 5 fields to see the diagram preview.");
+    expect(empty).toContain("Enter at least one value to see the diagram preview.");
     expect(filled).toMatch(/<button[^>]*type="submit"[^>]*>Save<\/button>/);
     expect(filled).toContain(">Delete</button>");
     expect(filled).toContain(">Cancel</button>");
@@ -220,10 +229,65 @@ describe("admin deck spec modal", () => {
       spec: null,
       sizeName: "8.25 wide",
     });
-    // A half-filled chart never saves, even with a valid new name.
+    // A half-filled chart saves with the new name, its blank fields as null.
     expect(
-      getDeckSpecSaveState({ ...empty, nose: "6.875" }, option("8.25 wide")).ready,
+      getDeckSpecSaveState({ ...empty, nose: "6.875" }, option("8.25 wide")),
+    ).toMatchObject({
+      ready: true,
+      spec: { nose: 6.875, tail: null, width: null, length: null, wheelbase: null },
+    });
+    // A wrong field still blocks it.
+    expect(
+      getDeckSpecSaveState({ ...empty, nose: "0" }, option("8.25 wide")).ready,
     ).toBe(false);
+  });
+
+  it("saves a partial chart, deletes when every field is emptied, and has nothing to save when there was nothing", () => {
+    const partial = { ...empty, width: "8.5", length: "31.75" };
+    expect(getDeckSpecSaveState(partial)).toMatchObject({
+      ready: true,
+      spec: { nose: null, tail: null, width: 8.5, length: 31.75, wheelbase: null },
+    });
+    // Emptying every field of a saved chart is the same as deleting it.
+    expect(getDeckSpecSaveState(empty, undefined, true)).toMatchObject({
+      ready: true,
+      spec: null,
+    });
+    expect(getDeckSpecSaveState(empty, option("8.25"), true).ready).toBe(true);
+    // With no saved chart and no new name, an empty form has nothing to save.
+    expect(getDeckSpecSaveState(empty).ready).toBe(false);
+    expect(getDeckSpecSaveState(empty, option("8.25")).ready).toBe(false);
+  });
+
+  it("reopens a chart with blank fields as empty inputs, a preview with null, and saves an edit", async () => {
+    const partial = {
+      nose: null,
+      tail: 6.5,
+      width: 8.5,
+      length: null,
+      wheelbase: null,
+    };
+    const markup = renderToStaticMarkup(
+      createElement(AdminDeckSpecForm, {
+        initialSpec: partial,
+        onCancel: () => {},
+        onSave: noop,
+      }),
+    );
+    // Blank fields come back empty, never as the word null.
+    expect(markup).not.toContain('value="null"');
+    expect(markup.match(/value=""/g)).toHaveLength(3);
+    expect(markup).toContain('value="6.5"');
+    // The preview shows at once, with null on the blank fields.
+    expect(markup).toContain('role="img"');
+    expect(markup).toContain("nose null");
+    expect(markup).toMatch(/<button[^>]*type="submit"[^>]*>저장<\/button>/);
+    expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*type="submit"/);
+    // Editing one field of what was reopened saves the rest unchanged.
+    const reopened = { nose: "", tail: "6.5", width: "8.5", length: "", wheelbase: "" };
+    expect(
+      getDeckSpecSaveState({ ...reopened, length: "31.75" }, undefined, true).spec,
+    ).toEqual({ ...partial, length: 31.75 });
   });
 
   it("an invalid new name blocks saving with a reason", () => {

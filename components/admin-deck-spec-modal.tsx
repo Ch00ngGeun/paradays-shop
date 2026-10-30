@@ -42,15 +42,23 @@ function isInvalidInches(value: string) {
   return value.trim() !== "" && parseDeckInches(value) === null;
 }
 
-/** 5칸이 모두 올바를 때만 저장 가능한 상세사이즈를 만듭니다. */
+/**
+ * 저장할 상세사이즈를 만듭니다. 빈 칸은 null이고, 잘못된 칸이 있거나 숫자가 하나도 없으면 null입니다.
+ * 모든 칸이 빈 저장은 값이 아니라 삭제 요청이라 저장 가능 여부에서 따로 판단합니다.
+ */
 export function parseDeckSpecInputs(inputs: DeckSpecInputs): DeckSpec | null {
-  const values = DECK_SPEC_FIELDS.map((field) => parseDeckInches(inputs[field]));
+  const values = DECK_SPEC_FIELDS.map((field) =>
+    inputs[field].trim() ? parseDeckInches(inputs[field]) : null,
+  );
 
-  if (values.some((value) => value === null)) {
+  if (
+    DECK_SPEC_FIELDS.some((field) => isInvalidInches(inputs[field])) ||
+    values.every((value) => value === null)
+  ) {
     return null;
   }
 
-  const [nose, tail, width, length, wheelbase] = values as number[];
+  const [nose, tail, width, length, wheelbase] = values;
 
   return { nose, tail, width, length, wheelbase };
 }
@@ -58,11 +66,13 @@ export function parseDeckSpecInputs(inputs: DeckSpecInputs): DeckSpec | null {
 /**
  * 저장할 상세사이즈와 바뀐 옵션 이름, 저장 가능 여부를 계산합니다.
  * 바뀌지 않은 이름은 다시 검사하지 않아 예전 규칙으로 저장된 옵션도 상세사이즈를 저장할 수 있습니다.
- * 이름이 바뀌면 5칸을 모두 비운 채 이름만 저장할 수 있습니다.
+ * 빈 칸은 null로 저장하고, 5칸을 모두 비우면 이름만 바꾸거나(이름 변경 시) 기존 값을 지웁니다.
+ * 모든 칸이 비었고 지울 값도 바꿀 이름도 없으면 저장할 것이 없습니다.
  */
 export function getDeckSpecSaveState(
   inputs: DeckSpecInputs,
   option?: Readonly<{ size: string; name: string; otherOptions: readonly string[] }>,
+  hasSavedSpec = false,
 ) {
   const spec = parseDeckSpecInputs(inputs);
   const nameResult: ProductOptionNameResult | null =
@@ -72,17 +82,21 @@ export function getDeckSpecSaveState(
   const sizeName = nameResult?.ok ? nameResult.name : undefined;
   const allEmpty = DECK_SPEC_FIELDS.every((field) => !inputs[field].trim());
   const ready =
-    nameResult?.ok !== false && (spec !== null || (sizeName !== undefined && allEmpty));
+    nameResult?.ok !== false &&
+    (spec !== null || (allEmpty && (sizeName !== undefined || hasSavedSpec)));
   return { spec, nameResult, sizeName, ready };
 }
 
+/** 저장된 값을 입력칸으로 되돌립니다. 비운 칸(null)은 "null" 글자가 아니라 빈 칸입니다. */
 function toInputs(spec?: DeckSpec): DeckSpecInputs {
+  const input = (value: number | null | undefined) =>
+    value === null || value === undefined ? "" : String(value);
   return {
-    nose: spec ? String(spec.nose) : "",
-    tail: spec ? String(spec.tail) : "",
-    width: spec ? String(spec.width) : "",
-    length: spec ? String(spec.length) : "",
-    wheelbase: spec ? String(spec.wheelbase) : "",
+    nose: input(spec?.nose),
+    tail: input(spec?.tail),
+    width: input(spec?.width),
+    length: input(spec?.length),
+    wheelbase: input(spec?.wheelbase),
   };
 }
 
@@ -148,6 +162,7 @@ export function AdminDeckSpecForm({
   const { spec, nameResult, sizeName, ready } = getDeckSpecSaveState(
     inputs,
     nameEditable ? { size, name, otherOptions } : undefined,
+    Boolean(initialSpec),
   );
   const canSave = ready && !saving;
 
@@ -281,8 +296,8 @@ export function AdminDeckSpecForm({
         ) : (
           <p className={styles.previewEmpty}>
             {isKorean
-              ? "5칸을 모두 입력하면 도면 미리보기가 나타납니다."
-              : "Fill in all 5 fields to see the diagram preview."}
+              ? "값을 1개 이상 입력하면 도면 미리보기가 나타납니다."
+              : "Enter at least one value to see the diagram preview."}
           </p>
         )}
       </div>
