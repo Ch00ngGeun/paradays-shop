@@ -16,6 +16,8 @@ describe("deck size diagram", () => {
     expect(formatDeckCm(14.25)).toBe("36.2cm");
     expect(formatDeckCm(8)).toBe("20.3cm");
     expect(formatDeckInches(14.25)).toBe('14.25"');
+    // A blank field has no inch mark.
+    expect(formatDeckInches(null)).toBe("null");
   });
 
   it("draws every measurement as inches with a smaller cm value and marks the nose and tail ends", () => {
@@ -40,5 +42,24 @@ describe("deck size diagram", () => {
     expect(markup).toMatch(/<text[^>]*y="600"[^>]*>tail<\/text>/);
     expect(markup).toContain('role="img"');
     expect(markup).toContain("nose 6.875&quot; (17.5cm)");
+  });
+
+  it("draws a blank field as null alone, without inches or cm, in the drawing and its name", () => {
+    const markup = renderToStaticMarkup(
+      createElement(DeckSizeDiagram, {
+        spec: { nose: null, tail: 6.5, width: 8.5, length: null, wheelbase: 14.25 },
+      }),
+    );
+
+    expect(markup.match(/>null</g)).toHaveLength(2);
+    expect(markup).not.toContain("null&quot;");
+    expect(markup).not.toContain("(nullcm)");
+    // The filled fields keep their inches and cm.
+    expect(markup).toContain("6.5&quot;<tspan");
+    expect(markup).toContain(">(16.5cm)</tspan>");
+    expect(markup).toContain(
+      'aria-label="nose null, tail 6.5&quot; (16.5cm), width 8.5&quot; (21.6cm), length null, wheelbase 14.25&quot; (36.2cm)"',
+    );
+    expect(markup.match(/<text/g)).toHaveLength(7);
   });
 });
