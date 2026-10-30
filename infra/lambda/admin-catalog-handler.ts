@@ -24,6 +24,11 @@ import {
 import { documentClient, getRequiredEnvironment } from "./dynamodb-client.js";
 import { jsonResponse } from "./http-response.js";
 import { isRecord, parseJsonBody, readBoundedString } from "./request-helpers.js";
+import {
+  isCatalogSizeChart,
+  sizeChartFor,
+  type CatalogSizeChart,
+} from "./size-chart-rules.js";
 
 /** 상품 상태는 공개 여부를 가리키는 두 값으로 고정합니다. */
 export type CatalogProductStatus = "DRAFT" | "PUBLISHED";
@@ -78,6 +83,8 @@ export type CatalogProductRecord = Readonly<{
   deckSpec?: CatalogDeckSpec;
   /** 사이즈 옵션별 상세사이즈. 키는 sizes 값이며, 없는 옵션은 deckSpec(기본값)을 씁니다. */
   deckSpecsBySize?: CatalogDeckSpecsBySize;
+  /** 데크 외(의류·휠) 상세사이즈 기본값. kind는 카테고리에서 고를 수 있는 도면 종류입니다. */
+  sizeChart?: CatalogSizeChart;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -106,6 +113,7 @@ export type PublicCatalogProduct = Readonly<{
   featured: boolean;
   deckSpec?: CatalogDeckSpec;
   deckSpecsBySize?: CatalogDeckSpecsBySize;
+  sizeChart?: CatalogSizeChart;
 }>;
 
 /** 관리자 UI에 반환하는 allowlist 기반 상품 shape입니다. audit subject 등 저장 원본은 제외합니다. */
@@ -131,6 +139,7 @@ export type AdminCatalogProduct = Readonly<{
   sizes: readonly string[];
   deckSpec?: CatalogDeckSpec;
   deckSpecsBySize?: CatalogDeckSpecsBySize;
+  sizeChart?: CatalogSizeChart;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -304,9 +313,12 @@ async function createProduct(
       ? commitCatalogIntake(catalogTableName, intake, userSub)
       : jsonResponse(400, { code: "OCR_INTAKE_INVALID" });
   }
-  // Option size charts are saved only through the dedicated sizeDeckSpec PATCH.
+  // Option size charts are saved only through the dedicated sizeDeckSpec PATCH, and
+  // the clothing/wheel size chart only through a PATCH on a saved product.
   const input = parseProductInput(
-    isRecord(body) ? { ...body, deckSpecsBySize: undefined } : body,
+    isRecord(body)
+      ? { ...body, deckSpecsBySize: undefined, sizeChart: undefined }
+      : body,
   );
 
   if (!input) {
@@ -794,6 +806,15 @@ async function updateProduct(
   }
 
   const merged = mergeProductPatch(existingProduct, body);
+  // A size chart sent for a kind the (new) category cannot use is refused, not silently dropped.
+  // The category is checked first: the patch value may be any JSON, not only a string.
+  const patchedCategory = readCatalogCategory(merged.category);
+  if (
+    hasOwn(body, "sizeChart") &&
+    body.sizeChart !== null &&
+    (!patchedCategory || !sizeChartFor(patchedCategory, body.sizeChart))
+  )
+    return jsonResponse(400, { code: "CATALOG_PRODUCT_INVALID" });
   if (
     hasOwn(body, "sizeDeckSpec") ||
     hasOwn(body, "size") ||
@@ -824,8 +845,10 @@ async function updateProduct(
   const existingBase = { ...existingProduct };
   if (hasOwn(body, "compareAtPrice")) delete existingBase.compareAtPrice;
   if (hasOwn(body, "deckSpec")) delete existingBase.deckSpec;
-  // The parsed input already drops entries for options no longer in sizes.
+  // The parsed input already drops entries for options no longer in sizes,
+  // and a size chart whose kind the category no longer offers.
   delete existingBase.deckSpecsBySize;
+  delete existingBase.sizeChart;
   const updatedProduct: CatalogProductRecord = {
     ...existingBase,
     ...input,
@@ -1025,6 +1048,7 @@ export function toPublicCatalogProduct(
     featured: product.featured,
     ...(product.deckSpec ? { deckSpec: { ...product.deckSpec } } : {}),
     ...deckSpecsBySizeOutput(product),
+    ...sizeChartOutput(product),
   };
 }
 
@@ -1061,6 +1085,7 @@ export function toAdminCatalogProduct(
     sizes: product.sizes,
     ...(product.deckSpec ? { deckSpec: { ...product.deckSpec } } : {}),
     ...deckSpecsBySizeOutput(product),
+    ...sizeChartOutput(product),
     version: product.version,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
@@ -1142,6 +1167,7 @@ function parseProductInput(body: unknown): ProductInput | null {
   const descriptionI18n = readDescriptionI18n(body.descriptionI18n);
   const deckSpec = readDeckSpec(body.deckSpec);
   const deckSpecsBySize = sizes && readDeckSpecsBySize(body.deckSpecsBySize, sizes);
+  const sizeChart = readSizeChart(body.sizeChart, category);
 
   if (
     !images ||
@@ -1150,7 +1176,8 @@ function parseProductInput(body: unknown): ProductInput | null {
     nameI18n === null ||
     descriptionI18n === null ||
     deckSpec === null ||
-    deckSpecsBySize === null
+    deckSpecsBySize === null ||
+    sizeChart === null
   ) {
     return null;
   }
@@ -1181,6 +1208,7 @@ function parseProductInput(body: unknown): ProductInput | null {
     sizes,
     ...(deckSpec ? { deckSpec } : {}),
     ...(deckSpecsBySize ? { deckSpecsBySize } : {}),
+    ...(sizeChart ? { sizeChart } : {}),
   };
 }
 
@@ -1218,6 +1246,7 @@ function mergeProductPatch(
     ...(product.deckSpecsBySize
       ? { deckSpecsBySize: { ...product.deckSpecsBySize } }
       : {}),
+    ...sizeChartOutput(product),
   };
 
   const directFields = [
@@ -1239,6 +1268,7 @@ function mergeProductPatch(
     "descriptionI18n",
     "sizes",
     "deckSpec",
+    "sizeChart",
   ];
 
   for (const field of directFields) {
@@ -1704,6 +1734,21 @@ function isSizeOptionName(name: string) {
     !/[,\r\n]/.test(name) &&
     !UNSAFE_DECK_SPEC_OPTIONS.includes(name)
   );
+}
+
+/**
+ * 생략·null은 상세사이즈 없음(undefined), 형식 오류는 null입니다.
+ * 형식은 맞지만 카테고리에서 고를 수 없는 kind(카테고리 변경)는 undefined라 저장 행에서 빠집니다.
+ */
+function readSizeChart(value: unknown, category: string) {
+  if (value === undefined || value === null) return undefined;
+  return isCatalogSizeChart(value) ? sizeChartFor(category, value) : null;
+}
+
+/** 형식이 맞고 카테고리에 맞는 상세사이즈만 응답에 담습니다. 잘못된 저장 값은 상품을 숨기지 않고 빠집니다. */
+function sizeChartOutput(product: CatalogProductRecord) {
+  const sizeChart = sizeChartFor(product.category, product.sizeChart);
+  return sizeChart ? { sizeChart } : {};
 }
 
 /** 저장 행의 옵션별 상세사이즈 중 현재 sizes에 있는 값만 응답에 담습니다. */
