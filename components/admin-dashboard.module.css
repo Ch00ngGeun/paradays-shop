@@ -5638,3 +5638,8 @@
 .pushEnd {
   margin-inline-start: auto;
 }
+
+/* Lets a header row put its button group on the next line when the screen is too narrow. */
+.wrapRow {
+  flex-wrap: wrap;
+}
