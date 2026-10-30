@@ -13,6 +13,8 @@ import {
   type StockPreview,
 } from "@/lib/commerce/admin-sales-api-client";
 import styles from "./admin-sales-ledger.module.css";
+import { adminGuideSteps } from "@/lib/admin-ui/admin-guides";
+import { AdminGuideButton } from "./admin-guide";
 import { AdminHelpButton } from "./admin-help-button";
 import { AdminSalesSimulationPanel } from "./admin-sales-simulation";
 import { AdminStepper, type AdminStep } from "./admin-stepper";
@@ -232,16 +234,19 @@ function SalesModeSession({
   return (
     <section className={styles.panel} aria-labelledby="sales-mode-title">
       <header className={styles.header}>
-        <h2 id="sales-mode-title">
-          {isKorean ? "매출·일마감 모드 선택" : "Choose sales and daily close mode"}
-        </h2>
-        <p>
-          {isKorean
-            ? "연습과 실제 운영을 구분해 시작하세요."
-            : "Start by choosing practice or real operations."}
-        </p>
+        <div>
+          <h2 id="sales-mode-title">
+            {isKorean ? "매출·일마감 모드 선택" : "Choose sales and daily close mode"}
+          </h2>
+          <p>
+            {isKorean
+              ? "연습과 실제 운영을 구분해 시작하세요."
+              : "Start by choosing practice or real operations."}
+          </p>
+        </div>
+        <AdminGuideButton locale={locale} steps={adminGuideSteps("sales", locale)} />
       </header>
-      <div className={styles.modeCards}>
+      <div className={styles.modeCards} data-admin-guide="sales.mode">
         <section className={`${styles.block} ${styles.modeCard}`}>
           <span className={styles.simulationModeBadge}>
             <span aria-hidden="true">◇</span>{" "}
@@ -614,15 +619,19 @@ function ActualSalesLedgerPanel({
               : "Reconcile card, cash and transfer slips with the day's sales. Dates and times are in Korea time."}
           </p>
         </div>
-        <button
-          type="button"
-          disabled={locked}
-          onClick={() => {
-            if (!busyRef.current && !attempt) onExit();
-          }}
-        >
-          {isKorean ? "모드 선택으로 돌아가기" : "Back to mode selection"}
-        </button>
+        {/* A span, not a div, so the header's grid rule for its text block does not apply. */}
+        <span>
+          <AdminGuideButton locale={locale} steps={adminGuideSteps("sales", locale)} />{" "}
+          <button
+            type="button"
+            disabled={locked}
+            onClick={() => {
+              if (!busyRef.current && !attempt) onExit();
+            }}
+          >
+            {isKorean ? "모드 선택으로 돌아가기" : "Back to mode selection"}
+          </button>
+        </span>
       </header>
       {locked ? (
         <AdminNotice status="neutral" locale={locale}>
@@ -641,6 +650,7 @@ function ActualSalesLedgerPanel({
         <label>
           {isKorean ? "영업일 (한국 시간)" : "Business day (Korea time)"}
           <input
+            data-admin-guide="sales.day"
             type="date"
             value={day}
             max={today()}
@@ -923,6 +933,7 @@ function ActualSalesLedgerPanel({
                       isKorean ? "판매 등록 · 새 전표" : "Register sale · New slip"
                     }
                     className={styles.primary}
+                    data-admin-guide="sales.newEntry"
                     type="button"
                     disabled={!open || locked}
                     onClick={() => {
@@ -1700,6 +1711,7 @@ function ActualSalesLedgerPanel({
             <section
               className={`${styles.block} ${styles.closePanel}`}
               aria-label={isKorean ? "일마감" : "Daily close"}
+              data-admin-guide="sales.close"
             >
               <h3>{isKorean ? "일마감 대조" : "Daily close reconciliation"}</h3>
               <dl className={styles.closeTotals}>
