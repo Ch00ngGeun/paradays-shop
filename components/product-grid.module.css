@@ -188,6 +188,7 @@
   margin: 0 auto;
   max-width: 22ch;
   overflow-wrap: break-word;
+  white-space: pre-line;
 }
 
 /* .price — 상품 가격 줄 (이름과 동일 톤) */
