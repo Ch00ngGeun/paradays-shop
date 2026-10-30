@@ -1067,7 +1067,7 @@ test("clothing and wheel size charts show no Korean in English in the editor, di
   await scan(page, "pants editor", found);
   await page.getByRole("button", { name: "Edit size chart" }).click();
   await expect(dialog).toContainText(
-    "Fill in all 6 fields to see the diagram preview.",
+    "Enter at least one value to see the diagram preview.",
   );
   await scan(page, "pants default dialog", found);
   await page.keyboard.press("Escape");
