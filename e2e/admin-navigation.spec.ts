@@ -4917,13 +4917,20 @@ test("coupon redesign: editing the live ticket never issues a coupon or loads fa
   await expect(preview).toContainText("TEST-PREVIEW_10");
   await expect(preview).toContainText("2026-10-30 18:30 (한국 시간)");
   await expect(preview).toContainText("아직 발급되지 않았습니다");
-  await panel.locator("summary").getByText("도움말", { exact: true }).click();
+  // What the old header help said now sits in the '?' beside "혜택 설정".
+  await expect(panel.locator("summary", { hasText: /^도움말$/ })).toHaveCount(0);
+  await panel.getByRole("button", { name: "혜택 설정 도움말", exact: true }).click();
+  const benefitHelp = page.getByRole("dialog", {
+    name: "혜택 설정 도움말",
+    exact: true,
+  });
   await expect(
-    panel.getByText(
+    benefitHelp.getByText(
       /대상 선택·최소 주문 금액·최대 할인·시작일 설정은 현재 지원하지 않습니다/,
     ),
   ).toBeVisible();
-  await panel.locator("summary").getByText("도움말", { exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(benefitHelp).toHaveCount(0);
   await expect(panel.getByText(/발급 완료|수신 대상 0명|대상 고객 0명/)).toHaveCount(0);
   await expect(
     panel.getByRole("button", { name: /발급하기|지금 발급|고객 발급/ }),
@@ -5278,6 +5285,36 @@ test("coupon redesign: enabled draft save is readable on hover and keyboard focu
   expect(audit.syntheticWrites).toEqual([]);
 });
 
+test("screen guide walks the coupon name, discount, preview and save button", async ({
+  page,
+}) => {
+  await setup(page, { path: "/admin?section=coupons" });
+  const open = couponWorkspace(page).getByRole("button", {
+    name: "화면 도움말",
+    exact: true,
+  });
+  await open.click();
+  const bubble = page.getByRole("dialog");
+  await expect(bubble).toContainText("1/4단계");
+  await expect(bubble.getByRole("heading")).toHaveText("쿠폰 이름 쓰기");
+  // The name box is underlined right below it.
+  const name = page.locator('[data-admin-guide="coupons.name"]');
+  await expect
+    .poll(async () => {
+      const target = await boxOf(name);
+      const line = await boxOf(guideLines(page).first());
+      return Math.abs(line.y - (target.y + target.height)) <= 6;
+    })
+    .toBe(true);
+  for (const title of ["할인 정하기", "모습 확인", "쿠폰 저장"]) {
+    await page.keyboard.press("ArrowRight");
+    await expect(bubble.getByRole("heading")).toHaveText(title);
+  }
+  await bubble.getByRole("button", { name: "완료", exact: true }).click();
+  await expect(bubble).toHaveCount(0);
+  await expect(open).toBeFocused();
+});
+
 const marketingWorkspace = (page: Page) => page.locator("#admin-panel-marketing");
 const campaignTitle = (page: Page) =>
   marketingWorkspace(page).getByLabel("캠페인 제목", { exact: false });
@@ -5377,6 +5414,39 @@ test("marketing logo: email preview always starts with the inline PARADAYS logo 
   expect(audit.syntheticWrites).toEqual([]);
 });
 
+test("screen guide walks the campaign channels, title, message, preview and save button", async ({
+  page,
+}) => {
+  await setup(page, { path: "/admin?section=marketing" });
+  const open = marketingWorkspace(page).getByRole("button", {
+    name: "화면 도움말",
+    exact: true,
+  });
+  await open.click();
+  const bubble = page.getByRole("dialog");
+  await expect(bubble).toContainText("1/5단계");
+  await expect(bubble.getByRole("heading")).toHaveText("보낼 곳 고르기");
+  await page.keyboard.press("ArrowRight");
+  await expect(bubble.getByRole("heading")).toHaveText("제목 쓰기");
+  await page.keyboard.press("ArrowRight");
+  await expect(bubble.getByRole("heading")).toHaveText("내용 쓰기");
+  // The message box is underlined right below it.
+  await expect
+    .poll(async () => {
+      const target = await boxOf(campaignBody(page));
+      const line = await boxOf(guideLines(page).first());
+      return Math.abs(line.y - (target.y + target.height)) <= 6;
+    })
+    .toBe(true);
+  await page.keyboard.press("ArrowRight");
+  await expect(bubble.getByRole("heading")).toHaveText("모습 확인");
+  await page.keyboard.press("ArrowRight");
+  await expect(bubble.getByRole("heading")).toHaveText("저장하기");
+  await page.keyboard.press("Escape");
+  await expect(bubble).toHaveCount(0);
+  await expect(open).toBeFocused();
+});
+
 test("marketing redesign: channel choices and live previews do not send messages or invent recipient or connection status", async ({
   page,
 }, testInfo) => {
@@ -5413,11 +5483,24 @@ test("marketing redesign: channel choices and live previews do not send messages
   await expect(
     panel.getByRole("button", { name: /지금 발송|예약하기|이미지 첨부|대상자 조회/ }),
   ).toHaveCount(0);
-  await panel.locator("summary").getByText("도움말", { exact: true }).click();
+  // The safety notice stays on screen without opening any help.
   await expect(
     panel.getByText(/수신자 조회·예약·발송·이미지 첨부는 지원하지 않습니다/),
   ).toBeVisible();
-  await panel.locator("summary").getByText("도움말", { exact: true }).click();
+  await expect(panel.locator("summary", { hasText: /^도움말$/ })).toHaveCount(0);
+  // What the old header help said now sits in the channel '?'.
+  await panel.getByRole("button", { name: "채널 선택 도움말", exact: true }).click();
+  const channelHelp = page.getByRole("dialog", {
+    name: "채널 선택 도움말",
+    exact: true,
+  });
+  await expect(
+    channelHelp.getByText(
+      /실제 채널 연결 상태나 발송 가능 여부를 확인하는 표시가 아닙니다/,
+    ),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(channelHelp).toHaveCount(0);
   const formBox = await panel
     .getByRole("form", { name: "캠페인 초안 작성", exact: true })
     .boundingBox();

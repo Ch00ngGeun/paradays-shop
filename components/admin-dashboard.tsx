@@ -6648,14 +6648,7 @@ function CouponSection({
             </span>
           </div>
         </div>
-        <details className={styles.couponHelp}>
-          <summary>{isKorean ? "도움말" : "Help"}</summary>
-          <p>
-            {isKorean
-              ? "대상 선택·최소 주문 금액·최대 할인·시작일 설정은 현재 지원하지 않습니다. 만료 시각은 한국 시간으로 입력하며 해당 시각에 만료하는 초안입니다."
-              : "Target selection, minimum order, maximum discount and start date are not supported yet. Enter the expiry in Korea time; the draft expires at that time."}
-          </p>
-        </details>
+        <AdminGuideButton locale={locale} steps={adminGuideSteps("coupons", locale)} />
       </header>
       {/* A safety notice, so it stays on screen instead of inside the help. */}
       <p className={styles.couponSaveNote}>
@@ -6693,7 +6686,19 @@ function CouponSection({
           noValidate
           onSubmit={onSubmit}
         >
-          <h3>{isKorean ? "혜택 설정" : "Set benefit"}</h3>
+          <div className={styles.titleWithHelp}>
+            <h3>{isKorean ? "혜택 설정" : "Set benefit"}</h3>
+            <AdminHelpButton
+              locale={locale}
+              target={isKorean ? "혜택 설정" : "Set benefit"}
+            >
+              <p>
+                {isKorean
+                  ? "대상 선택·최소 주문 금액·최대 할인·시작일 설정은 현재 지원하지 않습니다. 만료 시각은 한국 시간으로 입력하며 해당 시각에 만료하는 초안입니다."
+                  : "Target selection, minimum order, maximum discount and start date are not supported yet. Enter the expiry in Korea time; the draft expires at that time."}
+              </p>
+            </AdminHelpButton>
+          </div>
           <fieldset disabled={saving} className={styles.couponFields}>
             <label>
               <span>
@@ -6703,6 +6708,7 @@ function CouponSection({
                 </span>
               </span>
               <GrowingLineInput
+                data-admin-guide="coupons.name"
                 maxLength={120}
                 required
                 onValueChange={onNameChange}
@@ -6748,7 +6754,10 @@ function CouponSection({
                 </AdminHelpButton>
               </span>
             </div>
-            <div className={styles.couponInlineFields}>
+            <div
+              className={styles.couponInlineFields}
+              data-admin-guide="coupons.benefit"
+            >
               <label>
                 <span>{isKorean ? "혜택 유형" : "Benefit type"}</span>
                 <select
@@ -6853,6 +6862,7 @@ function CouponSection({
             </p>
             <button
               className={styles.primaryButton}
+              data-admin-guide="coupons.save"
               disabled={Boolean(validationMessage)}
               type="submit"
             >
@@ -6873,6 +6883,7 @@ function CouponSection({
         </form>
         <aside
           className={styles.couponDraftPreview}
+          data-admin-guide="coupons.preview"
           aria-label={isKorean ? "쿠폰 고객 노출 미리보기" : "Coupon customer preview"}
         >
           <div className={styles.couponPreviewHeading}>
@@ -6982,14 +6993,10 @@ function MarketingSection({
             </span>
           </div>
         </div>
-        <details className={styles.campaignHelp}>
-          <summary>{isKorean ? "도움말" : "Help"}</summary>
-          <p>
-            {isKorean
-              ? "채널 선택은 초안에 담을 문구의 종류입니다. 실제 채널 연결 상태나 발송 가능 여부를 확인하는 표시가 아닙니다. 수신 동의와 발송 정책은 별도 서버 검증이 필요합니다."
-              : "Channel selection sets which text the draft holds. It does not show whether a channel is connected or can send. Consent and sending policy need separate server checks."}
-          </p>
-        </details>
+        <AdminGuideButton
+          locale={locale}
+          steps={adminGuideSteps("marketing", locale)}
+        />
       </header>
       {/* A safety notice, so it stays on screen instead of inside the help. */}
       <p className={styles.campaignSaveNote}>
@@ -7028,7 +7035,10 @@ function MarketingSection({
           onSubmit={onSubmit}
         >
           <fieldset className={styles.campaignFields} disabled={saving}>
-            <fieldset className={styles.campaignChannels}>
+            <fieldset
+              className={styles.campaignChannels}
+              data-admin-guide="marketing.channels"
+            >
               <legend>
                 {isKorean ? "초안 채널 선택 (복수 선택)" : "Draft channels (multiple)"}
               </legend>
@@ -7080,6 +7090,11 @@ function MarketingSection({
                     ? "초안 작성용 선택 · 채널 연결·수신자 수·발송 가능 여부는 미조회입니다."
                     : "Selection for the draft only · Channel connection, recipient count and send availability are not checked."}
                 </p>
+                <p>
+                  {isKorean
+                    ? "채널 선택은 초안에 담을 문구의 종류입니다. 실제 채널 연결 상태나 발송 가능 여부를 확인하는 표시가 아닙니다. 수신 동의와 발송 정책은 별도 서버 검증이 필요합니다."
+                    : "Channel selection sets which text the draft holds. It does not show whether a channel is connected or can send. Consent and sending policy need separate server checks."}
+                </p>
               </AdminHelpButton>
             </div>
             <label>
@@ -7090,6 +7105,7 @@ function MarketingSection({
                 </span>
               </span>
               <GrowingLineInput
+                data-admin-guide="marketing.title"
                 maxLength={160}
                 required
                 onValueChange={onTitleChange}
@@ -7112,6 +7128,7 @@ function MarketingSection({
                 </span>
               </span>
               <textarea
+                data-admin-guide="marketing.body"
                 maxLength={8_000}
                 onChange={(event) => onBodyChange(event.target.value)}
                 placeholder={
@@ -7157,6 +7174,7 @@ function MarketingSection({
             </p>
             <button
               className={styles.primaryButton}
+              data-admin-guide="marketing.save"
               disabled={Boolean(validationMessage)}
               type="submit"
             >
@@ -7177,6 +7195,7 @@ function MarketingSection({
         </form>
         <aside
           className={styles.campaignPreview}
+          data-admin-guide="marketing.preview"
           aria-label={
             isKorean ? "선택 채널 문구 미리보기" : "Selected channel text preview"
           }

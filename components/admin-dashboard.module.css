@@ -3471,27 +3471,6 @@
   margin: 0 0 0.4rem;
 }
 
-.brandHelp {
-  border: 1px solid var(--color-rule);
-  border-radius: 5px;
-  color: var(--admin-muted);
-  font-size: 0.875rem;
-  max-width: 30rem;
-}
-
-.brandHelp summary {
-  color: var(--color-ink);
-  cursor: pointer;
-  min-height: 2.75rem;
-  padding: 0.7rem 0.85rem;
-}
-
-.brandHelp p {
-  line-height: 1.6;
-  margin: 0;
-  padding: 0 0.85rem 0.85rem;
-}
-
 .brandWorkspace {
   align-items: start;
   display: grid;
@@ -3843,27 +3822,6 @@
   color: var(--admin-muted);
   font-size: 0.8125rem;
   margin: 0 0 0.4rem;
-}
-
-.memberHelp {
-  border: 1px solid var(--color-rule);
-  border-radius: 5px;
-  color: var(--admin-muted);
-  font-size: 0.875rem;
-  max-width: 30rem;
-}
-
-.memberHelp summary {
-  color: var(--color-ink);
-  cursor: pointer;
-  min-height: 2.75rem;
-  padding: 0.7rem 0.85rem;
-}
-
-.memberHelp p {
-  line-height: 1.6;
-  margin: 0;
-  padding: 0 0.85rem 0.85rem;
 }
 
 .memberToolbar {
@@ -4345,27 +4303,6 @@
   padding: 0.4rem 0.7rem;
 }
 
-.couponHelp {
-  border: 1px solid var(--color-rule);
-  border-radius: 5px;
-  color: var(--admin-muted);
-  font-size: 0.875rem;
-  max-width: 30rem;
-}
-
-.couponHelp summary {
-  color: var(--color-ink);
-  cursor: pointer;
-  min-height: 2.75rem;
-  padding: 0.7rem 0.85rem;
-}
-
-.couponHelp p {
-  line-height: 1.6;
-  margin: 0;
-  padding: 0 0.85rem 0.85rem;
-}
-
 .couponWorkspace {
   align-items: start;
   display: grid;
@@ -4630,27 +4567,6 @@
   color: var(--admin-muted);
   font-size: 0.8125rem;
   padding: 0.4rem 0.7rem;
-}
-
-.campaignHelp {
-  border: 1px solid var(--color-rule);
-  border-radius: 5px;
-  color: var(--admin-muted);
-  font-size: 0.875rem;
-  max-width: 30rem;
-}
-
-.campaignHelp summary {
-  color: var(--color-ink);
-  cursor: pointer;
-  min-height: 2.75rem;
-  padding: 0.7rem 0.85rem;
-}
-
-.campaignHelp p {
-  line-height: 1.6;
-  margin: 0;
-  padding: 0 0.85rem 0.85rem;
 }
 
 .campaignWorkspace {
