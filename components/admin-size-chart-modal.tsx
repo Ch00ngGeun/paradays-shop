@@ -38,12 +38,14 @@ function isInvalid(kind: SizeChartKind, value: string) {
 
 /**
  * 저장할 값과 바뀐 옵션 이름, 저장 가능 여부를 계산합니다(데크 모달과 같은 규칙).
- * 바뀌지 않은 이름은 다시 검사하지 않고, 이름이 바뀌면 칸을 모두 비운 채 이름만 저장할 수 있습니다.
+ * 바뀌지 않은 이름은 다시 검사하지 않습니다. 빈 칸은 null로 저장하고, 모든 칸을 비우면 이름만 바꾸거나
+ * (이름 변경 시) 저장된 값을 지웁니다. 모든 칸이 비었고 지울 값도 바꿀 이름도 없으면 저장할 것이 없습니다.
  */
 export function getSizeChartSaveState(
   kind: SizeChartKind,
   inputs: Inputs,
   option?: Readonly<{ size: string; name: string; otherOptions: readonly string[] }>,
+  hasSavedValues = false,
 ) {
   const values = parseSizeChartInputs(kind, inputs);
   const nameResult: ProductOptionNameResult | null =
@@ -56,7 +58,7 @@ export function getSizeChartSaveState(
   );
   const ready =
     nameResult?.ok !== false &&
-    (values !== null || (sizeName !== undefined && allEmpty));
+    (values !== null || (allEmpty && (sizeName !== undefined || hasSavedValues)));
   return { values, nameResult, sizeName, ready };
 }
 
@@ -119,7 +121,10 @@ function toInputs(kind: SizeChartKind, values?: SizeChartValues): Inputs {
   return Object.fromEntries(
     SIZE_CHART_KIND_INFO[kind].fields.map(({ key }) => [
       key,
-      values && Object.hasOwn(values, key) ? String(values[key]) : "",
+      // A blank field comes back empty, never as the word null.
+      values && Object.hasOwn(values, key) && values[key] !== null
+        ? String(values[key])
+        : "",
     ]),
   );
 }
@@ -161,6 +166,7 @@ export function AdminSizeChartForm({
     kind,
     inputs,
     nameEditable ? { size, name, otherOptions } : undefined,
+    Boolean(initialValues),
   );
   const kinds = sizeChartKindsFor(category);
   const canSave = ready && !saving && pendingKind === null;
@@ -360,8 +366,8 @@ export function AdminSizeChartForm({
         ) : (
           <p className={deckStyles.previewEmpty}>
             {isKorean
-              ? `${info.fields.length}칸을 모두 입력하면 도면 미리보기가 나타납니다.`
-              : `Fill in all ${info.fields.length} fields to see the diagram preview.`}
+              ? "값을 1개 이상 입력하면 도면 미리보기가 나타납니다."
+              : "Enter at least one value to see the diagram preview."}
           </p>
         )}
       </div>

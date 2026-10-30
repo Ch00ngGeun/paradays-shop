@@ -72,6 +72,62 @@ describe("admin size chart modal", () => {
     ).toBe(false);
   });
 
+  it("deletes when every field of saved values is emptied, and has nothing to save when there was nothing", () => {
+    const empty = Object.fromEntries(Object.keys(values).map((key) => [key, ""]));
+    expect(getSizeChartSaveState("shortSleeve", empty, undefined, true)).toMatchObject({
+      ready: true,
+      values: null,
+    });
+    expect(getSizeChartSaveState("shortSleeve", empty).ready).toBe(false);
+    const option = { size: "M", name: "M", otherOptions: ["S"] };
+    expect(getSizeChartSaveState("shortSleeve", empty, option, true).ready).toBe(true);
+    expect(getSizeChartSaveState("shortSleeve", empty, option).ready).toBe(false);
+    // A rename alone still saves, and a half-filled form saves with a new name.
+    expect(
+      getSizeChartSaveState("shortSleeve", empty, { ...option, name: "L" }).ready,
+    ).toBe(true);
+    expect(
+      getSizeChartSaveState(
+        "shortSleeve",
+        { ...empty, chest: "56" },
+        { ...option, name: "L" },
+      ),
+    ).toMatchObject({
+      ready: true,
+      sizeName: "L",
+      values: {
+        ...values,
+        ...Object.fromEntries(Object.keys(values).map((key) => [key, null])),
+        chest: 56,
+      },
+    });
+  });
+
+  it("reopens values with blank fields as empty inputs, a preview with null, and saves an edit", () => {
+    const partial = { ...values, shoulder: null, armhole: null };
+    const markup = render({ initialValues: partial });
+    expect(markup).not.toContain('value="null"');
+    expect(markup.match(/value=""/g)).toHaveLength(2);
+    expect(markup).toContain('value="72"');
+    expect(markup).toContain('role="img"');
+    expect(markup).toContain("어깨너비 null");
+    expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*type="submit"/);
+    const reopened = Object.fromEntries(
+      Object.entries(partial).map(([key, value]) => [
+        key,
+        value === null ? "" : String(value),
+      ]),
+    );
+    expect(
+      getSizeChartSaveState(
+        "shortSleeve",
+        { ...reopened, armhole: "24" },
+        undefined,
+        true,
+      ).values,
+    ).toEqual({ ...partial, armhole: 24 });
+  });
+
   it("names the range per unit and warns before a drawing switch", () => {
     expect(sizeChartRangeText("longPants", true)).toBe(
       "0 초과 300 이하의 cm로, 소수 1자리까지 입력해 주세요.",
@@ -106,7 +162,7 @@ describe("admin size chart modal", () => {
       /<button[^>]*disabled=""[^>]*type="submit"[^>]*>저장<\/button>/,
     );
     expect(markup).not.toContain("삭제");
-    expect(markup).toContain("7칸을 모두 입력하면 도면 미리보기가 나타납니다.");
+    expect(markup).toContain("값을 1개 이상 입력하면 도면 미리보기가 나타납니다.");
   });
 
   it("an existing default shows inches beside cm, a live preview and a delete button", () => {
