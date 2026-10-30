@@ -17,9 +17,18 @@ import type {
   AdminOcrReviewSaveResult,
   AdminOcrIntakeInput,
   AdminOcrIntakeResult,
+  AdminDashboardActions,
   AdminOverviewMetrics,
   AdminProductDraft,
 } from "@/lib/admin-ui/types";
+import {
+  SIZE_CHART_KIND_INFO,
+  SIZE_CHART_KINDS,
+  isSizeChartKind,
+  isSizeChartValues,
+  type SizeChartKind,
+  type SizeChartValues,
+} from "@/lib/size-chart";
 import type { DeckSpec, Locale } from "@/types/store";
 import {
   isOcrMapping,
@@ -127,6 +136,13 @@ export type AdminApiClient = Readonly<{
       sizeName?: string;
     }>,
   ) => Promise<AdminCatalogListItem>;
+  updateProductSizeChart: NonNullable<AdminDashboardActions["updateProductSizeChart"]>;
+  updateProductOptionSizeChart: NonNullable<
+    AdminDashboardActions["updateProductOptionSizeChart"]
+  >;
+  updateProductSizeChartKind: NonNullable<
+    AdminDashboardActions["updateProductSizeChartKind"]
+  >;
   deleteCatalogProducts: (
     items: ReadonlyArray<Readonly<{ id: string; version: number }>>,
   ) => Promise<void>;
@@ -173,6 +189,39 @@ export function createAdminApiClient(
     });
 
     return parseOcrJob(body);
+  };
+  /** 상세사이즈 PATCH 대상의 id·version을 요청 전에 확인합니다. */
+  const sizeChartTarget = (input: Readonly<{ id: string; version: number }>) => {
+    const productId = input.id.trim();
+    if (
+      !productId ||
+      productId.length > 96 ||
+      !Number.isSafeInteger(input.version) ||
+      input.version < 1 ||
+      input.version > 1_000_000
+    )
+      throw new AdminApiResponseError();
+    return productId;
+  };
+  /** 상품 하나에 PATCH하고, 저장값을 직접 비교할 수 있게 응답의 raw product를 돌려줍니다. */
+  const patchProduct = async (productId: string, body: Record<string, unknown>) => {
+    const response = await requestJson({
+      apiBaseUrl,
+      authorizationTokenProvider: dependencies.authorizationTokenProvider,
+      fetchImplementation,
+      endpoint: `admin/catalog/products/${encodeURIComponent(productId)}`,
+      method: "PATCH",
+      body,
+    });
+    if (!isRecord(response) || !isRecord(response.product))
+      throw new AdminApiResponseError();
+    return response.product;
+  };
+  const checkedProduct = (raw: unknown, productId: string, version: number) => {
+    const product = parseCatalogListItem(raw);
+    if (product.id !== productId || product.version !== version + 1)
+      throw new AdminApiResponseError();
+    return product;
   };
 
   return {
@@ -525,6 +574,92 @@ export function createAdminApiClient(
         throw new AdminApiResponseError();
       }
       return product;
+    },
+    async updateProductSizeChart(input) {
+      const productId = sizeChartTarget(input);
+      const chart = input.sizeChart;
+      if (
+        chart !== null &&
+        (!isSizeChartKind(chart.kind) || !isSizeChartValues(chart.kind, chart.values))
+      )
+        throw new AdminApiResponseError();
+      const sizeChart = chart && {
+        kind: chart.kind,
+        values: copySizeChartValues(chart.kind, chart.values),
+      };
+      const raw = await patchProduct(productId, { version: input.version, sizeChart });
+      // An older server drops the unknown field, so a missing chart after a save is a failure.
+      // shortcut: the same server also answers a delete with no chart, so an ignored delete looks like success; add a handled marker to the server response to tell them apart.
+      const saved = raw.sizeChart;
+      if (
+        sizeChart === null
+          ? saved !== undefined
+          : !isRecord(saved) ||
+            saved.kind !== sizeChart.kind ||
+            !sameSizeChartValues(saved.values, sizeChart.values)
+      )
+        throw new AdminApiResponseError();
+      return checkedProduct(raw, productId, input.version);
+    },
+    async updateProductOptionSizeChart(input) {
+      const productId = sizeChartTarget(input);
+      const values = input.sizeChartValues;
+      const { size } = input;
+      if (
+        typeof size !== "string" ||
+        !size.trim() ||
+        size.length > 50 ||
+        (input.sizeName !== undefined &&
+          input.sizeName !== size &&
+          !isNewOptionName(input.sizeName)) ||
+        // The drawing is the server's; the values must at least fit one of the drawings.
+        (values !== null &&
+          !SIZE_CHART_KINDS.some((kind) => isSizeChartValues(kind, values)))
+      )
+        throw new AdminApiResponseError();
+      // Only an actual rename sends sizeName, like the deck option save.
+      const sizeName =
+        input.sizeName !== undefined && input.sizeName !== size
+          ? input.sizeName
+          : undefined;
+      const savedKey = sizeName ?? size;
+      const raw = await patchProduct(productId, {
+        version: input.version,
+        size,
+        ...(sizeName === undefined ? {} : { sizeName }),
+        sizeChartValues: values && { ...values },
+      });
+      // shortcut: an older server never returns the option map, so an ignored option delete looks like success; add a handled marker to the server response to tell them apart.
+      const saved =
+        isRecord(raw.sizeChartsBySize) && Object.hasOwn(raw.sizeChartsBySize, savedKey)
+          ? raw.sizeChartsBySize[savedKey]
+          : undefined;
+      const renamed =
+        sizeName === undefined ||
+        (Array.isArray(raw.sizes) &&
+          raw.sizes.includes(sizeName) &&
+          !raw.sizes.includes(size));
+      if (
+        !renamed ||
+        (values === null
+          ? saved !== undefined
+          : !isSizeChartKind(raw.sizeChartKind) ||
+            !isSizeChartValues(raw.sizeChartKind, saved) ||
+            !sameSizeChartValues(saved, values))
+      )
+        throw new AdminApiResponseError();
+      return checkedProduct(raw, productId, input.version);
+    },
+    async updateProductSizeChartKind(input) {
+      const productId = sizeChartTarget(input);
+      if (!isSizeChartKind(input.sizeChartKind)) throw new AdminApiResponseError();
+      const raw = await patchProduct(productId, {
+        version: input.version,
+        sizeChartKind: input.sizeChartKind,
+      });
+      // An older server ignores the field and never names the kind, which fails here.
+      if (raw.sizeChartKind !== input.sizeChartKind) throw new AdminApiResponseError();
+      return checkedProduct(raw, productId, input.version);
     },
     async deleteCatalogProducts(items) {
       for (const item of items) {
@@ -1397,7 +1532,53 @@ function parseCatalogListItem(value: unknown): AdminCatalogListItem {
     ...(descriptionI18n ? { descriptionI18n } : {}),
     ...(isDeckSpec(value.deckSpec) ? { deckSpec: copyDeckSpec(value.deckSpec) } : {}),
     ...parseDeckSpecsBySize(value.deckSpecsBySize),
+    ...parseSizeCharts(value),
   };
+}
+
+/** 의류·휠 상세사이즈는 도면 종류의 항목에 맞는 값만 남기고, 없으면 필드를 생략합니다. */
+function parseSizeCharts(value: Record<string, unknown>) {
+  const chart = value.sizeChart;
+  const sizeChart =
+    isRecord(chart) &&
+    isSizeChartKind(chart.kind) &&
+    isSizeChartValues(chart.kind, chart.values)
+      ? { kind: chart.kind, values: copySizeChartValues(chart.kind, chart.values) }
+      : undefined;
+  // Like the server, a default value's drawing comes first.
+  const kind =
+    sizeChart?.kind ??
+    (isSizeChartKind(value.sizeChartKind) ? value.sizeChartKind : undefined);
+  const entries =
+    kind && isRecord(value.sizeChartsBySize)
+      ? Object.entries(value.sizeChartsBySize).flatMap(([size, values]) =>
+          isSizeChartValues(kind, values)
+            ? [[size, copySizeChartValues(kind, values)] as const]
+            : [],
+        )
+      : [];
+  return {
+    ...(sizeChart ? { sizeChart } : {}),
+    ...(kind ? { sizeChartKind: kind } : {}),
+    ...(entries.length ? { sizeChartsBySize: Object.fromEntries(entries) } : {}),
+  };
+}
+
+function copySizeChartValues(kind: SizeChartKind, values: SizeChartValues) {
+  return Object.fromEntries(
+    SIZE_CHART_KIND_INFO[kind].fields.map(({ key }) => [key, values[key]]),
+  );
+}
+
+/** 키 순서와 상관없이 같은 항목·값인지 봅니다. */
+function sameSizeChartValues(saved: unknown, sent: SizeChartValues) {
+  return (
+    isRecord(saved) &&
+    Object.keys(saved).length === Object.keys(sent).length &&
+    Object.entries(sent).every(
+      ([key, value]) => Object.hasOwn(saved, key) && saved[key] === value,
+    )
+  );
 }
 
 /** 서버의 새 옵션 이름 규칙과 같습니다. 다른 옵션과의 중복은 서버가 저장된 목록으로 확인합니다. */
