@@ -142,6 +142,8 @@ describe("guide robustness", () => {
     expect(recoverGuideStep(steps, 1, (step) => step.target !== "b")).toBe(2);
     expect(recoverGuideStep(steps, 2, (step) => step.target === "a")).toBe(0);
     expect(recoverGuideStep(steps, 1, () => false)).toBe(-1);
+    // From the empty state, a target that shows up again brings the guide back to it.
+    expect(recoverGuideStep(steps, -1, (step) => step.target === "b")).toBe(1);
   });
 
   it("lets Esc close only the dialog in the last modal layer on the page", () => {
@@ -166,5 +168,8 @@ describe("guide robustness", () => {
     expect(source).toContain('aria-live="polite"');
     expect(source).toContain('matchMedia("(prefers-reduced-motion: reduce)")');
     expect(source).toContain('behavior: reduceMotion ? "instant" : "smooth"');
+    // Leaving the screen hides its guide button, so the guide closes with it.
+    expect(source).toContain("owner.current?.getClientRects().length === 0");
+    expect(source).toContain('attributeFilter: ["hidden"]');
   });
 });

@@ -1698,6 +1698,43 @@ test("screen guide skips steps whose element is not on the screen", async ({
   await expect(bubble).toHaveCount(0);
 });
 
+test("screen guide closes when the screen holding its button gets hidden", async ({
+  page,
+}) => {
+  await setup(page, { path: "/admin?section=products", products: true });
+  const open = page.getByRole("button", { name: "화면 도움말", exact: true });
+  await open.click();
+  const bubble = page.getByRole("dialog");
+  await expect(bubble).toContainText("1/1단계");
+  // Sales stays mounted and is only hidden when Back leaves it; the same `hidden` toggle here.
+  await open.evaluate((button) =>
+    button.closest("section")!.setAttribute("hidden", ""),
+  );
+  await expect(bubble).toHaveCount(0);
+});
+
+test("screen guide moves from the empty state to a step whose element shows up later", async ({
+  page,
+}) => {
+  let release = () => {};
+  const loaded = new Promise<void>((resolve) => (release = resolve));
+  await setup(page, {
+    path: "/admin?section=products",
+    // The held catalog request keeps the network busy until release().
+    waitForIdle: false,
+    handleCatalog: async (route) => {
+      await loaded;
+      await respond(route, { products });
+    },
+  });
+  await page.getByRole("button", { name: "화면 도움말", exact: true }).click();
+  const bubble = page.getByRole("dialog");
+  await expect(bubble).toContainText("이 화면에서 지금 짚어 줄 항목이 없습니다.");
+  release();
+  await expect(bubble).toContainText("1/1단계");
+  await expect(bubble.getByRole("heading")).toHaveText("상품 고르기");
+});
+
 test("screen guide underlines the stock input and keeps the bubble on a 375px screen", async ({
   page,
 }) => {
