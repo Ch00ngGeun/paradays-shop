@@ -1114,3 +1114,116 @@ test("clothing and wheel size charts show no Korean in English in the editor, di
   }
   expectClean(found);
 });
+
+test("blank size fields show null without Korean in English in the editor, dialogs and the store", async ({
+  page,
+}) => {
+  const blankTop = Object.fromEntries(
+    Object.keys(TOP_VALUES).map((key) => [key, null]),
+  );
+  const products = [
+    {
+      ...catalog[0],
+      productId: "prd_english_partial_deck",
+      slug: "dekeyzer-deck-8-25",
+      name: "[TEST] English partial deck",
+      sku: "TEST-EN-PARTIAL-DECK",
+      deckSpec: { nose: null, tail: null, width: 8.5, length: 31.75, wheelbase: null },
+    },
+    sizeChartProduct("top", "[TEST] English partial top", "Top", ["S"], {
+      sizeChart: { kind: "shortSleeve", values: { ...blankTop, chest: 56 } },
+      sizeChartKind: "shortSleeve",
+    }),
+    sizeChartProduct("wheel", "[TEST] English partial wheel", "Wheels", ["54mm 99a"], {
+      sizeChart: {
+        kind: "wheel",
+        values: { diameter: 54, width: null, contactWidth: null },
+      },
+      sizeChartKind: "wheel",
+    }),
+    sizeChartProduct("bottom", "[TEST] English empty pants", "Bottom", ["32"], {}),
+  ];
+  await setup(page, "/admin?section=products", products);
+  const found = new Map<string, string[]>();
+  const dialog = page.getByRole("dialog");
+  const edit = async (name: string) => {
+    await openSection(page, "Product registration");
+    await page
+      .getByRole("listitem")
+      .filter({ hasText: name })
+      .getByRole("button", { name: "Edit", exact: true })
+      .click();
+  };
+
+  // Each summary names its first measurement even when it is blank.
+  for (const [name, summary, label] of [
+    [
+      "[TEST] English partial deck",
+      '8.5" × 31.75" · WB null',
+      /^nose null, tail null, width 8\.5"/,
+    ],
+    [
+      "[TEST] English partial top",
+      "Short sleeve · Length null",
+      /^Short sleeve: Length null, Shoulder width null, Chest width 56cm/,
+    ],
+    [
+      "[TEST] English partial wheel",
+      "Wheel · Diameter 54mm",
+      /^Wheel: Diameter 54mm, W overall width null, T contact width null$/,
+    ],
+  ] as const) {
+    await edit(name);
+    await expect(page.getByText(summary, { exact: true })).toBeVisible();
+    await scan(page, `${name} editor`, found);
+    await page.getByRole("button", { name: "Edit size chart" }).click();
+    // The preview draws blank fields as null; the inputs stay empty.
+    await expect(dialog.locator("svg")).toHaveAttribute("aria-label", label);
+    await expect(dialog.locator('input[value="null"]')).toHaveCount(0);
+    await scan(page, `${name} dialog`, found);
+    await page.keyboard.press("Escape");
+  }
+
+  // A product with no size chart yet shows the new preview hint.
+  await edit("[TEST] English empty pants");
+  await page.getByRole("button", { name: "+ Add size chart" }).click();
+  await expect(dialog).toContainText(
+    "Enter at least one value to see the diagram preview.",
+  );
+  await expect(
+    dialog.getByRole("button", { name: "Save", exact: true }),
+  ).toBeDisabled();
+  await scan(page, "empty size chart dialog", found);
+  await page.keyboard.press("Escape");
+
+  for (const [slug, size, label] of [
+    ["dekeyzer-deck-8-25", "8.5", /^nose null, tail null, width 8\.5"/],
+    [STORE_SLUGS.top, "S", /^Short sleeve: Length null/],
+    [STORE_SLUGS.wheel, "54mm 99a", /^Wheel: Diameter 54mm, W overall width null/],
+  ] as const) {
+    await page.goto(`/products/${slug}`);
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: size, exact: true }).click();
+    await page.getByRole("button", { name: "Size chart" }).click();
+    await expect(dialog.locator("svg")).toHaveAttribute("aria-label", label);
+    await expect(dialog.locator("svg")).toContainText("null");
+    // Only the size chart dialog is this check's scope (see the clothing test above).
+    const korean = await dialog.evaluate((root) => {
+      const re = /\p{Script=Hangul}/u;
+      const out: string[] = [];
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode())
+        if (re.test(walker.currentNode.textContent ?? ""))
+          out.push(walker.currentNode.textContent!.trim());
+      for (const element of [root, ...root.querySelectorAll("*")])
+        for (const name of ["aria-label", "title", "alt"]) {
+          const value = element.getAttribute(name);
+          if (value && re.test(value)) out.push(`@${name}=${value}`);
+        }
+      return out;
+    });
+    if (korean.length) found.set(`store size chart ${slug}`, korean);
+    await page.keyboard.press("Escape");
+  }
+  expectClean(found);
+});
