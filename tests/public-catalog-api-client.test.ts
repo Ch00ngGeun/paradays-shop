@@ -55,7 +55,9 @@ describe("public catalog deckSpec", () => {
       { ...deckSpec, tail: undefined },
       { ...deckSpec, width: 0 },
       { ...deckSpec, length: "31.75" },
-      { ...deckSpec, nose: Number.POSITIVE_INFINITY },
+      // Infinity would arrive as JSON null, which is now a blank field, so a negative value
+      // keeps the "out-of-range number" case.
+      { ...deckSpec, nose: -6.875 },
       "6.875",
     ]) {
       const product = await getPublishedCatalogProduct(
@@ -236,5 +238,104 @@ describe("public catalog clothing and wheel size chart", () => {
     });
     expect(product?.sizeChartKind).toBe("shortSleeve");
     expect(product?.sizeChartsBySize).toEqual({ S: values });
+  });
+});
+
+describe("public catalog blank size fields", () => {
+  const previousBaseUrl = process.env.NEXT_PUBLIC_COMMERCE_API_BASE_URL;
+
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_COMMERCE_API_BASE_URL = "https://api.example.test";
+  });
+
+  afterEach(() => {
+    if (previousBaseUrl === undefined)
+      delete process.env.NEXT_PUBLIC_COMMERCE_API_BASE_URL;
+    else process.env.NEXT_PUBLIC_COMMERCE_API_BASE_URL = previousBaseUrl;
+  });
+
+  const partial = {
+    nose: 6.875,
+    tail: null,
+    width: 8.5,
+    length: null,
+    wheelbase: null,
+  };
+  const read = (product: Record<string, unknown>) =>
+    getPublishedCatalogProduct(baseProduct.slug, fetchReturning(product));
+
+  it("keeps deck values with blank fields, for the default and each option", async () => {
+    const product = await read({
+      ...baseProduct,
+      sizes: ["8.25", "8.5"],
+      deckSpec: partial,
+      deckSpecsBySize: { "8.25": { ...partial, nose: null, tail: 6.0625 } },
+    });
+    expect(product?.deckSpec).toEqual(partial);
+    expect(product?.deckSpecsBySize).toEqual({
+      "8.25": { ...partial, nose: null, tail: 6.0625 },
+    });
+  });
+
+  it("drops only deck values that are all blank, missing a field, or break the server's rules", async () => {
+    for (const invalid of [
+      { nose: null, tail: null, width: null, length: null, wheelbase: null },
+      { nose: 6.875, tail: null, width: 8.5, length: null },
+      { ...partial, tail: "null" },
+      { ...partial, tail: 0 },
+      { ...partial, nose: 6.06251 },
+    ]) {
+      const product = await read({
+        ...baseProduct,
+        sizes: ["8.5"],
+        deckSpec: invalid,
+        deckSpecsBySize: { "8.5": invalid },
+      });
+      expect(product?.id, JSON.stringify(invalid)).toBe(baseProduct.id);
+      expect(product).not.toHaveProperty("deckSpec");
+      expect(product).not.toHaveProperty("deckSpecsBySize");
+    }
+  });
+
+  it("keeps clothing and wheel values with blank fields through the shared rules", async () => {
+    const top = {
+      length: 72,
+      shoulder: null,
+      chest: 56,
+      sleeveLength: null,
+      hem: 55,
+      sleeveWidth: null,
+      armhole: null,
+    };
+    const product = await read({
+      ...baseProduct,
+      category: "Top",
+      sizes: ["S", "M"],
+      sizeChart: { kind: "shortSleeve", values: top },
+      sizeChartKind: "shortSleeve",
+      sizeChartsBySize: {
+        M: { ...top, length: null, armhole: 24 },
+        S: Object.fromEntries(Object.keys(top).map((key) => [key, null])),
+      },
+    });
+    expect(product?.sizeChart).toEqual({ kind: "shortSleeve", values: top });
+    // The all-blank option is the only entry left out.
+    expect(product?.sizeChartsBySize).toEqual({
+      M: { ...top, length: null, armhole: 24 },
+    });
+    const wheel = await read({
+      ...baseProduct,
+      category: "Wheels",
+      sizeChart: {
+        kind: "wheel",
+        values: { diameter: 54, width: null, contactWidth: null },
+      },
+      sizeChartKind: "wheel",
+    });
+    expect(wheel?.sizeChart?.values).toEqual({
+      diameter: 54,
+      width: null,
+      contactWidth: null,
+    });
   });
 });
