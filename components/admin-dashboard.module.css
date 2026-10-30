@@ -5633,3 +5633,8 @@
   min-width: 0;
   position: relative;
 }
+
+/* Pushes one item in a flex row to the far end, leaving the row's own children and selectors unchanged. */
+.pushEnd {
+  margin-inline-start: auto;
+}
