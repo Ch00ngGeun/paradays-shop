@@ -2,7 +2,7 @@
 // 데크 상세사이즈 모달과 같은 구조·문구 규칙을 따릅니다.
 "use client";
 
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 
 import { useFocusTrap } from "@/hooks/use-focus-trap";
@@ -111,6 +111,8 @@ type AdminSizeChartFormProps = Readonly<{
   locale?: Locale;
   notice?: string;
   describeError?: (error: unknown) => string | undefined;
+  /** 도면 종류를 바꾼 뒤 새로 그린 폼이면 종류 선택칸에 포커스를 둡니다. */
+  focusKind?: boolean;
 }>;
 
 function toInputs(kind: SizeChartKind, values?: SizeChartValues): Inputs {
@@ -136,6 +138,7 @@ export function AdminSizeChartForm({
   locale = "ko",
   notice,
   describeError,
+  focusKind,
 }: AdminSizeChartFormProps) {
   const isKorean = locale === "ko";
   const info = SIZE_CHART_KIND_INFO[kind];
@@ -143,6 +146,12 @@ export function AdminSizeChartForm({
   const [saving, setSaving] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [pendingKind, setPendingKind] = useState<SizeChartKind | null>(null);
+  const kindRef = useRef<HTMLSelectElement>(null);
+  const changeRef = useRef<HTMLButtonElement>(null);
+  // The confirm buttons disappear with the old form, so focus lands on the drawing select instead.
+  useEffect(() => {
+    if (focusKind) kindRef.current?.focus();
+  }, [focusKind]);
   const rangeErrorId = useId();
   const nameNoteId = useId();
   const kindNoteId = useId();
@@ -197,6 +206,7 @@ export function AdminSizeChartForm({
             {isKorean ? "도면 종류" : "Drawing"}
           </span>
           <select
+            ref={kindRef}
             aria-describedby={kindNote ? kindNoteId : undefined}
             // Options follow the product's drawing; only the default screen switches it.
             disabled={saving || kindNote !== undefined}
@@ -227,14 +237,22 @@ export function AdminSizeChartForm({
             <button
               className={styles.confirmChange}
               disabled={saving}
-              onClick={() => void run(() => onChangeKind(pendingKind))}
+              onClick={async () => {
+                await run(() => onChangeKind(pendingKind));
+                // Success remounts the form for the new drawing; a failure keeps this button to retry.
+                setTimeout(() => changeRef.current?.focus());
+              }}
+              ref={changeRef}
               type="button"
             >
               {isKorean ? "바꾸고 지우기" : "Switch and delete"}
             </button>
             <button
               disabled={saving}
-              onClick={() => setPendingKind(null)}
+              onClick={() => {
+                setPendingKind(null);
+                kindRef.current?.focus();
+              }}
               type="button"
             >
               {isKorean ? "그대로 두기" : "Keep it"}
@@ -393,6 +411,7 @@ export function AdminSizeChartModal({
   const layer = useModalLayer(isOpen);
   const busyRef = useRef(false);
   const titleId = useId();
+  const [openedKind] = useState(form.kind);
   const dialogRef = useFocusTrap(isOpen, () => {
     if (!busyRef.current) form.onCancel();
   });
@@ -417,6 +436,7 @@ export function AdminSizeChartModal({
         <AdminSizeChartForm
           key={form.kind}
           {...form}
+          focusKind={form.kind !== openedKind}
           onBusyChange={(busy) => {
             busyRef.current = busy;
           }}
