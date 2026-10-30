@@ -1,4 +1,12 @@
 // 역할: 정적 스토어프론트가 배포된 관리자 카탈로그의 발행 상품만 읽도록 하는 공개 API 어댑터입니다.
+import {
+  SIZE_CHART_KIND_INFO,
+  isSizeChartKind,
+  isSizeChartValues,
+  sizeChartKindsFor,
+  type SizeChartKind,
+  type SizeChartValues,
+} from "@/lib/size-chart";
 import type { DeckSpec, Product } from "@/types/store";
 
 /** public catalog API가 없거나 실패했을 때 정적 초기 카탈로그를 유지하게 하는 오류입니다. */
@@ -150,6 +158,7 @@ function parseProduct(value: unknown): Product {
   const descriptionI18n = parseDescriptionI18n(value.descriptionI18n);
   const deckSpec = parseDeckSpec(value.deckSpec);
   const deckSpecsBySize = parseDeckSpecsBySize(value.deckSpecsBySize, value.sizes);
+  const sizeCharts = parseSizeCharts(value, value.category, value.sizes);
 
   return {
     id: value.id,
@@ -173,7 +182,52 @@ function parseProduct(value: unknown): Product {
     ...(typeof value.featured === "boolean" ? { featured: value.featured } : {}),
     ...(deckSpec ? { deckSpec } : {}),
     ...(deckSpecsBySize ? { deckSpecsBySize } : {}),
+    ...sizeCharts,
   };
+}
+
+/**
+ * 의류·휠 상세사이즈도 부가 정보라 맞지 않는 항목만 빼고 상품은 그대로 둡니다.
+ * 도면 종류는 카테고리에서 고를 수 있어야 하고, 서버처럼 기본값의 종류가 먼저입니다.
+ */
+function parseSizeCharts(
+  value: Record<string, unknown>,
+  category: string,
+  sizes: readonly unknown[],
+): Pick<Product, "sizeChart" | "sizeChartKind" | "sizeChartsBySize"> {
+  const allowed = (kind: unknown): kind is SizeChartKind =>
+    isSizeChartKind(kind) && sizeChartKindsFor(category).includes(kind);
+  const chart = value.sizeChart;
+  const sizeChart =
+    isRecord(chart) &&
+    allowed(chart.kind) &&
+    isSizeChartValues(chart.kind, chart.values)
+      ? { kind: chart.kind, values: copySizeChartValues(chart.kind, chart.values) }
+      : undefined;
+  const kind =
+    sizeChart?.kind ?? (allowed(value.sizeChartKind) ? value.sizeChartKind : undefined);
+  const entries =
+    kind && isRecord(value.sizeChartsBySize)
+      ? Object.entries(value.sizeChartsBySize).flatMap(([size, values]) =>
+          sizes.includes(size) &&
+          !UNSAFE_DECK_SPEC_OPTIONS.includes(size) &&
+          isSizeChartValues(kind, values)
+            ? [[size, copySizeChartValues(kind, values)] as const]
+            : [],
+        )
+      : [];
+  return {
+    ...(sizeChart ? { sizeChart } : {}),
+    ...(kind ? { sizeChartKind: kind } : {}),
+    // fromEntries defines own keys, so no option name reaches Object.prototype.
+    ...(entries.length ? { sizeChartsBySize: Object.fromEntries(entries) } : {}),
+  };
+}
+
+function copySizeChartValues(kind: SizeChartKind, values: SizeChartValues) {
+  return Object.fromEntries(
+    SIZE_CHART_KIND_INFO[kind].fields.map(({ key }) => [key, values[key]]),
+  );
 }
 
 const DECK_SPEC_FIELDS = ["nose", "tail", "width", "length", "wheelbase"] as const;

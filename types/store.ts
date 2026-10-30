@@ -1,4 +1,5 @@
 // 역할: 카탈로그, 장바구니, 메뉴, 로케일 컴포넌트에서 공유하는 엄격한 도메인 타입을 정의합니다.
+import type { SizeChartKind, SizeChartValues } from "@/lib/size-chart";
 
 /** UI·스토리지에서 쓰는 지원 언어 */
 export type Locale = "en" | "ko";
@@ -40,6 +41,12 @@ export type Product = {
   deckSpec?: DeckSpec;
   /** 사이즈 옵션별 상세사이즈. 선택한 사이즈에 값이 없으면 deckSpec(기본값)을 표시 */
   deckSpecsBySize?: Record<string, DeckSpec>;
+  /** 의류·휠 상세사이즈 기본값(의류 cm·휠 mm) */
+  sizeChart?: { kind: SizeChartKind; values: SizeChartValues };
+  /** 의류·휠 상세사이즈 도면 종류. 옵션별 값도 이 종류의 항목을 따름 */
+  sizeChartKind?: SizeChartKind;
+  /** 사이즈 옵션별 의류·휠 상세사이즈. 선택한 사이즈에 값이 없으면 sizeChart(기본값)를 표시 */
+  sizeChartsBySize?: Record<string, SizeChartValues>;
 };
 
 /** 장바구니에 담긴 한 줄 (상품·선택 옵션·수량). 결제 요청은 이 식별자 대신 productId+selectedSize만 전송합니다. */

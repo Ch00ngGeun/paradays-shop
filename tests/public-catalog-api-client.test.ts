@@ -130,3 +130,111 @@ describe("public catalog deckSpec", () => {
     }
   });
 });
+
+describe("public catalog clothing and wheel size chart", () => {
+  const previousBaseUrl = process.env.NEXT_PUBLIC_COMMERCE_API_BASE_URL;
+
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_COMMERCE_API_BASE_URL = "https://api.example.test";
+  });
+
+  afterEach(() => {
+    if (previousBaseUrl === undefined)
+      delete process.env.NEXT_PUBLIC_COMMERCE_API_BASE_URL;
+    else process.env.NEXT_PUBLIC_COMMERCE_API_BASE_URL = previousBaseUrl;
+  });
+
+  const values = {
+    length: 72,
+    shoulder: 50.5,
+    chest: 56,
+    sleeveLength: 22,
+    hem: 55,
+    sleeveWidth: 20.5,
+    armhole: 24,
+  };
+  const top = {
+    ...baseProduct,
+    category: "Top",
+    sizes: ["S", "M", "__proto__", "constructor", "prototype"],
+  };
+  const read = (product: Record<string, unknown>) =>
+    getPublishedCatalogProduct(baseProduct.slug, fetchReturning(product));
+
+  it("keeps the default, its drawing and option values in drawing order", async () => {
+    const reversed = Object.fromEntries(Object.entries(values).reverse());
+    const product = await read({
+      ...top,
+      sizeChart: { kind: "shortSleeve", values: reversed },
+      sizeChartKind: "shortSleeve",
+      sizeChartsBySize: { M: { ...values, length: 74 } },
+    });
+    expect(product?.sizeChart).toEqual({ kind: "shortSleeve", values });
+    expect(Object.keys(product!.sizeChart!.values)).toEqual(Object.keys(values));
+    expect(product?.sizeChartKind).toBe("shortSleeve");
+    expect(product?.sizeChartsBySize).toEqual({ M: { ...values, length: 74 } });
+  });
+
+  it("drops only malformed, unknown-size, unsafe and other-drawing option values", async () => {
+    const product = await read({
+      ...top,
+      sizeChartKind: "shortSleeve",
+      sizeChartsBySize: JSON.parse(
+        JSON.stringify({
+          S: values,
+          M: { ...values, length: 300.1 },
+          L: values,
+          constructor: values,
+          prototype: values,
+          proto: values,
+        }).replace('"proto"', '"__proto__"'),
+      ),
+    });
+    expect(product?.id).toBe(baseProduct.id);
+    expect(product?.sizeChartsBySize).toEqual({ S: values });
+    expect(Object.getPrototypeOf(product?.sizeChartsBySize)).toBe(Object.prototype);
+    // Option values of another drawing do not count for this one.
+    const raglan = await read({
+      ...top,
+      sizeChartKind: "raglanLongSleeve",
+      sizeChartsBySize: { S: values },
+    });
+    expect(raglan?.sizeChartKind).toBe("raglanLongSleeve");
+    expect(raglan).not.toHaveProperty("sizeChartsBySize");
+  });
+
+  it("omits every size chart field it cannot trust and keeps the product and deckSpec", async () => {
+    for (const extra of [
+      { sizeChart: { kind: "shortSleeve", values: { ...values, chest: 0 } } },
+      { sizeChart: { kind: "deck", values }, sizeChartKind: "deck" },
+      // A wheel drawing on a top does not fit the category.
+      {
+        sizeChart: {
+          kind: "wheel",
+          values: { diameter: 54, width: 33, contactWidth: 20 },
+        },
+        sizeChartKind: "wheel",
+      },
+      // Option values without any drawing to follow.
+      { sizeChartsBySize: { S: values } },
+      { sizeChart: "72", sizeChartsBySize: [values] },
+    ]) {
+      const product = await read({ ...top, deckSpec, ...extra });
+      expect(product?.id).toBe(baseProduct.id);
+      expect(product?.deckSpec).toEqual(deckSpec);
+      for (const field of ["sizeChart", "sizeChartKind", "sizeChartsBySize"])
+        expect(product, `${JSON.stringify(extra)} ${field}`).not.toHaveProperty(field);
+    }
+  });
+
+  it("follows the default's drawing over a different named one, like the server", async () => {
+    const product = await read({
+      ...top,
+      sizeChart: { kind: "shortSleeve", values },
+      sizeChartKind: "raglanLongSleeve",
+      sizeChartsBySize: { S: values },
+    });
+    expect(product?.sizeChartKind).toBe("shortSleeve");
+    expect(product?.sizeChartsBySize).toEqual({ S: values });
+  });
+});
