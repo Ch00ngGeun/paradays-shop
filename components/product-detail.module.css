@@ -165,7 +165,8 @@
 }
 
 .sizeChartButton:focus-visible,
-.sizeChartClose:focus-visible {
+.sizeChartClose:focus-visible,
+.wideDiagram:focus-visible {
   outline: 2px solid var(--color-ink);
   outline-offset: 2px;
 }
@@ -221,6 +222,21 @@
   height: min(80vh, 48rem);
   max-width: 100%;
   width: auto;
+}
+
+/* 가로로 넓은 의류 도면을 감싸는 칸. 폭 580 도면은 500px 아래로 줄면 값 글자가 12px보다 작아지므로,
+   어느 화면에서든 500px 이상으로 그리고 칸이 그보다 좁으면 칸 안에서만 옆으로 넘깁니다. */
+.wideDiagram {
+  max-width: 100%;
+  overflow-x: auto;
+  width: 100%;
+}
+
+.sizeChartDiagram .wideDiagram svg {
+  height: auto;
+  max-width: none;
+  min-width: 500px;
+  width: 100%;
 }
 
 /* .productImage — 우측(또는 상단) 대형 상품 이미지 */
