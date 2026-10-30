@@ -1,0 +1,80 @@
+/* 의류·휠 도면은 가로가 넓어 데크 모달보다 창과 미리보기 칸을 넓힙니다. 나머지는 데크 모달 스타일을 씁니다. */
+.dialog {
+  background: var(--color-paper, #fff);
+  border: 1px solid var(--color-ink, #111);
+  color: var(--color-ink, #111);
+  max-height: calc(100dvh - 2rem);
+  max-width: 60rem;
+  overflow: auto;
+  padding: 1.25rem;
+  width: 100%;
+}
+
+.form {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);
+}
+
+.kind {
+  display: grid;
+  gap: 0.25rem;
+  grid-column: 1 / -1;
+}
+
+.kind select {
+  background: var(--color-paper, #fff);
+  border: 1px solid var(--color-ink, #111);
+  color: var(--color-ink, #111);
+  font: inherit;
+  justify-self: start;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.6rem;
+}
+
+.kind select:focus-visible,
+.confirm button:focus-visible {
+  outline: 2px solid var(--color-red, #c00);
+  outline-offset: 2px;
+}
+
+/* 도면 종류를 바꾸기 전, 값이 모두 지워진다는 것을 확인받는 칸 */
+.confirm {
+  border: 1px solid var(--color-red, #c00);
+  display: grid;
+  gap: 0.6rem;
+  grid-column: 1 / -1;
+  padding: 0.75rem;
+}
+
+.confirm p {
+  margin: 0;
+}
+
+.confirmActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.confirm button {
+  background: transparent;
+  border: 1px solid var(--color-ink, #111);
+  color: var(--color-ink, #111);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+}
+
+.confirm .confirmChange {
+  border-color: var(--color-red, #c00);
+  color: var(--color-red, #c00);
+}
+
+@media (max-width: 720px) {
+  .form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
