@@ -25,10 +25,20 @@ import { documentClient, getRequiredEnvironment } from "./dynamodb-client.js";
 import { jsonResponse } from "./http-response.js";
 import { isRecord, parseJsonBody, readBoundedString } from "./request-helpers.js";
 import {
+  allowedSizeChartKind,
+  copySizeChartValues,
+  defaultSizeChartKind,
   isCatalogSizeChart,
+  isSizeChartValues,
   sizeChartFor,
   type CatalogSizeChart,
+  type SizeChartKind,
 } from "./size-chart-rules.js";
+
+/** 옵션별 의류·휠 상세사이즈 값. 키는 sizes 값이고, 도면 종류는 상품의 sizeChartKind를 따릅니다. */
+export type CatalogSizeChartsBySize = Readonly<
+  Record<string, Readonly<Record<string, number>>>
+>;
 
 /** 상품 상태는 공개 여부를 가리키는 두 값으로 고정합니다. */
 export type CatalogProductStatus = "DRAFT" | "PUBLISHED";
@@ -85,6 +95,9 @@ export type CatalogProductRecord = Readonly<{
   deckSpecsBySize?: CatalogDeckSpecsBySize;
   /** 데크 외(의류·휠) 상세사이즈 기본값. kind는 카테고리에서 고를 수 있는 도면 종류입니다. */
   sizeChart?: CatalogSizeChart;
+  /** 고른 도면 종류. 기본값이 없어도 옵션별 값이 이 종류의 항목을 따릅니다. */
+  sizeChartKind?: SizeChartKind;
+  sizeChartsBySize?: CatalogSizeChartsBySize;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -114,6 +127,8 @@ export type PublicCatalogProduct = Readonly<{
   deckSpec?: CatalogDeckSpec;
   deckSpecsBySize?: CatalogDeckSpecsBySize;
   sizeChart?: CatalogSizeChart;
+  sizeChartKind?: SizeChartKind;
+  sizeChartsBySize?: CatalogSizeChartsBySize;
 }>;
 
 /** 관리자 UI에 반환하는 allowlist 기반 상품 shape입니다. audit subject 등 저장 원본은 제외합니다. */
@@ -140,6 +155,8 @@ export type AdminCatalogProduct = Readonly<{
   deckSpec?: CatalogDeckSpec;
   deckSpecsBySize?: CatalogDeckSpecsBySize;
   sizeChart?: CatalogSizeChart;
+  sizeChartKind?: SizeChartKind;
+  sizeChartsBySize?: CatalogSizeChartsBySize;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -317,7 +334,13 @@ async function createProduct(
   // the clothing/wheel size chart only through a PATCH on a saved product.
   const input = parseProductInput(
     isRecord(body)
-      ? { ...body, deckSpecsBySize: undefined, sizeChart: undefined }
+      ? {
+          ...body,
+          deckSpecsBySize: undefined,
+          sizeChart: undefined,
+          sizeChartKind: undefined,
+          sizeChartsBySize: undefined,
+        }
       : body,
   );
 
@@ -815,8 +838,31 @@ async function updateProduct(
     (!patchedCategory || !sizeChartFor(patchedCategory, body.sizeChart))
   )
     return jsonResponse(400, { code: "CATALOG_PRODUCT_INVALID" });
+  const currentKind = currentSizeChartKind(existingProduct);
+  // Changing the drawing with a default value would orphan the option values; that is the kind PATCH's job.
+  if (
+    isCatalogSizeChart(body.sizeChart) &&
+    body.sizeChart.kind !== currentKind &&
+    sizeChartsBySizeFor(existingProduct, currentKind)
+  )
+    return jsonResponse(400, { code: "CATALOG_PRODUCT_INVALID" });
+  // PATCH { version, sizeChartKind }: a different drawing clears the default and every option value.
+  if (hasOwn(body, "sizeChartKind")) {
+    const kind = Object.keys(body).every((field) =>
+      ["version", "sizeChartKind"].includes(field),
+    )
+      ? allowedSizeChartKind(existingProduct.category, body.sizeChartKind)
+      : undefined;
+    if (!kind) return jsonResponse(400, { code: "CATALOG_PRODUCT_INVALID" });
+    if (kind !== currentKind) {
+      delete merged.sizeChart;
+      delete merged.sizeChartsBySize;
+    }
+    merged.sizeChartKind = kind;
+  }
   if (
     hasOwn(body, "sizeDeckSpec") ||
+    hasOwn(body, "sizeChartValues") ||
     hasOwn(body, "size") ||
     hasOwn(body, "sizeName")
   ) {
@@ -824,6 +870,8 @@ async function updateProduct(
     if (!option) return jsonResponse(400, { code: "CATALOG_PRODUCT_INVALID" });
     merged.sizes = option.sizes;
     merged.deckSpecsBySize = option.deckSpecsBySize;
+    merged.sizeChartsBySize = option.sizeChartsBySize;
+    if (option.sizeChartKind) merged.sizeChartKind = option.sizeChartKind;
   }
   const input = parseProductInput(merged);
 
@@ -849,6 +897,8 @@ async function updateProduct(
   // and a size chart whose kind the category no longer offers.
   delete existingBase.deckSpecsBySize;
   delete existingBase.sizeChart;
+  delete existingBase.sizeChartKind;
+  delete existingBase.sizeChartsBySize;
   const updatedProduct: CatalogProductRecord = {
     ...existingBase,
     ...input,
@@ -1168,6 +1218,16 @@ function parseProductInput(body: unknown): ProductInput | null {
   const deckSpec = readDeckSpec(body.deckSpec);
   const deckSpecsBySize = sizes && readDeckSpecsBySize(body.deckSpecsBySize, sizes);
   const sizeChart = readSizeChart(body.sizeChart, category);
+  // A default value fixes the drawing; otherwise the one chosen by the kind PATCH or an option save.
+  const sizeChartKind =
+    sizeChart?.kind ?? allowedSizeChartKind(category, body.sizeChartKind);
+  const sizeChartsBySize =
+    sizes &&
+    readSizeChartsBySize(
+      body.sizeChartsBySize,
+      sizes,
+      sizeChartKind ?? defaultSizeChartKind(category),
+    );
 
   if (
     !images ||
@@ -1209,6 +1269,8 @@ function parseProductInput(body: unknown): ProductInput | null {
     ...(deckSpec ? { deckSpec } : {}),
     ...(deckSpecsBySize ? { deckSpecsBySize } : {}),
     ...(sizeChart ? { sizeChart } : {}),
+    ...(sizeChartKind ? { sizeChartKind } : {}),
+    ...(sizeChartsBySize ? { sizeChartsBySize } : {}),
   };
 }
 
@@ -1685,44 +1747,85 @@ function readDeckSpecsBySize(
 }
 
 /**
- * PATCH { version, size, sizeName?, sizeDeckSpec }: 저장된 옵션 하나의 상세사이즈를 넣거나(null이면) 지우고,
- * sizeName이 있으면 같은 위치의 옵션 이름도 바꿔 상세사이즈를 새 이름으로 옮깁니다.
+ * PATCH { version, size, sizeName?, sizeDeckSpec | sizeChartValues }: 저장된 옵션 하나의 데크 또는
+ * 의류·휠 상세사이즈를 넣거나(null이면) 지우고, sizeName이 있으면 같은 위치의 옵션 이름도 바꿔
+ * 두 종류의 옵션별 값을 모두 새 이름으로 옮깁니다.
  * 구 서버가 무시하거나 거부하도록 전용 필드만 쓰며, 다른 필드와 함께 오면 거부합니다.
  */
 function patchSizeOption(
   product: CatalogProductRecord,
   body: Record<string, unknown>,
-): { sizes: string[]; deckSpecsBySize: Record<string, CatalogDeckSpec> } | null {
+): {
+  sizes: string[];
+  deckSpecsBySize: Record<string, CatalogDeckSpec>;
+  sizeChartsBySize: Record<string, Readonly<Record<string, number>>>;
+  sizeChartKind?: SizeChartKind;
+} | null {
   const size = body.size;
   const name = hasOwn(body, "sizeName") ? body.sizeName : size;
+  const editsDeck = hasOwn(body, "sizeDeckSpec");
+  const field = editsDeck ? "sizeDeckSpec" : "sizeChartValues";
   const spec = readDeckSpec(body.sizeDeckSpec);
+  const kind = currentSizeChartKind(product);
+  const chartValues = body.sizeChartValues;
 
   if (
-    !hasOwn(body, "sizeDeckSpec") ||
+    // Exactly one of the two value fields says which option value is edited.
+    editsDeck === hasOwn(body, "sizeChartValues") ||
     Object.keys(body).some(
-      (field) => !["version", "size", "sizeName", "sizeDeckSpec"].includes(field),
+      (key) => !["version", "size", "sizeName", field].includes(key),
     ) ||
     typeof size !== "string" ||
     !isDeckSpecOption(product.sizes, size) ||
     typeof name !== "string" ||
     // Only a new name is checked, so an existing legacy option keeps its H-035 save and delete.
     (name !== size && (!isSizeOptionName(name) || product.sizes.includes(name))) ||
-    spec === null ||
-    (spec === undefined && body.sizeDeckSpec !== null)
+    (editsDeck
+      ? spec === null || (spec === undefined && body.sizeDeckSpec !== null)
+      : !kind || (chartValues !== null && !isSizeChartValues(kind, chartValues)))
   ) {
     return null;
   }
 
   return {
     sizes: product.sizes.map((option) => (option === size ? name : option)),
-    // A stale key already named like the new option must not resurface after the rename.
-    deckSpecsBySize: Object.fromEntries([
-      ...Object.entries(product.deckSpecsBySize ?? {}).filter(
-        ([key]) => key !== size && key !== name,
-      ),
-      ...(spec ? [[name, spec] as const] : []),
-    ]),
+    deckSpecsBySize: withOptionValue(
+      product.deckSpecsBySize,
+      size,
+      name,
+      editsDeck ? (spec ?? undefined) : ownValue(product.deckSpecsBySize, size),
+    ),
+    sizeChartsBySize: withOptionValue(
+      product.sizeChartsBySize,
+      size,
+      name,
+      editsDeck
+        ? ownValue(product.sizeChartsBySize, size)
+        : kind && isSizeChartValues(kind, chartValues)
+          ? copySizeChartValues(kind, chartValues)
+          : undefined,
+    ),
+    // Saving an option value records the drawing it follows, even without a default value.
+    ...(!editsDeck && kind ? { sizeChartKind: kind } : {}),
   };
+}
+
+function ownValue<T>(map: Readonly<Record<string, T>> | undefined, key: string) {
+  return map && Object.hasOwn(map, key) ? map[key] : undefined;
+}
+
+/** 옵션 키 size를 name으로 옮기며 값을 value로 바꿉니다(undefined면 지움). */
+function withOptionValue<T>(
+  map: Readonly<Record<string, T>> | undefined,
+  size: string,
+  name: string,
+  value: T | undefined,
+): Record<string, T> {
+  // A stale key already named like the new option must not resurface after the rename.
+  return Object.fromEntries([
+    ...Object.entries(map ?? {}).filter(([key]) => key !== size && key !== name),
+    ...(value === undefined ? [] : [[name, value] as const]),
+  ]);
 }
 
 /** 상품 저장의 쉼표 목록 규칙(trim·50자·쉼표 없음)과 같고, 상세사이즈 키로 쓸 수 없는 이름은 거부합니다. */
@@ -1745,10 +1848,58 @@ function readSizeChart(value: unknown, category: string) {
   return isCatalogSizeChart(value) ? sizeChartFor(category, value) : null;
 }
 
+/**
+ * 옵션별 값이 따르는 도면 종류: 기본값의 kind, 따로 고른 kind, 카테고리 기본 kind 순서입니다.
+ * 카테고리에서 고를 수 없게 된 kind는 건너뜁니다.
+ */
+function currentSizeChartKind(product: CatalogProductRecord) {
+  return (
+    sizeChartFor(product.category, product.sizeChart)?.kind ??
+    allowedSizeChartKind(product.category, product.sizeChartKind) ??
+    defaultSizeChartKind(product.category)
+  );
+}
+
+/** 현재 sizes에 있고 kind의 항목에 맞는 옵션별 값만 남깁니다. 남은 값이 없으면 undefined입니다. */
+function readSizeChartsBySize(
+  value: unknown,
+  sizes: readonly string[],
+  kind: SizeChartKind | undefined,
+): CatalogSizeChartsBySize | undefined {
+  if (!kind || !isRecord(value)) return undefined;
+  const entries = Object.entries(value)
+    .filter(
+      ([size, values]) =>
+        isDeckSpecOption(sizes, size) && isSizeChartValues(kind, values),
+    )
+    .map(
+      ([size, values]) => [size, copySizeChartValues(kind, values as never)] as const,
+    );
+  // fromEntries defines own keys, so an option named like an Object method is stored like any other.
+  return entries.length ? Object.fromEntries(entries) : undefined;
+}
+
+function sizeChartsBySizeFor(
+  product: CatalogProductRecord,
+  kind: SizeChartKind | undefined,
+) {
+  return readSizeChartsBySize(product.sizeChartsBySize, product.sizes, kind);
+}
+
 /** 형식이 맞고 카테고리에 맞는 상세사이즈만 응답에 담습니다. 잘못된 저장 값은 상품을 숨기지 않고 빠집니다. */
 function sizeChartOutput(product: CatalogProductRecord) {
   const sizeChart = sizeChartFor(product.category, product.sizeChart);
-  return sizeChart ? { sizeChart } : {};
+  const kind = currentSizeChartKind(product);
+  const sizeChartsBySize = sizeChartsBySizeFor(product, kind);
+  const chosen = allowedSizeChartKind(product.category, product.sizeChartKind);
+  return {
+    ...(sizeChart ? { sizeChart } : {}),
+    // The kind is named whenever one was chosen or follows from a value.
+    ...(kind && (sizeChart || chosen || sizeChartsBySize)
+      ? { sizeChartKind: kind }
+      : {}),
+    ...(sizeChartsBySize ? { sizeChartsBySize } : {}),
+  };
 }
 
 /** 저장 행의 옵션별 상세사이즈 중 현재 sizes에 있는 값만 응답에 담습니다. */

@@ -2104,3 +2104,248 @@ test("server size chart rules match the storefront rules table", async () => {
       category,
     );
 });
+
+const raglanValues = {
+  length: 70,
+  chest: 58,
+  cuff: 10,
+  neckToCuff: 80,
+  hem: 50,
+  armhole: 30,
+};
+const deckValues = {
+  nose: 6.875,
+  tail: 6.5,
+  width: 8.5,
+  length: 31.75,
+  wheelbase: 14.25,
+};
+type Row = CatalogProductRecord;
+
+test("sizeChartValues PATCH saves and clears one option under the product's drawing, even without a default", async (t) => {
+  const db = fixture(t, [top({ sizes: ["S", "M"] })]);
+  const stored = () => db.records.get("prd_top") as Row;
+  const patch = async (body: Record<string, unknown>) =>
+    unpack(await handler(event("PATCH", body, "prd_top")));
+  // No default and no chosen drawing yet: the category's default drawing applies and is recorded.
+  const saved = await patch({
+    version: 3,
+    size: "M",
+    sizeChartValues: shortSleeve.values,
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.product.sizeChartKind, "shortSleeve");
+  assert.deepEqual(saved.body.product.sizeChartsBySize, { M: shortSleeve.values });
+  assert.equal(saved.body.product.sizeChart, undefined);
+  assert.equal(stored().sizeChartKind, "shortSleeve");
+  assert.deepEqual(toPublicCatalogProduct(stored())?.sizeChartsBySize, {
+    M: shortSleeve.values,
+  });
+  assert.equal(toPublicCatalogProduct(stored())?.sizeChartKind, "shortSleeve");
+
+  const writes = db.transactions.length;
+  for (const invalid of [
+    // Other fields never ride along, so an older server cannot half-apply it.
+    { version: 4, size: "M", sizeChartValues: shortSleeve.values, featured: true },
+    { version: 4, size: "M", sizeChartValues: shortSleeve.values, sizeDeckSpec: null },
+    { version: 4, size: "M", sizeChartValues: shortSleeve.values, sizeChart: null },
+    { version: 4, size: "XL", sizeChartValues: shortSleeve.values },
+    { version: 4, size: "__proto__", sizeChartValues: shortSleeve.values },
+    { version: 4, size: "M", sizeChartValues: raglanValues },
+    {
+      version: 4,
+      size: "M",
+      sizeChartValues: { ...shortSleeve.values, length: 300.1 },
+    },
+    { version: 4, size: "M", sizeChartValues: "72" },
+    { version: 4, size: "M" },
+  ])
+    assert.equal((await patch(invalid)).status, 400, JSON.stringify(invalid));
+  assert.equal(db.transactions.length, writes);
+
+  const cleared = await patch({ version: 4, size: "M", sizeChartValues: null });
+  assert.equal(cleared.status, 200);
+  assert.equal(cleared.body.product.sizeChartsBySize, undefined);
+  assert.equal(Object.hasOwn(stored(), "sizeChartsBySize"), false);
+  // The chosen drawing stays after its last value is gone.
+  assert.equal(cleared.body.product.sizeChartKind, "shortSleeve");
+
+  // A deck has no clothing or wheel drawing to follow.
+  const deck = fixture(t, [product()]);
+  assert.equal(
+    unpack(
+      await handler(
+        event(
+          "PATCH",
+          {
+            version: 3,
+            size: "8.25",
+            sizeChartValues: { diameter: 54, width: 33, contactWidth: 20 },
+          },
+          "prd_deck",
+        ),
+      ),
+    ).status,
+    400,
+  );
+  assert.equal(deck.transactions.length, 0);
+});
+
+test("the kind PATCH clears the default and every option value; a default cannot switch drawing under option values", async (t) => {
+  const db = fixture(t, [
+    top({
+      sizes: ["S", "M"],
+      sizeChart: shortSleeve as Row["sizeChart"],
+      sizeChartKind: "shortSleeve",
+      sizeChartsBySize: { M: shortSleeve.values },
+    }),
+  ]);
+  const stored = () => db.records.get("prd_top") as Row;
+  const patch = async (body: Record<string, unknown>) =>
+    unpack(await handler(event("PATCH", body, "prd_top")));
+  const raglan = { kind: "raglanLongSleeve", values: raglanValues };
+  assert.equal((await patch({ version: 3, sizeChart: raglan })).status, 400);
+  const sameKind = await patch({
+    version: 3,
+    sizeChart: { ...shortSleeve, values: { ...shortSleeve.values, length: 73 } },
+  });
+  assert.equal(sameKind.status, 200);
+  assert.deepEqual(stored().sizeChartsBySize, { M: shortSleeve.values });
+
+  const writes = db.transactions.length;
+  for (const invalid of [
+    { version: 4, sizeChartKind: "wheel" },
+    { version: 4, sizeChartKind: "deck" },
+    { version: 4, sizeChartKind: null },
+    { version: 4, sizeChartKind: "raglanLongSleeve", featured: true },
+    { version: 4, sizeChartKind: "raglanLongSleeve", sizeChart: raglan },
+  ])
+    assert.equal((await patch(invalid)).status, 400, JSON.stringify(invalid));
+  assert.equal(db.transactions.length, writes);
+
+  // Choosing the drawing already in use keeps every value.
+  const same = await patch({ version: 4, sizeChartKind: "shortSleeve" });
+  assert.equal(same.status, 200);
+  assert.equal(stored().sizeChart?.values.length, 73);
+  assert.deepEqual(stored().sizeChartsBySize, { M: shortSleeve.values });
+
+  const changed = await patch({ version: 5, sizeChartKind: "raglanLongSleeve" });
+  assert.equal(changed.status, 200);
+  assert.equal(changed.body.product.sizeChartKind, "raglanLongSleeve");
+  assert.equal(changed.body.product.sizeChart, undefined);
+  assert.equal(changed.body.product.sizeChartsBySize, undefined);
+  for (const field of ["sizeChart", "sizeChartsBySize"])
+    assert.equal(Object.hasOwn(stored(), field), false, field);
+  // New values now follow the new drawing.
+  assert.equal(
+    (await patch({ version: 6, size: "S", sizeChartValues: raglanValues })).status,
+    200,
+  );
+  assert.equal((await patch({ version: 7, sizeChart: raglan })).status, 200);
+  assert.deepEqual(stored().sizeChartsBySize, { S: raglanValues });
+});
+
+test("renaming an option moves both kinds of option value, and saves prune missing options and special keys", async (t) => {
+  const db = fixture(t, [
+    top({
+      sizes: ["S", "M"],
+      sizeChartKind: "shortSleeve",
+      sizeChartsBySize: { S: shortSleeve.values, M: shortSleeve.values },
+      deckSpecsBySize: { S: deckValues },
+    }),
+  ]);
+  const stored = () => db.records.get("prd_top") as Row;
+  const patch = async (body: Record<string, unknown>) =>
+    unpack(await handler(event("PATCH", body, "prd_top")));
+  const longer = { ...shortSleeve.values, length: 75 };
+  const renamed = await patch({
+    version: 3,
+    size: "M",
+    sizeName: "L",
+    sizeChartValues: longer,
+  });
+  assert.equal(renamed.status, 200);
+  assert.deepEqual(stored().sizes, ["S", "L"]);
+  assert.deepEqual(stored().sizeChartsBySize, { S: shortSleeve.values, L: longer });
+  // A deck-value rename carries the size chart value along too.
+  const deckRename = await patch({
+    version: 4,
+    size: "S",
+    sizeName: "XS",
+    sizeDeckSpec: null,
+  });
+  assert.equal(deckRename.status, 200);
+  assert.deepEqual(stored().sizeChartsBySize, { L: longer, XS: shortSleeve.values });
+  assert.equal(Object.hasOwn(stored(), "deckSpecsBySize"), false);
+
+  // A product save that drops an option drops its value.
+  assert.equal((await patch({ version: 5, sizes: ["XS"] })).status, 200);
+  assert.deepEqual(stored().sizeChartsBySize, { XS: shortSleeve.values });
+
+  // DynamoDB keeps the nested values exactly.
+  const restored = unmarshall(
+    marshall(stored(), { removeUndefinedValues: true }),
+  ) as Row;
+  assert.deepEqual(restored.sizeChartsBySize, stored().sizeChartsBySize);
+  assert.equal(restored.sizeChartKind, "shortSleeve");
+  assert.equal(isCatalogProductRecord(restored), true);
+
+  // Keys that are not options, or that name Object internals, never reach a response.
+  const legacy = top({
+    sizes: ["M", "__proto__", "constructor"],
+    sizeChartKind: "shortSleeve",
+    sizeChartsBySize: JSON.parse(
+      `{"__proto__":${JSON.stringify(shortSleeve.values)},"constructor":${JSON.stringify(shortSleeve.values)},"M":${JSON.stringify(shortSleeve.values)},"XL":${JSON.stringify(shortSleeve.values)}}`,
+    ),
+  });
+  assert.equal(isCatalogProductRecord(legacy), true);
+  const output = toPublicCatalogProduct(legacy)?.sizeChartsBySize;
+  assert.deepEqual(Object.keys(output ?? {}), ["M"]);
+  assert.equal(Object.getPrototypeOf(output), Object.prototype);
+});
+
+test("a category change drops option values and the chosen drawing it cannot use; creation ignores them", async (t) => {
+  const db = fixture(t, [
+    top({
+      sizes: ["M"],
+      sizeChartKind: "raglanLongSleeve",
+      sizeChartsBySize: { M: raglanValues },
+    }),
+  ]);
+  const stored = () => db.records.get("prd_top") as Row;
+  assert.equal(
+    unpack(
+      await handler(event("PATCH", { version: 3, category: "Outerwear" }, "prd_top")),
+    ).status,
+    200,
+  );
+  assert.deepEqual(stored().sizeChartsBySize, { M: raglanValues });
+  assert.equal(stored().sizeChartKind, "raglanLongSleeve");
+  const bottom = unpack(
+    await handler(event("PATCH", { version: 4, category: "Bottom" }, "prd_top")),
+  );
+  assert.equal(bottom.status, 200);
+  for (const field of ["sizeChartKind", "sizeChartsBySize"]) {
+    assert.equal(Object.hasOwn(stored(), field), false, field);
+    assert.equal(bottom.body.product[field], undefined, field);
+  }
+
+  const created = unpack(
+    await handler(
+      event("POST", {
+        name: "Fresh top",
+        brand: "Example",
+        category: "Top",
+        price: 1,
+        sizes: ["M"],
+        stock: 0,
+        sizeChartKind: "raglanLongSleeve",
+        sizeChartsBySize: { M: raglanValues },
+      }),
+    ),
+  );
+  assert.equal(created.status, 201);
+  const record = [...db.records.values()].find((row) => row.name === "Fresh top")!;
+  for (const field of ["sizeChartKind", "sizeChartsBySize"])
+    assert.equal(Object.hasOwn(record, field), false, field);
+});
