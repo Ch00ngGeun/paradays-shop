@@ -269,6 +269,13 @@ const initialOcrJob = () => ({
   >,
 });
 let ocrJob = initialOcrJob();
+/** Products a test adds next to the fixed catalog; setup resets it. */
+let extraCatalog: Record<string, unknown>[] = [];
+/** The storefront contract for one admin catalog row. */
+function publicShape(item: Record<string, unknown>) {
+  const { productId, brandName, ...rest } = item;
+  return { ...rest, id: productId, brand: brandName };
+}
 /** 1600×820 흰 PNG. 영역 드래그 좌표가 실제 이미지 크기로 정규화되도록 크기만 맞춤. */
 function blankPng(width = 1600, height = 820) {
   const crc = (bytes: Buffer) => {
@@ -303,7 +310,12 @@ function blankPng(width = 1600, height = 820) {
 }
 const PNG = blankPng();
 
-async function setup(page: Page, path = "/admin") {
+async function setup(
+  page: Page,
+  path = "/admin",
+  extra: Record<string, unknown>[] = [],
+) {
+  extraCatalog = extra;
   const audit: Audit = { blocked: [], dialogs: [] };
   audits.set(page, audit);
   // 네이티브 confirm·alert 문구는 DOM에 없으므로 모두 기록해 afterEach에서 한글 여부를 검사함.
@@ -416,10 +428,22 @@ async function setup(page: Page, path = "/admin") {
       });
     }
     if (
+      path === "catalog/products" &&
+      method === "GET" &&
+      url.searchParams.has("slug")
+    ) {
+      const found = [...catalog, ...extraCatalog].find(
+        (item) => item.slug === url.searchParams.get("slug"),
+      );
+      return found
+        ? respond(route, { product: publicShape(found) })
+        : respond(route, { code: "NOT_FOUND" }, 404);
+    }
+    if (
       ["admin/catalog/products", "catalog/products"].includes(path) &&
       method === "GET"
     )
-      return respond(route, { products: catalog });
+      return respond(route, { products: [...catalog, ...extraCatalog] });
     audit.blocked.push(`${method} ${url.pathname}`);
     return route.abort();
   });
@@ -930,5 +954,163 @@ test("OCR intake, area mapping and stock receipt show no Korean in English", asy
   );
   await scan(page, "OCR stock receipt result", found);
   expect(audits.get(page)?.dialogs).toHaveLength(1);
+  expectClean(found);
+});
+
+const TOP_VALUES = {
+  length: 72,
+  shoulder: 50.5,
+  chest: 56,
+  sleeveLength: 22,
+  hem: 55,
+  sleeveWidth: 20.5,
+  armhole: 24,
+};
+const STORE_SLUGS: Record<string, string> = {
+  top: "plaid-overshirt-charcoal",
+  bottom: "triangle-knit-sweater",
+  wheel: "imagine-thinking-hat-black",
+};
+const sizeChartProduct = (
+  id: string,
+  name: string,
+  category: string,
+  sizes: string[],
+  charts: Record<string, unknown>,
+) => ({
+  ...catalog[0],
+  productId: `prd_english_${id}`,
+  // Static export only builds known product paths, so the store reuses existing slugs.
+  slug: STORE_SLUGS[id],
+  name,
+  category,
+  sizes,
+  sku: `TEST-EN-${id.toUpperCase()}`,
+  ...charts,
+});
+const sizeChartProducts = [
+  sizeChartProduct("top", "[TEST] English top", "Top", ["S", "M"], {
+    sizeChart: { kind: "shortSleeve", values: TOP_VALUES },
+    sizeChartKind: "shortSleeve",
+    sizeChartsBySize: { M: { ...TOP_VALUES, length: 74 } },
+  }),
+  sizeChartProduct("bottom", "[TEST] English pants", "Bottom", ["30", "32"], {
+    sizeChartKind: "longPants",
+    sizeChartsBySize: {
+      "32": { length: 100, waist: 40, hip: 52, thigh: 32, rise: 30, hem: 21.5 },
+    },
+  }),
+  sizeChartProduct("wheel", "[TEST] English wheel", "Wheels", ["54mm 99a"], {
+    sizeChart: {
+      kind: "wheel",
+      values: { diameter: 54, width: 33.5, contactWidth: 20 },
+    },
+    sizeChartKind: "wheel",
+  }),
+];
+
+test("clothing and wheel size charts show no Korean in English in the editor, dialogs and the store", async ({
+  page,
+}) => {
+  await setup(page, "/admin?section=products", sizeChartProducts);
+  const found = new Map<string, string[]>();
+  const edit = async (name: string) => {
+    await openSection(page, "Product registration");
+    await page
+      .getByRole("listitem")
+      .filter({ hasText: name })
+      .getByRole("button", { name: "Edit", exact: true })
+      .click();
+  };
+  const dialog = page.getByRole("dialog");
+  const drawing = dialog.getByRole("combobox", { name: "Drawing" });
+
+  await edit("[TEST] English top");
+  await expect(
+    page.getByText('Short sleeve · Default Length 72cm (28.3") · 1 per option', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await scan(page, "top editor", found);
+  await scanHelp(page, "Size chart", found);
+  await page.getByRole("button", { name: "Edit size chart" }).click();
+  await expect(drawing).toHaveValue("shortSleeve");
+  await expect(dialog.locator("svg")).toHaveAttribute(
+    "aria-label",
+    /^Short sleeve: Length 72cm/,
+  );
+  await scan(page, "top default dialog", found);
+  await scanHelp(page, "Size chart input", found);
+  await drawing.selectOption("raglanLongSleeve");
+  await expect(dialog.getByRole("alert")).toContainText(
+    "Switching the drawing to 'Raglan long sleeve' deletes the default",
+  );
+  await scan(page, "drawing switch confirmation", found);
+  await dialog.getByRole("button", { name: "Keep it", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await page
+    .getByRole("list", { name: "Added options", exact: true })
+    .getByRole("button", { name: "M", exact: true })
+    .click();
+  await expect(drawing).toHaveAccessibleDescription(
+    "Options follow the product's drawing. Change it from the default screen.",
+  );
+  await expect(dialog.locator('input[name="length"]')).toHaveValue("74");
+  await scan(page, "top option dialog", found);
+  await page.keyboard.press("Escape");
+
+  await edit("[TEST] English pants");
+  await expect(
+    page.getByText("Long pants · Default not set · 1 per option", { exact: true }),
+  ).toBeVisible();
+  await scan(page, "pants editor", found);
+  await page.getByRole("button", { name: "Edit size chart" }).click();
+  await expect(dialog).toContainText(
+    "Fill in all 6 fields to see the diagram preview.",
+  );
+  await scan(page, "pants default dialog", found);
+  await page.keyboard.press("Escape");
+
+  await edit("[TEST] English wheel");
+  await expect(page.getByText("Wheel · Diameter 54mm", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Edit size chart" }).click();
+  await expect(drawing).toHaveAccessibleDescription(
+    "This category has only one drawing.",
+  );
+  await scan(page, "wheel default dialog", found);
+  await scanHelp(page, "Size chart input", found);
+  await page.keyboard.press("Escape");
+
+  // The store's size chart drawings name every measurement in English too.
+  for (const [slug, size, label] of [
+    [STORE_SLUGS.top, "M", /^Short sleeve: Length 74cm/],
+    [STORE_SLUGS.bottom, "32", /^Long pants: Length 100cm/],
+    [STORE_SLUGS.wheel, "54mm 99a", /^Wheel: Diameter 54mm/],
+  ] as const) {
+    await page.goto(`/products/${slug}`);
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: size, exact: true }).click();
+    await page.getByRole("button", { name: "Size chart" }).click();
+    await expect(dialog.locator("svg")).toHaveAttribute("aria-label", label);
+    // Only the size chart dialog is this check's scope; the page behind it has known Korean
+    // quantity labels (product-detail.tsx) that are reported separately.
+    const korean = await dialog.evaluate((root) => {
+      const re = /\p{Script=Hangul}/u;
+      const out: string[] = [];
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode())
+        if (re.test(walker.currentNode.textContent ?? ""))
+          out.push(walker.currentNode.textContent!.trim());
+      for (const element of [root, ...root.querySelectorAll("*")])
+        for (const name of ["aria-label", "title", "alt"]) {
+          const value = element.getAttribute(name);
+          if (value && re.test(value)) out.push(`@${name}=${value}`);
+        }
+      return out;
+    });
+    if (korean.length) found.set(`store size chart ${slug}`, korean);
+    await page.keyboard.press("Escape");
+  }
   expectClean(found);
 });
