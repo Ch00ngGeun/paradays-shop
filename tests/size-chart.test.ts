@@ -92,7 +92,7 @@ describe("size chart values", () => {
     expect(parseSizeChartValue("wheel", "100.1")).toBeNull();
   });
 
-  it("builds values only when every field of the kind is valid", () => {
+  it("builds values with blank fields as null, refusing any invalid field or no number at all", () => {
     expect(
       parseSizeChartInputs("wheel", {
         diameter: "54",
@@ -100,7 +100,13 @@ describe("size chart values", () => {
         contactWidth: "20",
       }),
     ).toEqual({ diameter: 54, width: 33.5, contactWidth: 20 });
-    expect(parseSizeChartInputs("wheel", { diameter: "54", width: "33.5" })).toBeNull();
+    // A blank or missing field is saved as null, keeping every key of the drawing.
+    expect(parseSizeChartInputs("wheel", { diameter: "54", width: " " })).toEqual({
+      diameter: 54,
+      width: null,
+      contactWidth: null,
+    });
+    // One wrong field still blocks the whole save.
     expect(
       parseSizeChartInputs("wheel", {
         diameter: "54",
@@ -108,14 +114,27 @@ describe("size chart values", () => {
         contactWidth: "101",
       }),
     ).toBeNull();
+    expect(
+      parseSizeChartInputs("wheel", { diameter: "", width: "abc", contactWidth: "" }),
+    ).toBeNull();
+    // With no number at all there is nothing to save as values; that is a delete instead.
+    expect(
+      parseSizeChartInputs("wheel", { diameter: "", width: "", contactWidth: "" }),
+    ).toBeNull();
   });
 
   it("checks stored values for exactly the kind's fields within range", () => {
     const wheel = { diameter: 54, width: 33.5, contactWidth: 20 };
     expect(isSizeChartValues("wheel", wheel)).toBe(true);
+    // Blank fields are null, as long as one number remains.
+    expect(
+      isSizeChartValues("wheel", { ...wheel, width: null, contactWidth: null }),
+    ).toBe(true);
     for (const bad of [
       null,
       [],
+      { diameter: null, width: null, contactWidth: null },
+      { ...wheel, width: undefined },
       { diameter: 54, width: 33.5 },
       { ...wheel, extra: 1 },
       { ...wheel, width: "33.5" },
@@ -135,5 +154,10 @@ describe("size chart values", () => {
     expect(formatSizeChartValue("shortSleeve", 72)).toBe('72cm (28.3")');
     expect(formatSizeChartValue("longPants", 2.5)).toBe('2.5cm (1.0")');
     expect(formatSizeChartValue("wheel", 54)).toBe("54mm");
+  });
+
+  it("shows a blank field as null alone, without a unit or inches", () => {
+    expect(formatSizeChartValue("shortSleeve", null)).toBe("null");
+    expect(formatSizeChartValue("wheel", null)).toBe("null");
   });
 });

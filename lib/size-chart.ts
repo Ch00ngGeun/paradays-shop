@@ -12,8 +12,8 @@ export const SIZE_CHART_KINDS = [
 
 export type SizeChartKind = (typeof SIZE_CHART_KINDS)[number];
 export type SizeChartUnit = "cm" | "mm";
-/** 항목 key → 값(cm 또는 mm). 도면 종류의 항목이 모두 있어야 합니다. */
-export type SizeChartValues = Record<string, number>;
+/** 항목 key → 값(cm 또는 mm). 도면 종류의 항목 key가 모두 있어야 하고, 비운 칸은 null입니다. */
+export type SizeChartValues = Record<string, number | null>;
 
 type Label = Readonly<Record<Locale, string>>;
 type SizeChartField = Readonly<{ key: string; label: Label }>;
@@ -115,24 +115,34 @@ export function parseSizeChartValue(kind: SizeChartKind, value: string): number 
   return inRange(kind, number) ? number : null;
 }
 
-/** 도면 종류의 칸이 모두 올바를 때만 저장할 값을 만듭니다. */
+/**
+ * 저장할 값을 만듭니다. 빈 칸은 null이고, 잘못된 칸이 하나라도 있거나 숫자가 하나도 없으면 null입니다.
+ * 모든 칸이 빈 저장은 값이 아니라 삭제 요청으로 보내므로, 그 판단은 호출하는 쪽이 합니다.
+ */
 export function parseSizeChartInputs(
   kind: SizeChartKind,
   inputs: Readonly<Record<string, string>>,
 ): SizeChartValues | null {
   const values: SizeChartValues = {};
+  let filled = false;
   for (const { key } of SIZE_CHART_KIND_INFO[kind].fields) {
-    const value = parseSizeChartValue(
-      kind,
-      Object.hasOwn(inputs, key) ? inputs[key] : "",
-    );
+    const input = Object.hasOwn(inputs, key) ? inputs[key].trim() : "";
+    if (!input) {
+      values[key] = null;
+      continue;
+    }
+    const value = parseSizeChartValue(kind, input);
     if (value === null) return null;
     values[key] = value;
+    filled = true;
   }
-  return values;
+  return filled ? values : null;
 }
 
-/** 서버 응답 검증용: 그 도면 종류의 항목만, 빠짐없이, 범위·소수 1자리 안의 숫자일 때만 참입니다. */
+/**
+ * 서버 응답 검증용: 그 도면 종류의 항목 key만 빠짐없이 있고, 값은 범위·소수 1자리 안의 숫자 또는
+ * null(비운 칸)이며, 숫자가 하나 이상일 때만 참입니다.
+ */
 export function isSizeChartValues(
   kind: SizeChartKind,
   value: unknown,
@@ -141,22 +151,22 @@ export function isSizeChartValues(
   if (Object.getPrototypeOf(value) !== Object.prototype) return false;
   const keys = SIZE_CHART_KIND_INFO[kind].fields.map((field) => field.key);
   const record = value as Record<string, unknown>;
+  const isValue = (number: unknown) =>
+    typeof number === "number" &&
+    Number.isFinite(number) &&
+    Math.round(number * 10) / 10 === number &&
+    inRange(kind, number);
   return (
     Object.keys(record).length === keys.length &&
-    keys.every((key) => {
-      const number = Object.hasOwn(record, key) ? record[key] : undefined;
-      return (
-        typeof number === "number" &&
-        Number.isFinite(number) &&
-        Math.round(number * 10) / 10 === number &&
-        inRange(kind, number)
-      );
-    })
+    keys.every((key) => Object.hasOwn(record, key)) &&
+    keys.every((key) => record[key] === null || isValue(record[key])) &&
+    keys.some((key) => record[key] !== null)
   );
 }
 
-/** 의류는 cm 옆에 인치(÷2.54, 소수 1자리)를 괄호로, 휠은 mm만 표시합니다. */
-export function formatSizeChartValue(kind: SizeChartKind, value: number) {
+/** 의류는 cm 옆에 인치(÷2.54, 소수 1자리)를 괄호로, 휠은 mm만 표시합니다. 비운 칸은 단위 없이 "null"입니다. */
+export function formatSizeChartValue(kind: SizeChartKind, value: number | null) {
+  if (value === null) return "null";
   if (SIZE_CHART_KIND_INFO[kind].unit === "mm") return `${value}mm`;
   return `${value}cm (${(Math.round((value / 2.54) * 10) / 10).toFixed(1)}")`;
 }
