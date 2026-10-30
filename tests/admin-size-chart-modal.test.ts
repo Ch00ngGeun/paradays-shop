@@ -42,12 +42,16 @@ function expectNoteFor(markup: string, note: string) {
 }
 
 describe("admin size chart modal", () => {
-  it("saves only complete values, or a real rename with every field empty", () => {
+  it("saves values with blank fields as null, refuses a wrong field, and renames with every field empty", () => {
     expect(getSizeChartSaveState("shortSleeve", inputs).values).toEqual(values);
     expect(getSizeChartSaveState("shortSleeve", inputs).ready).toBe(true);
-    expect(getSizeChartSaveState("shortSleeve", { ...inputs, armhole: "" }).ready).toBe(
-      false,
-    );
+    // A blank field no longer blocks saving; it is saved as null.
+    expect(
+      getSizeChartSaveState("shortSleeve", { ...inputs, armhole: "" }),
+    ).toMatchObject({
+      values: { ...values, armhole: null },
+      ready: true,
+    });
     expect(
       getSizeChartSaveState("shortSleeve", { ...inputs, length: "300.1" }).ready,
     ).toBe(false);
