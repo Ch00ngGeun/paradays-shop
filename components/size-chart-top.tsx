@@ -45,13 +45,15 @@ export function SizeChartValue({
   anchor = "middle",
 }: Readonly<{
   kind: SizeChartKind;
-  value: number;
+  value: number | null;
   x: number;
   y: number;
   rotate?: number;
   anchor?: "start" | "middle" | "end";
 }>) {
-  const [main, sub] = formatSizeChartValue(kind, value).split(" ");
+  // A blank field shows "null" alone, without a unit or inches.
+  const [main, sub] =
+    value === null ? ["null"] : formatSizeChartValue(kind, value).split(" ");
   return (
     <text
       className={styles.label}
