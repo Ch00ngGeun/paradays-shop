@@ -5734,26 +5734,35 @@ function BrandSection({
           <p>{isKorean ? "상품·재고 / 브랜드" : "Products & stock / Brands"}</p>
           <h2>{isKorean ? "브랜드 관리" : "Brands"}</h2>
         </div>
-        <details className={styles.brandHelp}>
-          <summary>{isKorean ? "도움말" : "Help"}</summary>
-          <p>
-            {isKorean
-              ? "현재 불러온 상품과 이 화면에서 추가한 브랜드만 표시합니다. 전체 브랜드 목록이나 서버의 활성 상태를 조회하는 화면은 아닙니다."
-              : "Shows only brands from the loaded products and brands added on this screen. This screen does not load the full brand list or server status."}
-          </p>
-          <p>
-            {isKorean
-              ? "상품 연결 수는 이 화면의 상품 기준입니다. 연결이 없어도 비활성 브랜드를 뜻하지 않습니다. 로고 업로드·브랜드 수정·삭제는 지원하지 않습니다."
-              : "Linked product counts are based on the products on this screen. No link does not mean the brand is inactive. Logo upload, brand edit and delete are not supported."}
-          </p>
-        </details>
+        <AdminGuideButton locale={locale} steps={adminGuideSteps("brands", locale)} />
       </header>
       <div className={styles.brandWorkspace}>
-        <section className={styles.brandCatalog} aria-labelledby="brand-list-title">
+        <section
+          className={styles.brandCatalog}
+          aria-labelledby="brand-list-title"
+          data-admin-guide="brands.list"
+        >
           <div className={styles.brandCatalogHeading}>
-            <h3 id="brand-list-title">
-              {isKorean ? "이 화면에서 확인한 브랜드" : "Brands found on this screen"}
-            </h3>
+            <div className={styles.titleWithHelp}>
+              <h3 id="brand-list-title">
+                {isKorean ? "이 화면에서 확인한 브랜드" : "Brands found on this screen"}
+              </h3>
+              <AdminHelpButton
+                locale={locale}
+                target={isKorean ? "브랜드 목록" : "Brand list"}
+              >
+                <p>
+                  {isKorean
+                    ? "현재 불러온 상품과 이 화면에서 추가한 브랜드만 표시합니다. 전체 브랜드 목록이나 서버의 활성 상태를 조회하는 화면은 아닙니다."
+                    : "Shows only brands from the loaded products and brands added on this screen. This screen does not load the full brand list or server status."}
+                </p>
+                <p>
+                  {isKorean
+                    ? "상품 연결 수는 이 화면의 상품 기준입니다. 연결이 없어도 비활성 브랜드를 뜻하지 않습니다. 로고 업로드·브랜드 수정·삭제는 지원하지 않습니다."
+                    : "Linked product counts are based on the products on this screen. No link does not mean the brand is inactive. Logo upload, brand edit and delete are not supported."}
+                </p>
+              </AdminHelpButton>
+            </div>
             <p>
               {isKorean
                 ? "조회 상품·이 화면 추가분 기준 · 전체 목록 아님"
@@ -5924,6 +5933,7 @@ function BrandSection({
                 </span>
               </span>
               <GrowingLineInput
+                data-admin-guide="brands.name"
                 maxLength={100}
                 required
                 onValueChange={onNameChange}
@@ -5967,7 +5977,11 @@ function BrandSection({
               </p>
             </section>
             <div className={styles.brandFormActions}>
-              <button className={styles.primaryButton} type="submit">
+              <button
+                className={styles.primaryButton}
+                data-admin-guide="brands.save"
+                type="submit"
+              >
                 {saving
                   ? isKorean
                     ? "등록 중…"
@@ -6124,19 +6138,7 @@ function MembersSection({
           <p>{isKorean ? "고객 / 회원" : "Customers / Members"}</p>
           <h2>{isKorean ? "회원 관리" : "Members"}</h2>
         </div>
-        <details className={styles.memberHelp}>
-          <summary>{isKorean ? "도움말" : "Help"}</summary>
-          <p>
-            {isKorean
-              ? "조회 버튼을 눌러야 회원 정보를 불러옵니다. 검색은 이번 API 응답의 회원만 필터링하며 전체 회원 검색이나 전체 회원 수 집계가 아닙니다."
-              : "Member information loads only when you press the load button. Search filters only the members in this API response; it is not a full member search or total count."}
-          </p>
-          <p>
-            {isKorean
-              ? "계정 활성 상태는 읽기 전용이며 수신 동의 정보는 제공되지 않습니다. 이 화면에서 변경할 수 있는 항목은 admin·support 운영 권한뿐입니다."
-              : "Account status is read-only and consent information is not provided. Only the admin and support operating permissions can be changed here."}
-          </p>
-        </details>
+        <AdminGuideButton locale={locale} steps={adminGuideSteps("members", locale)} />
       </header>
       <section
         className={styles.memberToolbar}
@@ -6156,6 +6158,7 @@ function MembersSection({
         </label>
         <button
           className={styles.primaryButton}
+          data-admin-guide="members.load"
           disabled={locked || !canLoad}
           onClick={onLoad}
           type="button"
@@ -6183,17 +6186,38 @@ function MembersSection({
       ) : null}
       {notice ? <NoticeMessage notice={notice} /> : null}
       <div className={styles.memberWorkspace}>
-        <section className={styles.memberDirectory} aria-labelledby="member-list-title">
+        <section
+          className={styles.memberDirectory}
+          aria-labelledby="member-list-title"
+          data-admin-guide="members.list"
+        >
           <div className={styles.memberDirectoryHeading}>
-            <h3 id="member-list-title">
-              {loaded
-                ? isKorean
-                  ? `이번 조회 회원 ${members.length}명`
-                  : `Members in this query: ${members.length}`
-                : isKorean
-                  ? "이번 조회 회원 —"
-                  : "Members in this query: —"}
-            </h3>
+            <div className={styles.titleWithHelp}>
+              <h3 id="member-list-title">
+                {loaded
+                  ? isKorean
+                    ? `이번 조회 회원 ${members.length}명`
+                    : `Members in this query: ${members.length}`
+                  : isKorean
+                    ? "이번 조회 회원 —"
+                    : "Members in this query: —"}
+              </h3>
+              <AdminHelpButton
+                locale={locale}
+                target={isKorean ? "회원 목록" : "Member list"}
+              >
+                <p>
+                  {isKorean
+                    ? "조회 버튼을 눌러야 회원 정보를 불러옵니다. 검색은 이번 API 응답의 회원만 필터링하며 전체 회원 검색이나 전체 회원 수 집계가 아닙니다."
+                    : "Member information loads only when you press the load button. Search filters only the members in this API response; it is not a full member search or total count."}
+                </p>
+                <p>
+                  {isKorean
+                    ? "계정 활성 상태는 읽기 전용이며 수신 동의 정보는 제공되지 않습니다. 이 화면에서 변경할 수 있는 항목은 admin·support 운영 권한뿐입니다."
+                    : "Account status is read-only and consent information is not provided. Only the admin and support operating permissions can be changed here."}
+                </p>
+              </AdminHelpButton>
+            </div>
             <p>
               {loadFailed
                 ? isKorean
@@ -6392,7 +6416,11 @@ function MemberDetail({
           <dd>{currentGroups}</dd>
         </div>
       </dl>
-      <fieldset className={styles.memberPermissionFields} disabled={cannotChange}>
+      <fieldset
+        className={styles.memberPermissionFields}
+        data-admin-guide="members.roles"
+        disabled={cannotChange}
+      >
         <legend>{isKorean ? "운영 권한 변경" : "Change operating permission"}</legend>
         <p>
           {isKorean
