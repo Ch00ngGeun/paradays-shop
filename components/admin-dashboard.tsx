@@ -7460,9 +7460,12 @@ function OcrSection({
               : "Compare the image with recognition results and review the product information."}
           </p>
         </div>
-        <span className={styles.ocrReviewBadge} role="status">
-          {statusLabel}
-        </span>
+        <div className={`${styles.productListHeaderActions} ${styles.wrapRow}`}>
+          <span className={styles.ocrReviewBadge} role="status">
+            {statusLabel}
+          </span>
+          <AdminGuideButton locale={locale} steps={adminGuideSteps("ocr", locale)} />
+        </div>
       </header>
       <AdminStepper
         label={isKorean ? "OCR 등록 흐름" : "OCR intake workflow"}
@@ -7572,7 +7575,7 @@ function OcrSection({
                 : "Images are sent to the administrator API. Check for personal information before sending. Saving a review does not change inventory or publish products."}
             </p>
           )}
-          <label className={styles.ocrFileControl}>
+          <label className={styles.ocrFileControl} data-admin-guide="ocr.image">
             <span>{isKorean ? "이미지 파일 선택" : "Choose image file"}</span>
             <input
               accept="image/png,image/jpeg,image/webp"
@@ -7582,6 +7585,7 @@ function OcrSection({
           </label>
           <button
             className={styles.primaryButton}
+            data-admin-guide="ocr.recognize"
             disabled={!file || recognizing}
             onClick={onRecognize}
             type="button"
@@ -7670,7 +7674,7 @@ function OcrSection({
               }
             />
           ) : (
-            <ol className={styles.ocrReviewRows}>
+            <ol className={styles.ocrReviewRows} data-admin-guide="ocr.review">
               {rows.map((row, index) => (
                 <li key={row.id}>
                   <article
@@ -7826,6 +7830,7 @@ function OcrSection({
               </span>
               <button
                 className={styles.primaryButton}
+                data-admin-guide="ocr.save"
                 disabled={!canSave || isSaving || recognizing || rows.length === 0}
                 onClick={onSave}
                 type="button"
@@ -7869,6 +7874,7 @@ function OcrSection({
         <section
           className={styles.ocrInventoryStage}
           aria-label={isKorean ? "검토본 입고 반영" : "Apply review to stock"}
+          data-admin-guide="ocr.apply"
         >
           <h3>{isKorean ? "5. 입고 반영" : "5. Apply stock-in"}</h3>
           <p>
