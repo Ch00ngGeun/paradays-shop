@@ -495,6 +495,34 @@ async function scanHelp(page: Page, target: string, found: Map<string, string[]>
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
 }
+/**
+ * Opens the '? Help' screen guide, scans the page at every step it offers (Next through to Done),
+ * and checks it walked exactly `steps` steps, so neither the empty state nor a missing target passes.
+ */
+async function scanGuide(
+  page: Page,
+  menu: string,
+  steps: number,
+  found: Map<string, string[]>,
+) {
+  const open = page.getByRole("button", { name: "Screen help", exact: true });
+  await expect(open).toHaveText("?Help");
+  await open.click();
+  const dialog = page.getByRole("dialog");
+  const count = dialog.getByText(/^Step \d+ of \d+$/u);
+  await expect(count).toBeVisible();
+  const total = Number(/of (\d+)$/u.exec((await count.textContent()) ?? "")?.[1]);
+  expect(total, menu).toBe(steps);
+  for (let step = 1; step <= total; step += 1) {
+    await expect(count).toHaveText(`Step ${step} of ${total}`);
+    await scan(page, `guide ${menu} step ${step}`, found);
+    await dialog
+      .getByRole("button", { name: step === total ? "Done" : "Next", exact: true })
+      .click();
+  }
+  await expect(dialog).toHaveCount(0);
+  await expect(open).toBeFocused();
+}
 function expectClean(found: Map<string, string[]>) {
   expect(Object.fromEntries(found)).toEqual({});
 }
@@ -532,20 +560,23 @@ test("all nine menus and the overview order panels show no Korean in English", a
   }, decomposed);
   expect(await hangul(page)).toContain(decomposed);
   await page.evaluate(() => document.getElementById("hangul-probe")?.remove());
-  for (const name of [
-    "Home (Operations Overview)",
-    "Product registration",
-    "Stock editing",
-    "Sales & daily close",
-    "Brands",
-    "Members",
-    "Coupons",
-    "Marketing",
-    "Stock-in OCR",
-  ]) {
+  // Guide steps each untouched menu shows; a missing target would lower the count.
+  for (const [name, steps] of [
+    ["Home (Operations Overview)", 4],
+    ["Product registration", 1],
+    ["Stock editing", 1],
+    ["Sales & daily close", 1],
+    ["Brands", 3],
+    ["Members", 2],
+    ["Coupons", 4],
+    ["Marketing", 5],
+    ["Stock-in OCR", 3],
+  ] as const) {
     await openSection(page, name);
     await page.waitForLoadState("networkidle");
     await scan(page, `menu ${name}`, found);
+    // Each menu's screen guide, as far as the untouched screen offers steps.
+    await scanGuide(page, name, steps, found);
   }
   await openSection(page, "Sales & daily close");
   await scanHelp(page, "Real operations", found);
@@ -599,6 +630,7 @@ test("product editor, size chart dialog and stock stepper show no Korean in Engl
   const found = new Map<string, string[]>();
   await page.getByRole("button", { name: "Register new product", exact: true }).click();
   await scan(page, "new product editor", found);
+  await scanGuide(page, "product editor", 4, found);
   for (const target of [
     "Size / options",
     "Main image",
@@ -642,6 +674,7 @@ test("product editor, size chart dialog and stock stepper show no Korean in Engl
     .getByRole("button", { name: "Adjust stock for [TEST] English deck", exact: true })
     .click();
   await scan(page, "stock stepper", found);
+  await scanGuide(page, "stock stepper", 3, found);
   await scanHelp(page, "Stock after change", found);
   expectClean(found);
 });
@@ -661,6 +694,7 @@ test("real sales ledger with slips, reversal, close and reopen history shows no 
   await page.getByRole("button", { name: "Load ledger", exact: true }).click();
   await expect(page.getByText("CARD-001", { exact: true })).toBeVisible();
   await scan(page, "open ledger", found);
+  await scanGuide(page, "open ledger", 3, found);
   await page
     .getByRole("button", { name: "Continue editing · Select slip sale_english_002" })
     .click();
@@ -742,6 +776,7 @@ test("member detail, coupon and campaign steps show no Korean in English", async
     .getByRole("button", { name: "[TEST] Alex member details", exact: true })
     .click();
   await scan(page, "member detail", found);
+  await scanGuide(page, "member detail", 3, found);
   await scanHelp(page, "Change operating permission", found);
   await openSection(page, "Coupons");
   await page.getByLabel("Coupon name (required)").fill("Welcome");
@@ -855,6 +890,8 @@ test("OCR intake, area mapping and stock receipt show no Korean in English", asy
 
   await page.getByRole("button", { name: "Save review", exact: true }).click();
   const panel = page.getByRole("region", { name: "Apply to stock", exact: true });
+  await expect(panel).toBeVisible();
+  await scanGuide(page, "OCR saved review", 5, found);
   await panel.getByRole("button", { name: "Load stock products", exact: true }).click();
   // New product rows have their own help; switch row 1 there and back.
   const method = panel.getByRole("combobox", {
