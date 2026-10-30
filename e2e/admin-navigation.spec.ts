@@ -3890,14 +3890,14 @@ test("brand redesign: only observed catalog brands are grouped searched and filt
   await panel.getByRole("button", { name: "전체 2", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(brandRow(page, "TEST")).toBeVisible();
-  await panel.getByText("도움말", { exact: true }).click();
+  await panel.locator("summary").getByText("도움말", { exact: true }).click();
   await expect(
     panel.getByText(/연결이 없어도 비활성 브랜드를 뜻하지 않습니다/),
   ).toBeVisible();
   await expect(
     panel.getByText(/전체 브랜드 목록이나 서버의 활성 상태를 조회하는 화면은 아닙니다/),
   ).toBeVisible();
-  await panel.getByText("도움말", { exact: true }).click();
+  await panel.locator("summary").getByText("도움말", { exact: true }).click();
   const catalogBox = await panel
     .getByRole("region", { name: "이 화면에서 확인한 브랜드", exact: true })
     .boundingBox();
@@ -4840,13 +4840,13 @@ test("coupon redesign: editing the live ticket never issues a coupon or loads fa
   await expect(preview).toContainText("TEST-PREVIEW_10");
   await expect(preview).toContainText("2026-10-30 18:30 (한국 시간)");
   await expect(preview).toContainText("아직 발급되지 않았습니다");
-  await panel.getByText("도움말", { exact: true }).click();
+  await panel.locator("summary").getByText("도움말", { exact: true }).click();
   await expect(
     panel.getByText(
       /대상 선택·최소 주문 금액·최대 할인·시작일 설정은 현재 지원하지 않습니다/,
     ),
   ).toBeVisible();
-  await panel.getByText("도움말", { exact: true }).click();
+  await panel.locator("summary").getByText("도움말", { exact: true }).click();
   await expect(panel.getByText(/발급 완료|수신 대상 0명|대상 고객 0명/)).toHaveCount(0);
   await expect(
     panel.getByRole("button", { name: /발급하기|지금 발급|고객 발급/ }),
@@ -5336,11 +5336,11 @@ test("marketing redesign: channel choices and live previews do not send messages
   await expect(
     panel.getByRole("button", { name: /지금 발송|예약하기|이미지 첨부|대상자 조회/ }),
   ).toHaveCount(0);
-  await panel.getByText("도움말", { exact: true }).click();
+  await panel.locator("summary").getByText("도움말", { exact: true }).click();
   await expect(
     panel.getByText(/수신자 조회·예약·발송·이미지 첨부는 지원하지 않습니다/),
   ).toBeVisible();
-  await panel.getByText("도움말", { exact: true }).click();
+  await panel.locator("summary").getByText("도움말", { exact: true }).click();
   const formBox = await panel
     .getByRole("form", { name: "캠페인 초안 작성", exact: true })
     .boundingBox();
