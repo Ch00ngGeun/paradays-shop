@@ -8,6 +8,7 @@ const DECK = { slug: "odwyer-sync-1-8-375", id: "prd_deck_size_synthetic" };
 const PLAIN = { slug: "synthetic-deck-without-spec", id: "prd_deck_size_plain" };
 const SPEC = { nose: 6.875, tail: 6.5, width: 8.5, length: 31.75, wheelbase: 14.25 };
 
+type Values = Record<string, number>;
 type Stored = {
   productId: string;
   slug: string;
@@ -16,7 +17,19 @@ type Stored = {
   deckSpec?: typeof SPEC;
   sizes?: string[];
   deckSpecsBySize?: Record<string, typeof SPEC>;
+  category?: string;
+  sizeChart?: { kind: string; values: Values };
+  sizeChartKind?: string;
+  sizeChartsBySize?: Record<string, Values>;
 };
+/** Clothing and wheel size chart fields, as the server returns them. */
+function sizeChartShape(item: Stored) {
+  return {
+    ...(item.sizeChart ? { sizeChart: item.sizeChart } : {}),
+    ...(item.sizeChartKind ? { sizeChartKind: item.sizeChartKind } : {}),
+    ...(item.sizeChartsBySize ? { sizeChartsBySize: item.sizeChartsBySize } : {}),
+  };
+}
 type Audit = {
   blocked: string[];
   patches: Record<string, unknown>[];
@@ -43,7 +56,7 @@ function adminShape(item: Stored) {
     name: item.name,
     brandId: "brand_test",
     brandName: "TEST",
-    category: "Deck",
+    category: item.category ?? "Deck",
     price: 107_000,
     currency: "KRW",
     status: "PUBLISHED",
@@ -58,6 +71,7 @@ function adminShape(item: Stored) {
     updatedAt: "2026-10-28T00:00:00Z",
     ...(item.deckSpec ? { deckSpec: item.deckSpec } : {}),
     ...(item.deckSpecsBySize ? { deckSpecsBySize: item.deckSpecsBySize } : {}),
+    ...sizeChartShape(item),
   };
 }
 
@@ -66,7 +80,7 @@ function publicShape(item: Stored) {
     id: item.productId,
     slug: item.slug,
     name: item.name,
-    category: "Deck",
+    category: item.category ?? "Deck",
     brand: "TEST",
     price: 107_000,
     inventoryQuantity: 5,
@@ -76,6 +90,7 @@ function publicShape(item: Stored) {
     featured: false,
     ...(item.deckSpec ? { deckSpec: item.deckSpec } : {}),
     ...(item.deckSpecsBySize ? { deckSpecsBySize: item.deckSpecsBySize } : {}),
+    ...sizeChartShape(item),
   };
 }
 
@@ -125,16 +140,53 @@ async function setup(
         if (body.deckSpec) item.deckSpec = body.deckSpec as typeof SPEC;
         else delete item.deckSpec;
       }
-      if ("sizeDeckSpec" in body) {
+      if ("sizeDeckSpec" in body || "sizeChartValues" in body) {
         const size = body.size as string;
         const name = (body.sizeName as string | undefined) ?? size;
-        const map = { ...item.deckSpecsBySize };
-        delete map[size];
-        if (body.sizeDeckSpec) map[name] = body.sizeDeckSpec as typeof SPEC;
-        item.deckSpecsBySize = Object.keys(map).length ? map : undefined;
+        // Like the server, a rename moves both kinds of option value.
+        const move = <T>(
+          map: Record<string, T> | undefined,
+          edited: boolean,
+          next: unknown,
+        ) => {
+          const copy = { ...map };
+          const kept = copy[size];
+          delete copy[size];
+          const value = edited ? next : kept;
+          if (value) copy[name] = value as T;
+          return Object.keys(copy).length ? copy : undefined;
+        };
+        item.deckSpecsBySize = move(
+          item.deckSpecsBySize,
+          "sizeDeckSpec" in body,
+          body.sizeDeckSpec,
+        );
+        item.sizeChartsBySize = move(
+          item.sizeChartsBySize,
+          "sizeChartValues" in body,
+          body.sizeChartValues,
+        );
+        if ("sizeChartValues" in body)
+          item.sizeChartKind ??=
+            item.sizeChart?.kind ??
+            (item.category === "Wheels" ? "wheel" : "shortSleeve");
         item.sizes = (item.sizes ?? ["8.5"]).map((option) =>
           option === size ? name : option,
         );
+      }
+      if ("sizeChart" in body) {
+        const chart = body.sizeChart as Stored["sizeChart"] | null;
+        if (chart) {
+          item.sizeChart = chart;
+          item.sizeChartKind = chart.kind;
+        } else delete item.sizeChart;
+      }
+      if ("sizeChartKind" in body) {
+        if (body.sizeChartKind !== (item.sizeChart?.kind ?? item.sizeChartKind)) {
+          delete item.sizeChart;
+          delete item.sizeChartsBySize;
+        }
+        item.sizeChartKind = body.sizeChartKind as string;
       }
       if (typeof body.sizes === "string")
         item.sizes = body.sizes
@@ -813,5 +865,268 @@ test("a legacy duplicate option chip is removed alone, by its position", async (
   await page.getByRole("button", { name: /수정 저장/ }).click();
   await expect.poll(() => audit.patches.length).toBe(1);
   expect(audit.patches[0]).toMatchObject({ version: 3, sizes: "M, L" });
+  expect(audit.blocked).toEqual([]);
+});
+
+const TOP = {
+  length: 72,
+  shoulder: 50.5,
+  chest: 56,
+  sleeveLength: 22,
+  hem: 55,
+  sleeveWidth: 20.5,
+  armhole: 24,
+};
+const TOP_FIELDS: [keyof typeof TOP, string][] = [
+  ["length", "총장"],
+  ["shoulder", "어깨너비"],
+  ["chest", "가슴단면"],
+  ["sleeveLength", "소매길이"],
+  ["hem", "밑단단면"],
+  ["sleeveWidth", "소매통"],
+  ["armhole", "암홀"],
+];
+const topProduct = (extra: Partial<Stored> = {}) => ({
+  category: "Top",
+  sizes: ["S", "M"],
+  ...extra,
+});
+async function fillTop(
+  dialog: ReturnType<Page["getByRole"]>,
+  values: Record<string, number>,
+) {
+  for (const [key, label] of TOP_FIELDS)
+    await dialog.getByRole("textbox", { name: label }).fill(String(values[key]));
+}
+
+test("a top saves its default and option charts with their own bodies, renames an option and explains a reserved rename", async ({
+  page,
+}) => {
+  const audit = await setup(page, "/admin?section=products", undefined, topProduct());
+  const item = audit.store.find((entry) => entry.productId === DECK.id)!;
+  await editDeck(page);
+  await expect(page.getByText("반팔 · 미등록")).toBeVisible();
+  // Clothing chips open their chart now, like deck chips.
+  await expect(chip(page, "M")).toBeVisible();
+
+  await page.getByRole("button", { name: "+ 상세사이즈 등록" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("combobox", { name: "도면 종류" })).toHaveValue(
+    "shortSleeve",
+  );
+  await expect(
+    dialog.getByRole("button", { name: "저장", exact: true }),
+  ).toBeDisabled();
+  await fillTop(dialog, TOP);
+  await expect(dialog).toContainText('(28.3")');
+  await expect(dialog.locator("svg")).toContainText("72cm");
+  await dialog.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  expect(audit.patches).toEqual([
+    { version: 3, sizeChart: { kind: "shortSleeve", values: TOP } },
+  ]);
+  await expect(page.getByText('반팔 · 총장 72cm (28.3")')).toBeVisible();
+
+  let refusal: string | null = "CATALOG_PRODUCT_RESERVED";
+  await page.route(`${API}admin/catalog/products/*`, (route) =>
+    route.request().method() === "PATCH" && refusal
+      ? respond(route, { code: refusal }, 409)
+      : route.fallback(),
+  );
+  const option = { ...TOP, length: 74 };
+  await chip(page, "M").click();
+  await expect(dialog.getByRole("heading")).toContainText("· M");
+  await expect(dialog.getByRole("combobox", { name: "도면 종류" })).toBeDisabled();
+  await expect(dialog).toContainText("이 옵션은 지금 기본값을 표시합니다.");
+  await fillTop(dialog, option);
+  await dialog.getByRole("textbox", { name: "옵션 이름" }).fill("L");
+  const save = dialog.getByRole("button", { name: "저장", exact: true });
+  await save.click();
+  await expect(dialog.getByRole("alert")).toContainText(
+    "결제 대기 중인 주문이 있어 지금은 옵션 이름을 바꿀 수 없습니다.",
+  );
+  refusal = null;
+  await save.click();
+  await expect(dialog).toBeHidden();
+  expect(audit.patches.at(-1)).toEqual({
+    version: 4,
+    size: "M",
+    sizeName: "L",
+    sizeChartValues: option,
+  });
+  expect(item.sizeChartsBySize).toEqual({ L: option });
+  await expect(chipNames(page)).toHaveText(["S", "L"]);
+  await expect(page.getByRole("list", { name: "추가된 옵션" })).toContainText("L상세");
+  await expect(page.getByText(/기본 총장 72cm \(28\.3"\) · 옵션별 1개/)).toBeVisible();
+
+  // The next product save sends the renamed chip instead of undoing it.
+  page.once("dialog", (prompt) => void prompt.accept());
+  await page.getByRole("button", { name: /수정 저장/ }).click();
+  await expect(page.getByText("상품을 공개 상태로 저장했습니다")).toBeVisible();
+  expect(audit.patches.at(-1)).toMatchObject({ version: 5, sizes: "S, L" });
+  expect(audit.blocked).toEqual([]);
+});
+
+test("switching the drawing asks first, keeps focus through cancel, failure and success, and clears every value", async ({
+  page,
+}) => {
+  const audit = await setup(
+    page,
+    "/admin?section=products",
+    undefined,
+    topProduct({
+      sizeChart: { kind: "shortSleeve", values: TOP },
+      sizeChartKind: "shortSleeve",
+      sizeChartsBySize: { M: TOP },
+    }),
+  );
+  const item = audit.store.find((entry) => entry.productId === DECK.id)!;
+  await editDeck(page);
+  await page.getByRole("button", { name: "상세사이즈 수정" }).click();
+  const dialog = page.getByRole("dialog");
+  const kind = dialog.getByRole("combobox", { name: "도면 종류" });
+  // The submit button reads "저장 중…" while anything is being sent.
+  const save = dialog.locator('button[type="submit"]');
+  const remove = dialog.getByRole("button", { name: "삭제", exact: true });
+
+  await kind.selectOption("raglanLongSleeve");
+  await expect(dialog.getByRole("alert")).toContainText(
+    "도면 종류를 '래글런 긴팔'(으)로 바꾸면 기본값과 옵션별로 입력한 상세사이즈가 모두 지워집니다.",
+  );
+  await expect(save).toBeDisabled();
+  await expect(remove).toBeDisabled();
+  await dialog.getByRole("button", { name: "그대로 두기" }).click();
+  await expect(kind).toBeFocused();
+  await expect(kind).toHaveValue("shortSleeve");
+  await expect(dialog.getByRole("textbox", { name: "총장" })).toHaveValue("72");
+
+  // A held, then failed switch: Esc does not close it and nothing else can be sent meanwhile.
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let fail = true;
+  await page.route(`${API}admin/catalog/products/*`, async (route) => {
+    if (route.request().method() !== "PATCH" || !fail) return route.fallback();
+    await gate;
+    return respond(route, { code: "CATALOG_STORAGE_UNAVAILABLE" }, 503);
+  });
+  await kind.selectOption("raglanLongSleeve");
+  const change = dialog.getByRole("button", { name: "바꾸고 지우기" });
+  await change.click();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeVisible();
+  await expect(save).toBeDisabled();
+  await expect(remove).toBeDisabled();
+  await expect(kind).toBeDisabled();
+  release();
+  await expect(dialog.getByRole("alert").last()).toContainText("저장하지 못했습니다");
+  await expect(change).toBeFocused();
+  expect(item.sizeChart).toEqual({ kind: "shortSleeve", values: TOP });
+
+  fail = false;
+  await change.click();
+  // The form starts over with the new drawing's fields, focused on the drawing.
+  await expect(dialog.getByRole("textbox", { name: "화장" })).toHaveValue("");
+  await expect(kind).toHaveValue("raglanLongSleeve");
+  await expect(kind).toBeFocused();
+  await expect(dialog.getByRole("textbox", { name: "소매통" })).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "삭제", exact: true })).toHaveCount(
+    0,
+  );
+  expect(audit.patches).toEqual([{ version: 3, sizeChartKind: "raglanLongSleeve" }]);
+  expect(item.sizeChart).toBeUndefined();
+  expect(item.sizeChartsBySize).toBeUndefined();
+
+  // Switching back to the drawing the modal opened with focuses the new form too.
+  await kind.selectOption("shortSleeve");
+  await dialog.getByRole("button", { name: "바꾸고 지우기" }).click();
+  await expect(dialog.getByRole("textbox", { name: "소매통" })).toHaveValue("");
+  await expect(kind).toHaveValue("shortSleeve");
+  await expect(kind).toBeFocused();
+  // And once more away from it.
+  await kind.selectOption("raglanLongSleeve");
+  await dialog.getByRole("button", { name: "바꾸고 지우기" }).click();
+  await expect(dialog.getByRole("textbox", { name: "화장" })).toBeVisible();
+  await expect(kind).toBeFocused();
+  expect(audit.patches).toEqual([
+    { version: 3, sizeChartKind: "raglanLongSleeve" },
+    { version: 4, sizeChartKind: "shortSleeve" },
+    { version: 5, sizeChartKind: "raglanLongSleeve" },
+  ]);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText("래글런 긴팔 · 미등록")).toBeVisible();
+  await expect(page.getByRole("list", { name: "추가된 옵션" })).not.toContainText(
+    "상세",
+  );
+  expect(audit.blocked).toEqual([]);
+});
+
+test("a wheel has one drawing in mm, nested help closes first, unsaved chips ask for a save, and it fits 375px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  const audit = await setup(page, "/admin?section=products", undefined, {
+    category: "Wheels",
+    sizes: ["54mm 99a"],
+  });
+  await editDeck(page);
+  await page.getByRole("textbox", { name: "사이즈 / 옵션" }).fill("56mm 99a");
+  await page.getByRole("button", { name: "옵션 추가", exact: true }).click();
+  await chip(page, "56mm 99a").click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByRole("alert").filter({ hasText: "상품을 먼저 저장해 주세요." }),
+  ).toBeVisible();
+
+  const open = page.getByRole("button", { name: "+ 상세사이즈 등록" });
+  await open.click();
+  const dialog = page.getByRole("dialog", { name: /^상세사이즈 · / });
+  const kind = dialog.getByRole("combobox", { name: "도면 종류" });
+  await expect(kind).toBeDisabled();
+  await expect(kind).toHaveAccessibleDescription(
+    "이 카테고리는 도면 종류가 하나뿐입니다.",
+  );
+  for (const [label, value] of [
+    ["지름", "54"],
+    ["W 전체 폭", "33.5"],
+    ["T 바닥 닿는 폭", "20"],
+  ])
+    await dialog.getByRole("textbox", { name: label }).fill(value);
+  await expect(dialog.locator("svg")).toContainText("54mm");
+  await expect(dialog).not.toContainText('"');
+  // The modal fits the phone width without a sideways scroll.
+  const box = (await dialog.boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(375);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+
+  const help = dialog.getByRole("button", { name: "상세사이즈 입력 도움말" });
+  await help.click();
+  const helpDialog = page.getByRole("dialog", { name: "상세사이즈 입력 도움말" });
+  await expect(helpDialog).toContainText("mm로 입력합니다.");
+  await page.keyboard.press("Escape");
+  await expect(helpDialog).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+  await expect(help).toBeFocused();
+
+  await dialog
+    .getByRole("button", { name: "저장", exact: true })
+    .scrollIntoViewIfNeeded();
+  await dialog.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  expect(audit.patches).toEqual([
+    {
+      version: 3,
+      sizeChart: {
+        kind: "wheel",
+        values: { diameter: 54, width: 33.5, contactWidth: 20 },
+      },
+    },
+  ]);
+  await expect(page.getByText("휠 · 지름 54mm")).toBeVisible();
   expect(audit.blocked).toEqual([]);
 });
