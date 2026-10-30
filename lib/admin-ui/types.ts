@@ -1,4 +1,5 @@
 // 역할: 정적 관리자 화면과 배포 후 관리자 API 어댑터가 공유하는 안전한 UI 계약을 정의합니다.
+import type { SizeChartKind, SizeChartValues } from "@/lib/size-chart";
 import type { DeckSpec } from "@/types/store";
 import type {
   OcrMapping,
@@ -57,6 +58,12 @@ export type AdminCatalogListItem = Readonly<{
   deckSpec?: DeckSpec;
   /** 사이즈 옵션별 상세사이즈. 없는 옵션은 deckSpec(기본값)을 씁니다. */
   deckSpecsBySize?: Readonly<Record<string, DeckSpec>>;
+  /** 의류·휠 상세사이즈 기본값(cm 또는 mm). */
+  sizeChart?: Readonly<{ kind: SizeChartKind; values: SizeChartValues }>;
+  /** 의류·휠 상세사이즈의 도면 종류. 옵션별 값도 이 종류의 항목을 따릅니다. */
+  sizeChartKind?: SizeChartKind;
+  /** 사이즈 옵션별 의류·휠 상세사이즈. 없는 옵션은 sizeChart(기본값)를 씁니다. */
+  sizeChartsBySize?: Readonly<Record<string, SizeChartValues>>;
 }>;
 
 /** OCR provider가 반환하는 다각형 좌표입니다. 검토 UI에서는 읽기 전용 metadata로만 표시합니다. */
@@ -230,6 +237,28 @@ export type AdminDashboardActions = Readonly<{
       /** size 옵션의 새 이름. 다르면 이름 변경과 상세사이즈를 함께 저장합니다. */
       sizeName?: string;
     }>,
+  ) => Promise<AdminCatalogListItem>;
+  /** 의류·휠 상세사이즈 기본값만 즉시 저장(null이면 삭제)합니다. */
+  updateProductSizeChart?: (
+    input: Readonly<{
+      id: string;
+      version: number;
+      sizeChart: Readonly<{ kind: SizeChartKind; values: SizeChartValues }> | null;
+    }>,
+  ) => Promise<AdminCatalogListItem>;
+  /** 사이즈 옵션 하나의 의류·휠 상세사이즈를 저장(null이면 삭제)하고, sizeName이 다르면 이름도 바꿉니다. */
+  updateProductOptionSizeChart?: (
+    input: Readonly<{
+      id: string;
+      version: number;
+      size: string;
+      sizeName?: string;
+      sizeChartValues: SizeChartValues | null;
+    }>,
+  ) => Promise<AdminCatalogListItem>;
+  /** 도면 종류를 바꿉니다. 다른 종류면 서버가 기본값과 옵션별 값을 모두 지웁니다. */
+  updateProductSizeChartKind?: (
+    input: Readonly<{ id: string; version: number; sizeChartKind: SizeChartKind }>,
   ) => Promise<AdminCatalogListItem>;
   deleteCatalogProducts?: (
     items: ReadonlyArray<Readonly<{ id: string; version: number }>>,
