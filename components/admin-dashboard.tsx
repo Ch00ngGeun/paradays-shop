@@ -2907,16 +2907,13 @@ function OverviewSection({
               : overviewDescription}
           </p>
         </div>
-        <div className={styles.productListHeaderActions}>
+        {/* Pushed to the end so "New product" stays a direct child with its header styles. */}
+        <span className={styles.pushEnd}>
           <AdminGuideButton locale={locale} steps={adminGuideSteps("home", locale)} />
-          <button
-            className={styles.secondaryButton}
-            onClick={onOpenCreate}
-            type="button"
-          >
-            <span aria-hidden="true">＋</span> {isKorean ? "새 상품" : "New product"}
-          </button>
-        </div>
+        </span>
+        <button className={styles.secondaryButton} onClick={onOpenCreate} type="button">
+          <span aria-hidden="true">＋</span> {isKorean ? "새 상품" : "New product"}
+        </button>
       </header>
       <div
         className={styles.overviewMetricGrid}
@@ -4183,7 +4180,12 @@ function ProductSection({
         >
           {isKorean ? "← 목록으로" : "← Back to list"}
         </button>
-        <AdminGuideButton locale={locale} steps={adminGuideSteps("products", locale)} />
+        <span className={styles.pushEnd}>
+          <AdminGuideButton
+            locale={locale}
+            steps={adminGuideSteps("products", locale)}
+          />
+        </span>
       </div>
       <div className={`${styles.productPageHeading} ${styles.productCompactHeading}`}>
         <div>

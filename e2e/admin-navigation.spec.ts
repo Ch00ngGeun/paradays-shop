@@ -1586,6 +1586,18 @@ test("screen guide walks the home steps around the real elements with keys, butt
   await setup(page, { path: "/admin?section=overview" });
   const open = page.getByRole("button", { name: "화면 도움말", exact: true });
   await expect(open).toContainText("도움말");
+  // It sits just left of "New product", which keeps its header button style.
+  const newProduct = page
+    .locator("main")
+    .getByRole("button", { name: "새 상품", exact: false })
+    .first();
+  const helpBox = await boxOf(open);
+  const newBox = await boxOf(newProduct);
+  expect(helpBox.x + helpBox.width).toBeLessThanOrEqual(newBox.x);
+  expect(newBox.x - (helpBox.x + helpBox.width)).toBeLessThan(40);
+  expect(
+    await newProduct.evaluate((button) => getComputedStyle(button).borderRadius),
+  ).toBe("4px");
   await open.click();
   const bubble = page.getByRole("dialog");
   await expect(bubble).toContainText("1/4단계");
@@ -1635,6 +1647,22 @@ test("screen guide walks the home steps around the real elements with keys, butt
   expect(await metrics.evaluate((element) => element.closest("[inert]") !== null)).toBe(
     false,
   );
+});
+
+test("screen guide button sits at the right end of the product editor toolbar", async ({
+  page,
+}) => {
+  await setup(page, { path: "/admin?section=products" });
+  await newProduct(page);
+  const back = page.getByRole("button", { name: "← 목록으로", exact: true });
+  const help = page.getByRole("button", { name: "화면 도움말", exact: true });
+  const toolbar = back.locator("xpath=..");
+  const toolbarBox = await boxOf(toolbar);
+  const helpBox = await boxOf(help);
+  expect(
+    Math.abs(toolbarBox.x + toolbarBox.width - (helpBox.x + helpBox.width)),
+  ).toBeLessThan(2);
+  expect(helpBox.x).toBeGreaterThan((await boxOf(back)).x + 200);
 });
 
 test("screen guide skips steps whose element is not on the screen", async ({
