@@ -3933,7 +3933,7 @@ function ProductSection({
     return (
       <div className={`${styles.sectionStack} ${styles.productScreen}`}>
         {productStepper}
-        <div className={styles.productListHeader}>
+        <div className={`${styles.productListHeader} ${styles.wrapRow}`}>
           <div className={styles.productPageHeading}>
             <h2>{isKorean ? "상품 관리" : "Products"}</h2>
             <p>
@@ -5099,7 +5099,7 @@ function InventorySection({
         locale={locale}
         steps={inventorySteps}
       />
-      <div className={styles.productListHeader}>
+      <div className={`${styles.productListHeader} ${styles.wrapRow}`}>
         <div className={styles.productPageHeading}>
           <h2>{isKorean ? "재고 관리" : "Inventory"}</h2>
           <p>

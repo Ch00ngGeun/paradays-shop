@@ -1665,6 +1665,26 @@ test("screen guide button sits at the right end of the product editor toolbar", 
   expect(helpBox.x).toBeGreaterThan((await boxOf(back)).x + 200);
 });
 
+test("headers with the guide button fit a 320px screen in English without sideways scrolling", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 760 });
+  await setup(page, { path: "/admin?section=products", products: true });
+  for (const section of ["products", "overview", "inventory"]) {
+    await page.goto(`/admin?section=${section}`);
+    // The setup script resets the language on every load, so switch on each screen.
+    await page.getByRole("button", { name: "영어", exact: true }).click();
+    const help = page.getByRole("button", { name: "Screen help", exact: true });
+    await expect(help).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      section,
+    ).toBe(true);
+    const box = await boxOf(help);
+    expect(box.x + box.width, section).toBeLessThanOrEqual(320);
+  }
+});
+
 test("screen guide skips steps whose element is not on the screen", async ({
   page,
 }) => {
