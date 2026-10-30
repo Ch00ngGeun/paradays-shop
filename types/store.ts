@@ -4,13 +4,13 @@ import type { SizeChartKind, SizeChartValues } from "@/lib/size-chart";
 /** UI·스토리지에서 쓰는 지원 언어 */
 export type Locale = "en" | "ko";
 
-/** 데크 상세사이즈 (인치). 관리자가 상세사이즈 모달에서 등록함 */
+/** 데크 상세사이즈 (인치). 관리자가 상세사이즈 모달에서 등록함. 비운 칸은 null */
 export type DeckSpec = {
-  nose: number;
-  tail: number;
-  width: number;
-  length: number;
-  wheelbase: number;
+  nose: number | null;
+  tail: number | null;
+  width: number | null;
+  length: number | null;
+  wheelbase: number | null;
 };
 
 /** 카탈로그 상품 (홈 카드·상세·장바구니 라인의 공통 필드) */

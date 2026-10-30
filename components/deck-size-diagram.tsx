@@ -8,12 +8,20 @@ export function formatDeckCm(inches: number) {
   return `${(Math.round(inches * 25.4) / 10).toFixed(1)}cm`;
 }
 
-export function formatDeckInches(inches: number) {
-  return `${inches}"`;
+/** 비운 칸은 인치 기호 없이 "null"입니다. */
+export function formatDeckInches(inches: number | null) {
+  return inches === null ? "null" : `${inches}"`;
+}
+
+/** 값과 cm 환산: 비운 칸은 cm 괄호 없이 "null"만 씁니다. */
+function describeDeckValue(inches: number | null) {
+  return inches === null
+    ? "null"
+    : `${formatDeckInches(inches)} (${formatDeckCm(inches)})`;
 }
 
 type DiagramLabelProps = Readonly<{
-  inches: number;
+  inches: number | null;
   x: number;
   y: number;
   rotate?: number;
@@ -29,9 +37,11 @@ function DiagramLabel({ inches, x, y, rotate }: DiagramLabelProps) {
       transform={`translate(${x} ${y})${rotate ? ` rotate(${rotate})` : ""}`}
     >
       {formatDeckInches(inches)}
-      <tspan className={styles.cm} dx="4">
-        ({formatDeckCm(inches)})
-      </tspan>
+      {inches === null ? null : (
+        <tspan className={styles.cm} dx="4">
+          ({formatDeckCm(inches)})
+        </tspan>
+      )}
     </text>
   );
 }
@@ -39,10 +49,7 @@ function DiagramLabel({ inches, x, y, rotate }: DiagramLabelProps) {
 /** 1번 시안처럼 세로 데크 윤곽과 치수 괄호를 고정 비율로 그립니다. 숫자만 상품별로 바뀝니다. */
 export function DeckSizeDiagram({ spec }: Readonly<{ spec: DeckSpec }>) {
   const description = (["nose", "tail", "width", "length", "wheelbase"] as const)
-    .map(
-      (field) =>
-        `${field} ${formatDeckInches(spec[field])} (${formatDeckCm(spec[field])})`,
-    )
+    .map((field) => `${field} ${describeDeckValue(spec[field])}`)
     .join(", ");
 
   return (
