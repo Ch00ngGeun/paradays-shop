@@ -1,7 +1,7 @@
 // 역할: 화면의 실제 요소 위에 동그라미·밑줄·화살표를 그리고 말풍선으로 할 일을 한 단계씩 짚어 주는 화면 안내입니다.
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 
 import { useFocusTrap } from "@/hooks/use-focus-trap";
@@ -196,7 +196,12 @@ export function AdminGuideButton({
         <span aria-hidden="true">{labels.visible}</span>
       </button>
       {open ? (
-        <GuideOverlay labels={labels} onClose={() => setOpen(false)} steps={steps} />
+        <GuideOverlay
+          labels={labels}
+          onClose={() => setOpen(false)}
+          owner={buttonRef}
+          steps={steps}
+        />
       ) : null}
     </>
   );
@@ -206,10 +211,12 @@ function GuideOverlay({
   steps,
   labels,
   onClose,
+  owner,
 }: Readonly<{
   steps: readonly AdminGuideStep[];
   labels: ReturnType<typeof adminGuideLabels>;
   onClose: () => void;
+  owner: RefObject<HTMLButtonElement | null>;
 }>) {
   const layer = useModalLayer(true);
   // Esc is handled below so only the top layer closes; the trap still keeps Tab inside.
@@ -242,10 +249,13 @@ function GuideOverlay({
   const position = step ? available.indexOf(step) + 1 : 0;
 
   const measure = useCallback(() => {
+    // The screen that opened the guide was hidden (another menu, browser Back): close with it.
+    if (owner.current?.getClientRects().length === 0) return onCloseRef.current();
     setViewport({ width: window.innerWidth, height: window.innerHeight });
-    if (step && !isOnScreen(step)) {
-      // The target went away mid-guide: move on to another visible step, or show the empty state.
-      setIndex(recoverGuideStep(steps, index, isOnScreen));
+    if (!step || !isOnScreen(step)) {
+      // The target went away mid-guide, or one appeared while empty: show a visible step, or the empty state.
+      const next = recoverGuideStep(steps, index, isOnScreen);
+      if (next !== index) setIndex(next);
       return setRect(null);
     }
     const element = step ? findTarget(step.target) : null;
@@ -254,7 +264,7 @@ function GuideOverlay({
     setRect({ left, top, width, height });
     const box = (dialogRef.current as HTMLElement | null)?.getBoundingClientRect();
     if (box) setBubble({ width: box.width, height: box.height });
-  }, [step, steps, index, dialogRef]);
+  }, [step, steps, index, dialogRef, owner]);
 
   // Bring the target into view, then follow it through scrolling, resizing and layout changes.
   useEffect(() => {
@@ -276,7 +286,11 @@ function GuideOverlay({
     const observer = new ResizeObserver(schedule);
     if (element) observer.observe(element);
     observer.observe(document.body);
+    // Menus switch by toggling `hidden`, which may not change any observed size.
+    const shown = new MutationObserver(schedule);
+    shown.observe(document.body, { attributeFilter: ["hidden"], subtree: true });
     return () => {
+      shown.disconnect();
       cancelAnimationFrame(frame);
       window.removeEventListener("scroll", schedule, true);
       window.removeEventListener("resize", schedule);
