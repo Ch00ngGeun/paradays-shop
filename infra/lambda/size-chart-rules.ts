@@ -57,6 +57,20 @@ export function sizeChartKindsFor(category: string): readonly SizeChartKind[] {
   return Object.hasOwn(CATEGORY_KINDS, category) ? CATEGORY_KINDS[category] : [];
 }
 
+export function defaultSizeChartKind(category: string): SizeChartKind | undefined {
+  return sizeChartKindsFor(category)[0];
+}
+
+/** 값이 그 카테고리에서 고를 수 있는 도면 종류일 때만 돌려줍니다. */
+export function allowedSizeChartKind(
+  category: string,
+  value: unknown,
+): SizeChartKind | undefined {
+  return isSizeChartKind(value) && sizeChartKindsFor(category).includes(value)
+    ? value
+    : undefined;
+}
+
 export function isSizeChartKind(value: unknown): value is SizeChartKind {
   return SIZE_CHART_KINDS.includes(value as SizeChartKind);
 }
@@ -107,14 +121,19 @@ export function isCatalogSizeChart(value: unknown): value is CatalogSizeChart {
   );
 }
 
+/** 검증한 값을 새 객체로 복사합니다(항목 순서는 도면 순서). */
+export function copySizeChartValues(
+  kind: SizeChartKind,
+  values: Readonly<Record<string, number>>,
+): Readonly<Record<string, number>> {
+  return Object.fromEntries(
+    SIZE_CHART_KIND_RULES[kind].keys.map((key) => [key, values[key]]),
+  );
+}
+
 /** 저장 행의 상세사이즈를 새 객체로 복사합니다(항목 순서는 도면 순서). */
 export function copySizeChart(chart: CatalogSizeChart): CatalogSizeChart {
-  return {
-    kind: chart.kind,
-    values: Object.fromEntries(
-      SIZE_CHART_KIND_RULES[chart.kind].keys.map((key) => [key, chart.values[key]]),
-    ),
-  };
+  return { kind: chart.kind, values: copySizeChartValues(chart.kind, chart.values) };
 }
 
 /** 응답에 담을 수 있는 상세사이즈: 형식이 맞고 상품 카테고리에서 고를 수 있는 kind일 때만입니다. */
