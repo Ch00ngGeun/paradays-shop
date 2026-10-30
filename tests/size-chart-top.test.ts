@@ -69,6 +69,29 @@ describe("top size chart diagram", () => {
     );
   });
 
+  it("draws blank fields as null alone, without inches, in the drawing and its name", () => {
+    const markup = renderToStaticMarkup(
+      createElement(SizeChartTop, {
+        kind: "shortSleeve",
+        values: { ...shortSleeve, shoulder: null, armhole: null },
+        locale: "ko",
+      }),
+    );
+    expect(markup.match(/>null<\/text>/g)).toHaveLength(2);
+    expect(markup).not.toContain("nullcm");
+    expect(markup).not.toContain("(null");
+    // Filled fields keep their cm and inches, and every field still has one label.
+    expect(markup).toContain(">72cm<tspan");
+    expect(markup.match(/<text/g)).toHaveLength(7);
+    expect(markup).toContain(
+      'aria-label="반팔: 총장 72cm (28.3&quot;), 어깨너비 null, 가슴단면 56cm (22.0&quot;)',
+    );
+    expect(markup).toContain('암홀 null"');
+    expect(
+      sizeChartDescription("raglanLongSleeve", { ...raglan, cuff: null }, "en"),
+    ).toContain("Cuff width null, ");
+  });
+
   it("points arrow heads back along the line", () => {
     // A head at the right end of a horizontal line opens to the left.
     expect(arrowHead(100, 50, 0, 50)).toBe("M 93.7 47.0 L 100 50 L 93.7 53.0");

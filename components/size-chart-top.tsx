@@ -51,9 +51,8 @@ export function SizeChartValue({
   rotate?: number;
   anchor?: "start" | "middle" | "end";
 }>) {
-  // A blank field shows "null" alone, without a unit or inches.
-  const [main, sub] =
-    value === null ? ["null"] : formatSizeChartValue(kind, value).split(" ");
+  // A blank field formats as "null" alone, so it gets no smaller inch part.
+  const [main, sub] = formatSizeChartValue(kind, value).split(" ");
   return (
     <text
       className={styles.label}
