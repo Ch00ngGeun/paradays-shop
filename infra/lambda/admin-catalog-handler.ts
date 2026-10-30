@@ -33,12 +33,11 @@ import {
   sizeChartFor,
   type CatalogSizeChart,
   type SizeChartKind,
+  type SizeChartValues,
 } from "./size-chart-rules.js";
 
 /** 옵션별 의류·휠 상세사이즈 값. 키는 sizes 값이고, 도면 종류는 상품의 sizeChartKind를 따릅니다. */
-export type CatalogSizeChartsBySize = Readonly<
-  Record<string, Readonly<Record<string, number>>>
->;
+export type CatalogSizeChartsBySize = Readonly<Record<string, SizeChartValues>>;
 
 /** 상품 상태는 공개 여부를 가리키는 두 값으로 고정합니다. */
 export type CatalogProductStatus = "DRAFT" | "PUBLISHED";
@@ -1758,7 +1757,7 @@ function patchSizeOption(
 ): {
   sizes: string[];
   deckSpecsBySize: Record<string, CatalogDeckSpec>;
-  sizeChartsBySize: Record<string, Readonly<Record<string, number>>>;
+  sizeChartsBySize: Record<string, SizeChartValues>;
   sizeChartKind?: SizeChartKind;
 } | null {
   const size = body.size;

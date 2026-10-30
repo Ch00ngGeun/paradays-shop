@@ -2067,6 +2067,12 @@ test("server size chart rules match the storefront rules table", async () => {
       [Object.fromEntries(keys.slice(1).map((key) => [key, 12])), false],
       [null, false],
       [[], false],
+      // Blank fields are null; at least one number has to remain.
+      [Object.fromEntries(keys.map((key, index) => [key, index ? null : 12])), true],
+      [Object.fromEntries(keys.map((key, index) => [key, index ? 12.5 : null])), true],
+      [filled(null), false],
+      [{ ...filled(null), [keys[0]]: "12" }, false],
+      [{ ...filled(12), [keys[0]]: undefined }, false],
     ];
     for (const [value, expected] of cases) {
       const label = `${kind} ${JSON.stringify(value)}`;
@@ -2454,4 +2460,68 @@ test("a deckSpec PATCH saves blank fields as null and needs at least one number"
     ).status,
     200,
   );
+});
+
+test("clothing and wheel size charts save blank fields as null on every path and keep them", async (t) => {
+  const partialTop = { ...shortSleeve.values, shoulder: null, armhole: null };
+  const db = fixture(t, [top({ sizes: ["S", "M"] })]);
+  const stored = () => db.records.get("prd_top") as CatalogProductRecord;
+  const patch = async (body: Record<string, unknown>) =>
+    unpack(await handler(event("PATCH", body, "prd_top")));
+
+  const saved = await patch({
+    version: 3,
+    sizeChart: { kind: "shortSleeve", values: partialTop },
+  });
+  assert.equal(saved.status, 200);
+  assert.deepEqual(saved.body.product.sizeChart.values, partialTop);
+  const option = { ...partialTop, length: null, chest: 58 };
+  assert.equal(
+    (await patch({ version: 4, size: "M", sizeChartValues: option })).status,
+    200,
+  );
+  assert.deepEqual(stored().sizeChartsBySize, { M: option });
+
+  const writes = db.transactions.length;
+  const allBlank = Object.fromEntries(
+    Object.keys(partialTop).map((key) => [key, null]),
+  );
+  const missingKey = Object.fromEntries(
+    Object.entries(partialTop).filter(([key]) => key !== "armhole"),
+  );
+  for (const values of [allBlank, missingKey, { ...partialTop, chest: "null" }]) {
+    assert.equal(
+      (await patch({ version: 5, sizeChart: { kind: "shortSleeve", values } })).status,
+      400,
+    );
+    assert.equal(
+      (await patch({ version: 5, size: "S", sizeChartValues: values })).status,
+      400,
+    );
+  }
+  assert.equal(db.transactions.length, writes);
+
+  // A rename carries the blank fields, and both outputs keep them as null.
+  assert.equal(
+    (await patch({ version: 5, size: "M", sizeName: "L", sizeChartValues: option }))
+      .status,
+    200,
+  );
+  assert.deepEqual(stored().sizeChartsBySize, { L: option });
+  assert.deepEqual(toPublicCatalogProduct(stored())?.sizeChartsBySize, { L: option });
+  assert.deepEqual(toPublicCatalogProduct(stored())?.sizeChart?.values, partialTop);
+  const restored = unmarshall(marshall(stored(), { removeUndefinedValues: true }));
+  assert.deepEqual(restored.sizeChart.values, partialTop);
+  assert.deepEqual(restored.sizeChartsBySize, { L: option });
+  assert.equal(isCatalogProductRecord(restored), true);
+
+  // A product save keeps them; a drawing switch clears them like any other values.
+  assert.equal((await patch({ version: 6, sizes: ["S", "L"] })).status, 200);
+  assert.deepEqual(stored().sizeChartsBySize, { L: option });
+  assert.equal(
+    (await patch({ version: 7, sizeChartKind: "raglanLongSleeve" })).status,
+    200,
+  );
+  for (const field of ["sizeChart", "sizeChartsBySize"])
+    assert.equal(Object.hasOwn(stored(), field), false, field);
 });
