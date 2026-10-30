@@ -1615,19 +1615,29 @@ function parseDeckSpecsBySize(value: unknown) {
   return entries.length ? { deckSpecsBySize: Object.fromEntries(entries) } : {};
 }
 
-/** 서버 검증과 같은 범위(0 초과 100인치 이하)만 상세사이즈로 인정합니다. */
+const DECK_SPEC_FIELDS = ["nose", "tail", "width", "length", "wheelbase"] as const;
+// Same as the server: up to 4 decimals (1/16" = 0.0625).
+const DECK_SPEC_INCHES_PATTERN = /^\d+(?:\.\d{1,4})?$/;
+
+/**
+ * 서버 검증과 같게: 5칸이 모두 있고, 각 칸은 0 초과 100인치 이하·소수 4자리까지이거나 비운 칸(null)이며,
+ * 숫자가 하나 이상일 때만 상세사이즈로 인정합니다. 모든 칸 null은 삭제(null)로 보냅니다.
+ */
 function isDeckSpec(value: unknown): value is DeckSpec {
+  const isInches = (inches: unknown) =>
+    typeof inches === "number" &&
+    Number.isFinite(inches) &&
+    inches > 0 &&
+    inches <= 100 &&
+    DECK_SPEC_INCHES_PATTERN.test(String(inches));
   return (
     isRecord(value) &&
-    (["nose", "tail", "width", "length", "wheelbase"] as const).every((field) => {
-      const inches = value[field];
-      return (
-        typeof inches === "number" &&
-        Number.isFinite(inches) &&
-        inches > 0 &&
-        inches <= 100
-      );
-    })
+    DECK_SPEC_FIELDS.every(
+      (field) =>
+        Object.hasOwn(value, field) &&
+        (value[field] === null || isInches(value[field])),
+    ) &&
+    DECK_SPEC_FIELDS.some((field) => value[field] !== null)
   );
 }
 
