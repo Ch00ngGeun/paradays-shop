@@ -3890,14 +3890,23 @@ test("brand redesign: only observed catalog brands are grouped searched and filt
   await panel.getByRole("button", { name: "전체 2", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(brandRow(page, "TEST")).toBeVisible();
-  await panel.locator("summary").getByText("도움말", { exact: true }).click();
+  // The list's limits now sit in the list title's '?'.
+  await panel.getByRole("button", { name: "브랜드 목록 도움말", exact: true }).click();
+  const listHelp = page.getByRole("dialog", {
+    name: "브랜드 목록 도움말",
+    exact: true,
+  });
   await expect(
-    panel.getByText(/연결이 없어도 비활성 브랜드를 뜻하지 않습니다/),
+    listHelp.getByText(/연결이 없어도 비활성 브랜드를 뜻하지 않습니다/),
   ).toBeVisible();
   await expect(
-    panel.getByText(/전체 브랜드 목록이나 서버의 활성 상태를 조회하는 화면은 아닙니다/),
+    listHelp.getByText(
+      /전체 브랜드 목록이나 서버의 활성 상태를 조회하는 화면은 아닙니다/,
+    ),
   ).toBeVisible();
-  await panel.locator("summary").getByText("도움말", { exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(listHelp).toHaveCount(0);
+  await expect(panel.locator("summary", { hasText: /^도움말$/ })).toHaveCount(0);
   const catalogBox = await panel
     .getByRole("region", { name: "이 화면에서 확인한 브랜드", exact: true })
     .boundingBox();
@@ -4493,6 +4502,74 @@ test("member redesign: loaded search and selected detail reveal only returned re
   expect(state.reads).toBe(1);
   expect(state.commands).toEqual([]);
   expect(audit.syntheticWrites).toEqual([]);
+});
+
+test("screen guide walks the brand list, name and register button", async ({
+  page,
+}) => {
+  await setup(page, { path: "/admin?section=brands", catalogProducts: brandProducts });
+  const open = brandWorkspace(page).getByRole("button", {
+    name: "화면 도움말",
+    exact: true,
+  });
+  await open.click();
+  const bubble = page.getByRole("dialog");
+  await expect(bubble).toContainText("1/3단계");
+  await expect(bubble.getByRole("heading")).toHaveText("있는 브랜드 확인");
+  await page.keyboard.press("ArrowRight");
+  await expect(bubble.getByRole("heading")).toHaveText("브랜드 이름 쓰기");
+  // The name box is underlined right below it.
+  await expect
+    .poll(async () => {
+      const target = await boxOf(brandNameInput(page));
+      const line = await boxOf(guideLines(page).first());
+      return Math.abs(line.y - (target.y + target.height)) <= 6;
+    })
+    .toBe(true);
+  await page.keyboard.press("ArrowRight");
+  await expect(bubble.getByRole("heading")).toHaveText("등록하기");
+  await bubble.getByRole("button", { name: "완료", exact: true }).click();
+  await expect(bubble).toHaveCount(0);
+  await expect(open).toBeFocused();
+});
+
+test("screen guide on members adds the permission step once a member is open", async ({
+  page,
+}) => {
+  await setupMembers(page);
+  const panel = memberWorkspace(page);
+  const open = panel.getByRole("button", { name: "화면 도움말", exact: true });
+  await expect(panel.locator("summary", { hasText: /^도움말$/ })).toHaveCount(0);
+  await open.click();
+  const bubble = page.getByRole("dialog");
+  // Nothing is selected yet, so the permission area is not on the screen.
+  await expect(bubble).toContainText("1/2단계");
+  await expect(bubble.getByRole("heading")).toHaveText("회원 불러오기");
+  await page.keyboard.press("ArrowRight");
+  await expect(bubble.getByRole("heading")).toHaveText("회원 고르기");
+  await page.keyboard.press("Escape");
+  await expect(bubble).toHaveCount(0);
+
+  await loadMembers(page);
+  // The list title's '?' keeps what the old header help said.
+  await panel.getByRole("button", { name: "회원 목록 도움말", exact: true }).click();
+  const listHelp = page.getByRole("dialog", { name: "회원 목록 도움말", exact: true });
+  await expect(listHelp).toContainText(
+    "전체 회원 검색이나 전체 회원 수 집계가 아닙니다",
+  );
+  await expect(listHelp).toContainText("admin·support 운영 권한뿐입니다");
+  await page.keyboard.press("Escape");
+  await expect(listHelp).toHaveCount(0);
+
+  await memberChoice(page).click();
+  await open.click();
+  await expect(bubble).toContainText("1/3단계");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await expect(bubble.getByRole("heading")).toHaveText("권한 바꾸기");
+  await expect(guideRing(page)).toHaveCount(1);
+  await bubble.getByRole("button", { name: "완료", exact: true }).click();
+  await expect(open).toBeFocused();
 });
 
 test("member redesign: group previews and cancelled confirmations write nothing while accepted changes use the existing encoded POST and DELETE contract", async ({
