@@ -54,11 +54,11 @@ export type CatalogDescriptionI18n = Readonly<{
 
 /** 데크 상세사이즈(인치). 관리자 상세사이즈 모달이 PATCH로 단독 저장합니다. */
 export type CatalogDeckSpec = Readonly<{
-  nose: number;
-  tail: number;
-  width: number;
-  length: number;
-  wheelbase: number;
+  nose: number | null;
+  tail: number | null;
+  width: number | null;
+  length: number | null;
+  wheelbase: number | null;
 }>;
 
 export type CatalogDeckSpecsBySize = Readonly<Record<string, CatalogDeckSpec>>;
@@ -1912,19 +1912,24 @@ function deckSpecsBySizeOutput(product: CatalogProductRecord) {
   return Object.keys(deckSpecsBySize).length ? { deckSpecsBySize } : {};
 }
 
+/**
+ * 5칸이 모두 있고, 각 칸은 범위·소수 4자리 안의 인치이거나 비운 칸(null)이며, 숫자가 하나 이상일 때만 참입니다.
+ * 모든 칸이 null이면 거부합니다: 다 비운 저장은 상세사이즈 삭제(null)로 보냅니다.
+ */
 function isCatalogDeckSpec(value: unknown): value is CatalogDeckSpec {
+  const isInches = (inches: unknown) =>
+    typeof inches === "number" &&
+    Number.isFinite(inches) &&
+    inches > 0 &&
+    inches <= MAX_DECK_SPEC_INCHES &&
+    DECK_SPEC_INCHES_PATTERN.test(String(inches));
   return (
     isRecord(value) &&
-    DECK_SPEC_FIELDS.every((field) => {
-      const inches = value[field];
-      return (
-        typeof inches === "number" &&
-        Number.isFinite(inches) &&
-        inches > 0 &&
-        inches <= MAX_DECK_SPEC_INCHES &&
-        DECK_SPEC_INCHES_PATTERN.test(String(inches))
-      );
-    })
+    DECK_SPEC_FIELDS.every(
+      (field) =>
+        hasOwn(value, field) && (value[field] === null || isInches(value[field])),
+    ) &&
+    DECK_SPEC_FIELDS.some((field) => value[field] !== null)
   );
 }
 

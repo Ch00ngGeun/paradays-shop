@@ -2349,3 +2349,109 @@ test("a category change drops option values and the chosen drawing it cannot use
   for (const field of ["sizeChartKind", "sizeChartsBySize"])
     assert.equal(Object.hasOwn(record, field), false, field);
 });
+
+const partialDeck = {
+  nose: 6.875,
+  tail: null,
+  width: null,
+  length: 31.75,
+  wheelbase: null,
+};
+
+test("a deck row with blank size fields stays a valid product in the admin list and the store", async (t) => {
+  // The record check runs on every read; a blank field must never hide the product.
+  const row = product({
+    status: "PUBLISHED",
+    publicationStatus: "PUBLISHED",
+    image: "/deck.webp",
+    sizes: ["8.25", "8.5"],
+    deckSpec: partialDeck,
+    deckSpecsBySize: { "8.5": { ...partialDeck, nose: null, tail: 6.5 } },
+  });
+  assert.equal(isCatalogProductRecord(row), true);
+  const visible = toPublicCatalogProduct(row);
+  assert.deepEqual(visible?.deckSpec, partialDeck);
+  assert.deepEqual(visible?.deckSpecsBySize, {
+    "8.5": { ...partialDeck, nose: null, tail: 6.5 },
+  });
+  // DynamoDB keeps the blank fields as null.
+  const restored = unmarshall(marshall(row, { removeUndefinedValues: true }));
+  assert.deepEqual(restored.deckSpec, partialDeck);
+  assert.equal(isCatalogProductRecord(restored), true);
+
+  fixture(t, [row]);
+  const list = unpack(await handler(event("GET")));
+  assert.equal(list.status, 200);
+  assert.equal(list.body.products.length, 1);
+  assert.deepEqual(list.body.products[0].deckSpec, partialDeck);
+  const read = unpack(await handler(event("GET", undefined, "prd_deck")));
+  assert.deepEqual(read.body.product.deckSpecsBySize["8.5"].nose, null);
+  // A broken value still makes the row invalid, as before.
+  assert.equal(
+    isCatalogProductRecord(product({ deckSpec: { ...partialDeck, tail: 0 } })),
+    false,
+  );
+});
+
+test("a deckSpec PATCH saves blank fields as null and needs at least one number", async (t) => {
+  const db = fixture(t, [product({ sizes: ["8.25", "8.5"] })]);
+  const stored = () => db.records.get("prd_deck") as CatalogProductRecord;
+  const patch = async (body: Record<string, unknown>) =>
+    unpack(await handler(event("PATCH", body, "prd_deck")));
+
+  const saved = await patch({ version: 3, deckSpec: partialDeck });
+  assert.equal(saved.status, 200);
+  assert.deepEqual(saved.body.product.deckSpec, partialDeck);
+  assert.deepEqual(stored().deckSpec, partialDeck);
+
+  const writes = db.transactions.length;
+  for (const invalid of [
+    { nose: null, tail: null, width: null, length: null, wheelbase: null },
+    // Every field must still be present; a blank one is null, not missing.
+    { nose: 6.875, tail: null, width: null, length: 31.75 },
+    { ...partialDeck, tail: "null" },
+    { ...partialDeck, tail: 0 },
+  ]) {
+    assert.equal((await patch({ version: 4, deckSpec: invalid })).status, 400);
+    assert.equal(
+      (await patch({ version: 4, size: "8.5", sizeDeckSpec: invalid })).status,
+      400,
+    );
+  }
+  assert.equal(db.transactions.length, writes);
+
+  // One option with blank fields, then a rename that carries it.
+  const option = { ...partialDeck, width: 8.5 };
+  const optionSaved = await patch({ version: 4, size: "8.5", sizeDeckSpec: option });
+  assert.equal(optionSaved.status, 200);
+  assert.deepEqual(stored().deckSpecsBySize, { "8.5": option });
+  const renamed = await patch({
+    version: 5,
+    size: "8.5",
+    sizeName: "8.6",
+    sizeDeckSpec: { ...option, tail: 6.5 },
+  });
+  assert.equal(renamed.status, 200);
+  assert.deepEqual(stored().deckSpecsBySize, { "8.6": { ...option, tail: 6.5 } });
+  // An unrelated edit keeps the blank fields, and deleting still uses null.
+  assert.equal((await patch({ version: 6, featured: true })).status, 200);
+  assert.deepEqual(stored().deckSpec, partialDeck);
+  assert.equal((await patch({ version: 7, deckSpec: null })).status, 200);
+  assert.equal(Object.hasOwn(stored(), "deckSpec"), false);
+  // An older client's full spec still saves as before.
+  assert.equal(
+    (
+      await patch({
+        version: 8,
+        deckSpec: {
+          nose: 6.875,
+          tail: 6.5,
+          width: 8.5,
+          length: 31.75,
+          wheelbase: 14.25,
+        },
+      })
+    ).status,
+    200,
+  );
+});
