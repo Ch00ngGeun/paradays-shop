@@ -48,9 +48,12 @@ const CATEGORY_KINDS: Readonly<Record<string, readonly SizeChartKind[]>> = {
 
 const MAX_VALUE = { cm: 300, mm: 100 } as const;
 
+/** 항목 key → 값(cm 또는 mm). 비운 칸은 null입니다. */
+export type SizeChartValues = Readonly<Record<string, number | null>>;
+
 export type CatalogSizeChart = Readonly<{
   kind: SizeChartKind;
-  values: Readonly<Record<string, number>>;
+  values: SizeChartValues;
 }>;
 
 export function sizeChartKindsFor(category: string): readonly SizeChartKind[] {
@@ -89,25 +92,26 @@ function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]) {
   return own.length === keys.length && keys.every((key) => Object.hasOwn(value, key));
 }
 
-/** 그 도면 종류의 항목만, 빠짐없이, 0 초과 최댓값(cm 300·mm 100) 이하·소수 1자리 숫자일 때만 참입니다. */
+/**
+ * 그 도면 종류의 항목만 빠짐없이 있고, 값은 0 초과 최댓값(cm 300·mm 100) 이하·소수 1자리 숫자 또는
+ * 비운 칸(null)이며, 숫자가 하나 이상일 때만 참입니다. 모든 칸 null은 삭제(null)로 보내므로 거부합니다.
+ */
 export function isSizeChartValues(
   kind: SizeChartKind,
   value: unknown,
-): value is Readonly<Record<string, number>> {
+): value is SizeChartValues {
   const { unit, keys } = SIZE_CHART_KIND_RULES[kind];
+  const isValue = (number: unknown) =>
+    typeof number === "number" &&
+    Number.isFinite(number) &&
+    Math.round(number * 10) / 10 === number &&
+    number > 0 &&
+    number <= MAX_VALUE[unit];
   return (
     isPlainRecord(value) &&
     hasExactKeys(value, keys) &&
-    keys.every((key) => {
-      const number = value[key];
-      return (
-        typeof number === "number" &&
-        Number.isFinite(number) &&
-        Math.round(number * 10) / 10 === number &&
-        number > 0 &&
-        number <= MAX_VALUE[unit]
-      );
-    })
+    keys.every((key) => value[key] === null || isValue(value[key])) &&
+    keys.some((key) => value[key] !== null)
   );
 }
 
@@ -124,8 +128,8 @@ export function isCatalogSizeChart(value: unknown): value is CatalogSizeChart {
 /** 검증한 값을 새 객체로 복사합니다(항목 순서는 도면 순서). */
 export function copySizeChartValues(
   kind: SizeChartKind,
-  values: Readonly<Record<string, number>>,
-): Readonly<Record<string, number>> {
+  values: SizeChartValues,
+): SizeChartValues {
   return Object.fromEntries(
     SIZE_CHART_KIND_RULES[kind].keys.map((key) => [key, values[key]]),
   );
