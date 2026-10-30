@@ -232,21 +232,29 @@ function copySizeChartValues(kind: SizeChartKind, values: SizeChartValues) {
 
 const DECK_SPEC_FIELDS = ["nose", "tail", "width", "length", "wheelbase"] as const;
 
-/** 상세사이즈는 부가 정보라 형식이 어긋나면 상품 전체를 버리지 않고 이 필드만 숨깁니다. */
+/**
+ * 상세사이즈는 부가 정보라 형식이 어긋나면 상품 전체를 버리지 않고 이 필드만 숨깁니다.
+ * 서버와 같게 5칸이 모두 있고, 각 칸은 인치이거나 비운 칸(null)이며, 숫자가 하나 이상이어야 합니다.
+ */
 function parseDeckSpec(value: unknown): DeckSpec | undefined {
   if (
     !isRecord(value) ||
-    !DECK_SPEC_FIELDS.every((field) => isSafeInches(value[field]))
+    !DECK_SPEC_FIELDS.every(
+      (field) =>
+        Object.hasOwn(value, field) &&
+        (value[field] === null || isSafeInches(value[field])),
+    ) ||
+    DECK_SPEC_FIELDS.every((field) => value[field] === null)
   ) {
     return undefined;
   }
 
   return {
-    nose: value.nose as number,
-    tail: value.tail as number,
-    width: value.width as number,
-    length: value.length as number,
-    wheelbase: value.wheelbase as number,
+    nose: value.nose as number | null,
+    tail: value.tail as number | null,
+    width: value.width as number | null,
+    length: value.length as number | null,
+    wheelbase: value.wheelbase as number | null,
   };
 }
 
@@ -272,9 +280,16 @@ function parseDeckSpecsBySize(
   return entries.length ? Object.fromEntries(entries) : undefined;
 }
 
+// Same as the server: up to 4 decimals (1/16" = 0.0625).
+const DECK_SPEC_INCHES_PATTERN = /^\d+(?:\.\d{1,4})?$/;
+
 function isSafeInches(value: unknown): value is number {
   return (
-    typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 100
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value > 0 &&
+    value <= 100 &&
+    DECK_SPEC_INCHES_PATTERN.test(String(value))
   );
 }
 
