@@ -1571,6 +1571,123 @@ test("product form refinement: the two-line notice does not follow the admin to 
   await expect(notice).toHaveCount(0);
 });
 
+/** The guide's drawing: the ring around the target and the underline under an input. */
+const guideRing = (page: Page) => page.locator("[data-modal-layer] svg > rect[rx='8']");
+const guideLines = (page: Page) => page.locator("[data-modal-layer] svg > line");
+async function boxOf(locator: Locator) {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error("no box");
+  return box;
+}
+
+test("screen guide walks the home steps around the real elements with keys, buttons and Esc", async ({
+  page,
+}) => {
+  await setup(page, { path: "/admin?section=overview" });
+  const open = page.getByRole("button", { name: "화면 도움말", exact: true });
+  await expect(open).toContainText("도움말");
+  await open.click();
+  const bubble = page.getByRole("dialog");
+  await expect(bubble).toContainText("1/4단계");
+  await expect(bubble.getByRole("heading")).toHaveText("오늘 숫자 보기");
+
+  // The ring sits around the marked element, and the page behind is inert.
+  const metrics = page.locator('[data-admin-guide="home.metrics"]');
+  await expect
+    .poll(async () => {
+      const ring = await boxOf(guideRing(page));
+      const target = await boxOf(metrics);
+      return (
+        ring.x <= target.x &&
+        ring.y <= target.y &&
+        ring.x + ring.width >= target.x + target.width &&
+        ring.y + ring.height >= target.y + target.height
+      );
+    })
+    .toBe(true);
+  expect(await metrics.evaluate((element) => element.closest("[inert]") !== null)).toBe(
+    true,
+  );
+
+  await bubble.getByRole("button", { name: "다음", exact: true }).click();
+  await expect(bubble).toContainText("2/4단계");
+  await expect(bubble.getByRole("heading")).toHaveText("재고가 적은 상품");
+  await page.keyboard.press("ArrowRight");
+  await expect(bubble.getByRole("heading")).toHaveText("하루 마감");
+  await page.keyboard.press("ArrowLeft");
+  await expect(bubble.getByRole("heading")).toHaveText("재고가 적은 상품");
+  await bubble.getByRole("button", { name: "이전", exact: true }).click();
+  await expect(bubble).toContainText("1/4단계");
+  await expect(
+    bubble.getByRole("button", { name: "이전", exact: true }),
+  ).toBeDisabled();
+
+  // The last step names its button Done; the order number input is underlined.
+  for (let step = 0; step < 3; step += 1)
+    await bubble.getByRole("button", { name: "다음", exact: true }).click();
+  await expect(bubble).toContainText("4/4단계");
+  await expect(guideLines(page)).toHaveCount(2);
+  await expect(bubble.getByRole("button", { name: "완료", exact: true })).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(bubble).toHaveCount(0);
+  await expect(open).toBeFocused();
+  expect(await metrics.evaluate((element) => element.closest("[inert]") !== null)).toBe(
+    false,
+  );
+});
+
+test("screen guide skips steps whose element is not on the screen", async ({
+  page,
+}) => {
+  await setup(page, { path: "/admin?section=products", products: true });
+  await page.getByRole("button", { name: "화면 도움말", exact: true }).click();
+  const bubble = page.getByRole("dialog");
+  // The list view has no editor fields, so only the list step remains.
+  await expect(bubble).toContainText("1/1단계");
+  await expect(bubble.getByRole("heading")).toHaveText("상품 고르기");
+  await bubble.getByRole("button", { name: "완료", exact: true }).click();
+  await expect(bubble).toHaveCount(0);
+});
+
+test("screen guide underlines the stock input and keeps the bubble on a 375px screen", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 760 });
+  await setup(page, {
+    path: "/admin?section=inventory",
+    catalogProducts: inventoryProducts,
+  });
+  await inventoryWorkspace(page)
+    .getByRole("button", { name: `${products[0]!.name} 재고 조정`, exact: true })
+    .click();
+  await page.getByRole("button", { name: "화면 도움말", exact: true }).click();
+  const bubble = page.getByRole("dialog");
+  await expect(bubble).toContainText("1/3단계");
+  await page.keyboard.press("ArrowRight");
+  await expect(bubble.getByRole("heading")).toHaveText("새 수량 넣기");
+  const input = page.locator('[data-admin-guide="inventory.quantity"]');
+  // The first line is the underline, drawn just below the input across its width.
+  await expect
+    .poll(async () => {
+      const target = await boxOf(input);
+      const underline = await boxOf(guideLines(page).first());
+      return (
+        Math.abs(underline.y - (target.y + target.height)) <= 6 &&
+        Math.abs(underline.width - target.width) <= 6
+      );
+    })
+    .toBe(true);
+  const box = await boxOf(bubble);
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(375);
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height).toBeLessThanOrEqual(760);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+});
+
 test("help on home, stock, brand and member screens opens on demand while warnings stay visible", async ({
   page,
 }) => {

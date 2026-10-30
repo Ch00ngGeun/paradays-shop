@@ -203,6 +203,7 @@ export function AdminOrderInventoryPanel() {
         <label>
           {isKorean ? "주문번호" : "Order number"}
           <input
+            data-admin-guide="home.orderLookup"
             value={orderId}
             onChange={(event) => setOrderId(event.target.value)}
             maxLength={64}

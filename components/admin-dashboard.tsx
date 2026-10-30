@@ -58,6 +58,7 @@ import type {
   AdminProductDraft,
 } from "@/lib/admin-ui/types";
 import type { DeckSpec, Locale } from "@/types/store";
+import { adminGuideSteps } from "@/lib/admin-ui/admin-guides";
 import {
   appendProductOption,
   createProductSku,
@@ -92,6 +93,7 @@ import { AdminOrderSimulationPanel } from "./admin-order-simulation";
 import { AdminSalesLedgerPanel } from "./admin-sales-ledger";
 import { AdminNotice, AdminStatusBadge, StockStatusBadge } from "./admin-status";
 import { AdminDeckSpecModal } from "./admin-deck-spec-modal";
+import { AdminGuideButton } from "./admin-guide";
 import { AdminHelpButton } from "./admin-help-button";
 import { formatDeckInches } from "./deck-size-diagram";
 import {
@@ -2905,11 +2907,22 @@ function OverviewSection({
               : overviewDescription}
           </p>
         </div>
-        <button className={styles.secondaryButton} onClick={onOpenCreate} type="button">
-          <span aria-hidden="true">＋</span> {isKorean ? "새 상품" : "New product"}
-        </button>
+        <div className={styles.productListHeaderActions}>
+          <AdminGuideButton locale={locale} steps={adminGuideSteps("home", locale)} />
+          <button
+            className={styles.secondaryButton}
+            onClick={onOpenCreate}
+            type="button"
+          >
+            <span aria-hidden="true">＋</span> {isKorean ? "새 상품" : "New product"}
+          </button>
+        </div>
       </header>
-      <div className={styles.overviewMetricGrid} aria-busy={metricsState === "loading"}>
+      <div
+        className={styles.overviewMetricGrid}
+        aria-busy={metricsState === "loading"}
+        data-admin-guide="home.metrics"
+      >
         <MetricCard
           icon="sales"
           label={copy.adminOverviewTodayRevenue}
@@ -2955,6 +2968,7 @@ function OverviewSection({
             onClick={() => onGoTo("ocr")}
           />
           <QuickAction
+            guide="home.lowStock"
             icon="inventory"
             label={copy.adminOverviewLowStock}
             value={formatCount(metrics?.lowStockCount)}
@@ -2972,6 +2986,7 @@ function OverviewSection({
             onClick={() => onGoTo("inventory")}
           />
           <QuickAction
+            guide="home.sales"
             icon="sales"
             label={isKorean ? "매출·일마감" : "Sales & day close"}
             note={
@@ -3402,6 +3417,7 @@ function ProductOptionControls({
       <label htmlFor={`product-options-${editorId}`}>
         <span>{isKorean ? "사이즈 / 옵션" : "Size / options"}</span>
         <input
+          data-admin-guide="products.options"
           id={`product-options-${editorId}`}
           onChange={(event) => {
             setNotice(null);
@@ -3930,6 +3946,10 @@ function ProductSection({
             </p>
           </div>
           <div className={styles.productListHeaderActions}>
+            <AdminGuideButton
+              locale={locale}
+              steps={adminGuideSteps("products", locale)}
+            />
             <button
               aria-label={isKorean ? "새 상품 등록" : "Register new product"}
               className={styles.addProductButton}
@@ -4040,6 +4060,7 @@ function ProductSection({
           <ul
             aria-label={isKorean ? "상품 목록" : "Product list"}
             className={styles.productList}
+            data-admin-guide="products.list"
           >
             {filteredProducts.map((product) => {
               const isSelected = selectedIds.has(product.id);
@@ -4162,6 +4183,7 @@ function ProductSection({
         >
           {isKorean ? "← 목록으로" : "← Back to list"}
         </button>
+        <AdminGuideButton locale={locale} steps={adminGuideSteps("products", locale)} />
       </div>
       <div className={`${styles.productPageHeading} ${styles.productCompactHeading}`}>
         <div>
@@ -4229,6 +4251,7 @@ function ProductSection({
               </span>
               <textarea
                 className={styles.productNameInput}
+                data-admin-guide="products.name"
                 onChange={(event) => {
                   // While an IME is composing, the text is kept as typed and tidied when it ends.
                   if ((event.nativeEvent as InputEvent).isComposing) {
@@ -4719,7 +4742,12 @@ function ProductSection({
                   ? "새 초안"
                   : "New draft"}
             </button>
-            <button className={styles.primaryButton} disabled={saving} type="submit">
+            <button
+              className={styles.primaryButton}
+              data-admin-guide="products.save"
+              disabled={saving}
+              type="submit"
+            >
               {saving
                 ? lockInputs
                   ? isKorean
@@ -4743,6 +4771,7 @@ function ProductSection({
         <aside
           className={`${styles.previewPanel} ${styles.productPreview}`}
           aria-label={isKorean ? "고객 화면 미리보기" : "Customer preview"}
+          data-admin-guide="products.preview"
         >
           <div className={styles.previewHeader}>
             <div className={styles.productPreviewTitle}>
@@ -5068,13 +5097,21 @@ function InventorySection({
         locale={locale}
         steps={inventorySteps}
       />
-      <div className={styles.productPageHeading}>
-        <h2>{isKorean ? "재고 관리" : "Inventory"}</h2>
-        <p>
-          {isKorean
-            ? "상품을 선택하고 변경 전후 수량을 확인하세요."
-            : "Select a product and check the quantity before and after the change."}
-        </p>
+      <div className={styles.productListHeader}>
+        <div className={styles.productPageHeading}>
+          <h2>{isKorean ? "재고 관리" : "Inventory"}</h2>
+          <p>
+            {isKorean
+              ? "상품을 선택하고 변경 전후 수량을 확인하세요."
+              : "Select a product and check the quantity before and after the change."}
+          </p>
+        </div>
+        <div className={styles.productListHeaderActions}>
+          <AdminGuideButton
+            locale={locale}
+            steps={adminGuideSteps("inventory", locale)}
+          />
+        </div>
       </div>
 
       <div className={styles.inventoryToolbar}>
@@ -5181,7 +5218,7 @@ function InventorySection({
           ) : null}
 
           {filteredProducts.length > 0 ? (
-            <ul className={styles.inventoryList}>
+            <ul className={styles.inventoryList} data-admin-guide="inventory.list">
               {filteredProducts.map((product) => {
                 return (
                   <li className={styles.inventoryRow} key={product.id}>
@@ -5442,6 +5479,7 @@ function StockStepper({
           −
         </button>
         <input
+          data-admin-guide="inventory.quantity"
           id="inventory-next-stock"
           aria-describedby="inventory-input-hint inventory-draft-error"
           aria-invalid={!valid}
@@ -5521,6 +5559,7 @@ function StockStepper({
       </div>
       <button
         className={styles.primaryButton}
+        data-admin-guide="inventory.save"
         disabled={locked || stale || reviewRequired || !changed}
         onClick={() => void commitDraft()}
         type="button"
@@ -7911,6 +7950,7 @@ function MetricCard({
 
 function QuickAction({
   actionLabel,
+  guide,
   icon,
   label,
   note,
@@ -7920,6 +7960,8 @@ function QuickAction({
   value,
 }: Readonly<{
   actionLabel: string;
+  /** 화면 안내가 짚는 기준점 이름(data-admin-guide) */
+  guide?: string;
   icon: AdminSection;
   label: string;
   note: string;
@@ -7930,7 +7972,7 @@ function QuickAction({
 }>) {
   const { locale } = useLocale();
   return (
-    <article className={styles.overviewTask}>
+    <article className={styles.overviewTask} data-admin-guide={guide}>
       <div className={styles.taskIcon} data-tone={operationIconTone[icon]}>
         <AdminMenuIcon section={icon} />
       </div>
