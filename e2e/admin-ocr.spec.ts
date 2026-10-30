@@ -519,6 +519,49 @@ test.describe("ocr redesign:", () => {
     expect(inventory.intakes).toHaveLength(0);
   });
 
+  test("screen guide skips stages not on screen yet and reaches stock application after a saved review", async ({
+    page,
+  }) => {
+    await setupInventoryCatalogApi(page);
+    await setupInventoryReviewApi(page);
+    const open = page.getByRole("button", { name: "화면 도움말", exact: true });
+    // The status badge and the sending notice stay beside the guide button, not behind it.
+    await expect(page.locator("header").getByRole("status")).toBeVisible();
+    await expect(page.getByText(/이미지는 관리자 API로 전송합니다/)).toBeVisible();
+    await open.click();
+    const bubble = page.getByRole("dialog");
+    // No rows and no saved review yet: only the photo, read and save steps are on screen.
+    await expect(bubble).toContainText("1/3단계");
+    for (const title of ["사진 고르기", "글자 읽기", "확인한 내용 저장"]) {
+      await expect(bubble.getByRole("heading")).toHaveText(title);
+      await page.keyboard.press("ArrowRight");
+    }
+    await expect(bubble).toHaveCount(0);
+    await expect(open).toBeFocused();
+
+    await recognize(page, "Design rows.png", false);
+    await page.getByRole("button", { name: "검토본 저장", exact: true }).click();
+    await expect(
+      page.getByRole("region", { name: "검토본 입고 반영", exact: true }),
+    ).toBeVisible();
+    await open.click();
+    await expect(bubble).toContainText("1/5단계");
+    for (const title of [
+      "사진 고르기",
+      "글자 읽기",
+      "내용 고치기",
+      "확인한 내용 저장",
+    ]) {
+      await expect(bubble.getByRole("heading")).toHaveText(title);
+      await page.keyboard.press("ArrowRight");
+    }
+    await expect(bubble.getByRole("heading")).toHaveText("재고에 넣기");
+    await expect(bubble).toContainText("5/5단계");
+    await page.keyboard.press("Escape");
+    await expect(bubble).toHaveCount(0);
+    await expect(page.getByText(/이미지는 관리자 API로 전송합니다/)).toBeVisible();
+  });
+
   test("summary follows actual edits and keyboard-revealed raw text remains immutable", async ({
     page,
   }) => {
