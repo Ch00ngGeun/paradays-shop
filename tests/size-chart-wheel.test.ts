@@ -35,4 +35,22 @@ describe("wheel size chart diagram", () => {
       'aria-label="Wheel: Diameter 54mm, W overall width 33.5mm, T contact width 20mm"',
     );
   });
+
+  it("draws a blank wheel field as null without mm", () => {
+    const markup = renderToStaticMarkup(
+      createElement(SizeChartWheel, {
+        values: { diameter: 54, width: null, contactWidth: null },
+        locale: "en",
+      }),
+    );
+    const labels = [...markup.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(
+      ([, text]) => text,
+    );
+    // W shows twice, above and below.
+    expect(labels).toEqual(["null", "null", "null", "54mm"]);
+    expect(markup).not.toContain("nullmm");
+    expect(markup).toContain(
+      'aria-label="Wheel: Diameter 54mm, W overall width null, T contact width null"',
+    );
+  });
 });
