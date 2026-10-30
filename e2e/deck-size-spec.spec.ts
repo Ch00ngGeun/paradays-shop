@@ -786,6 +786,75 @@ test("a product name entered on two lines shows on two lines on the product page
   expect(audit.blocked).toEqual([]);
 });
 
+for (const width of [1280, 375]) {
+  test(`saved product name line breaks survive home and menu filtering at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const name = "[TEST] Two\nDeck";
+    const audit = await setup(page, "/", undefined, { name });
+    const grid = page.getByRole("list", { name: "PARADAYS products" });
+    const card = grid.getByRole("listitem").filter({ hasText: "[TEST] Two" });
+    const plain = grid.getByRole("listitem").filter({ hasText: "[TEST] Deck size B" });
+    const checkLayout = async () => {
+      const heading = card.getByRole("heading", { level: 2 });
+      await expect(heading).toBeVisible();
+      expect(await heading.innerText()).toBe(name);
+      const layout = await card.evaluate((item) => {
+        const title = item.querySelector("h2")!;
+        const price = item.querySelector("p")!;
+        const imageSlot = item.querySelector("img")!.parentElement!;
+        const titleBox = title.getBoundingClientRect();
+        const priceBox = price.getBoundingClientRect();
+        const mediaBox = imageSlot.getBoundingClientRect();
+        const cardBox = item.getBoundingClientRect();
+        return {
+          titleHeight: titleBox.height,
+          lineHeight: parseFloat(getComputedStyle(title).lineHeight),
+          priceTop: priceBox.top,
+          titleBottom: titleBox.bottom,
+          mediaBottom: mediaBox.bottom,
+          titleTop: titleBox.top,
+          mediaHeight: mediaBox.height,
+          mediaWidth: mediaBox.width,
+          cardBottom: cardBox.bottom,
+          priceBottom: priceBox.bottom,
+          left: cardBox.left,
+          right: cardBox.right,
+        };
+      });
+      expect(layout.titleHeight).toBeGreaterThan(layout.lineHeight * 1.5);
+      expect(layout.titleHeight).toBeLessThan(layout.lineHeight * 2.1);
+      expect(layout.titleTop).toBeGreaterThanOrEqual(layout.mediaBottom);
+      expect(layout.priceTop).toBeGreaterThanOrEqual(layout.titleBottom);
+      expect(layout.cardBottom).toBeGreaterThanOrEqual(layout.priceBottom);
+      expect(layout.left).toBeGreaterThanOrEqual(0);
+      expect(layout.right).toBeLessThanOrEqual(width);
+      await expect(plain).toBeVisible();
+      const plainImage = await plain.locator("img").boundingBox();
+      expect(plainImage!.height).toBeCloseTo(layout.mediaHeight, 0);
+      expect(plainImage!.width).toBeCloseTo(layout.mediaWidth, 0);
+    };
+    await checkLayout();
+    const before = await grid.locator("h2").allTextContents();
+
+    const menu = page.getByRole("button", { name: "Menu", exact: true });
+    if (width < 768) await menu.click();
+    else await menu.press("ArrowDown");
+    await expect(menu).toHaveAttribute("aria-expanded", "true");
+    const dropdown = page.locator("#store-menu-dropdown");
+    await dropdown.getByRole("button", { name: "데크", exact: true }).press("Enter");
+    await menu.press("Enter");
+    await expect(menu).toHaveAttribute("aria-expanded", "false");
+    await checkLayout();
+    const after = await grid.locator("h2").allTextContents();
+    expect(after).toEqual(before.filter((title) => after.includes(title)));
+    expect(audit.patches).toEqual([]);
+    expect(audit.blocked).toEqual([]);
+  });
+}
+
 test("the storefront size chart follows the selected size and falls back to the default", async ({
   page,
 }) => {
