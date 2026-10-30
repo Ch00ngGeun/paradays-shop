@@ -411,7 +411,14 @@ export function AdminSizeChartModal({
   const layer = useModalLayer(isOpen);
   const busyRef = useRef(false);
   const titleId = useId();
-  const [openedKind] = useState(form.kind);
+  // Once the drawing changes while open, every new form for a changed drawing takes the focus,
+  // including a switch back to the drawing the modal opened with.
+  const [shownKind, setShownKind] = useState(form.kind);
+  const [kindChanged, setKindChanged] = useState(false);
+  if (shownKind !== form.kind) {
+    setShownKind(form.kind);
+    setKindChanged(true);
+  }
   const dialogRef = useFocusTrap(isOpen, () => {
     if (!busyRef.current) form.onCancel();
   });
@@ -436,7 +443,7 @@ export function AdminSizeChartModal({
         <AdminSizeChartForm
           key={form.kind}
           {...form}
-          focusKind={form.kind !== openedKind}
+          focusKind={kindChanged}
           onBusyChange={(busy) => {
             busyRef.current = busy;
           }}
