@@ -17,8 +17,26 @@ describe("wheel size chart diagram", () => {
     expect(labels).toEqual(["33.5mm", "20mm", "33.5mm", "54mm"]);
     expect(markup).not.toContain("<tspan");
     expect(markup).not.toContain("cm");
-    expect(markup).toContain('transform="translate(62 270) rotate(-90)"');
+    expect(markup).toContain('transform="translate(50 310) rotate(-90)"');
     expect(markup).toContain('role="img"');
+  });
+
+  it("preserves maximum and decimal millimeters without adding a conversion line", () => {
+    const markup = renderToStaticMarkup(
+      createElement(SizeChartWheel, {
+        values: { diameter: 100, width: 99.9, contactWidth: 100 },
+        locale: "en",
+      }),
+    );
+    const labels = [...markup.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(
+      ([, text]) => text,
+    );
+
+    expect(labels).toEqual(["99.9mm", "100mm", "99.9mm", "100mm"]);
+    expect(markup).not.toContain("<tspan");
+    expect(markup).toContain(
+      "Diameter 100mm, W overall width 99.9mm, T contact width 100mm",
+    );
   });
 
   it("names every measurement in the screen language", () => {

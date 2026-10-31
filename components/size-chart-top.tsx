@@ -53,7 +53,6 @@ export function SizeChartValue({
 }>) {
   // A blank field formats as "null" alone, so it gets no smaller inch part.
   const [main, sub] = formatSizeChartValue(kind, value).split(" ");
-  const stacked = kind !== "wheel";
   return (
     <text
       className={styles.label}
@@ -63,7 +62,7 @@ export function SizeChartValue({
     >
       {main}
       {sub ? (
-        <tspan className={styles.sub} {...(stacked ? { x: 0, dy: 30 } : { dx: 4 })}>
+        <tspan className={styles.sub} x="0" dy="30">
           {sub}
         </tspan>
       ) : null}
