@@ -53,7 +53,7 @@ export function SizeChartValue({
 }>) {
   // A blank field formats as "null" alone, so it gets no smaller inch part.
   const [main, sub] = formatSizeChartValue(kind, value).split(" ");
-  const stacked = kind === "shortSleeve" || kind === "raglanLongSleeve";
+  const stacked = kind !== "wheel";
   return (
     <text
       className={styles.label}

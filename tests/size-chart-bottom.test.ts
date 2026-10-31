@@ -18,8 +18,38 @@ describe("bottom size chart diagram", () => {
       for (const inches of ['39.4"', '15.7"', '20.5"', '12.6"', '11.8"', '8.5"'])
         expect(markup).toContain(`>(${inches.replace('"', "&quot;")})</tspan>`);
       expect(markup.match(/<text/g)).toHaveLength(6);
-      expect(markup.match(/<path class="_measure_/g)).toHaveLength(6);
+      expect(markup.match(/<tspan[^>]*x="0" dy="30"/g)).toHaveLength(6);
+      expect(markup.match(/<path class="_measure_/g)).toHaveLength(
+        kind === "longPants" ? 7 : 6,
+      );
       expect(markup).toContain('role="img"');
+    },
+  );
+
+  it.each(["longPants", "shorts"] as const)(
+    "preserves maximum and blank %s measurements while separating the inch conversion",
+    (kind) => {
+      const markup = renderToStaticMarkup(
+        createElement(SizeChartBottom, {
+          kind,
+          values: {
+            length: 299.9,
+            waist: 300,
+            hip: 299.9,
+            thigh: 300,
+            rise: null,
+            hem: 300,
+          },
+          locale: "en",
+        }),
+      );
+
+      expect(markup.match(/>299\.9cm<tspan/g)).toHaveLength(2);
+      expect(markup.match(/>300cm<tspan/g)).toHaveLength(3);
+      expect(markup.match(/<tspan[^>]*x="0" dy="30"/g)).toHaveLength(5);
+      expect(markup).toContain(">null</text>");
+      expect(markup).toContain("Rise null");
+      expect(markup).not.toContain("nullcm");
     },
   );
 
