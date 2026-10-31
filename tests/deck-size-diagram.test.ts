@@ -20,7 +20,7 @@ describe("deck size diagram", () => {
     expect(formatDeckInches(null)).toBe("null");
   });
 
-  it("draws every measurement as inches with a smaller cm value and marks the nose and tail ends", () => {
+  it("draws every measurement as inches with cm on its own line and marks the nose and tail ends", () => {
     const markup = renderToStaticMarkup(
       createElement(DeckSizeDiagram, {
         spec: { nose: 6.875, tail: 6.5, width: 8.5, length: 31.75, wheelbase: 14.25 },
@@ -37,6 +37,8 @@ describe("deck size diagram", () => {
       expect(markup).toContain(`${inches}&quot;<tspan`);
       expect(markup).toContain(`>(${cm}cm)</tspan>`);
     }
+    // Each conversion starts a new centered line, so it cannot lengthen its inch label.
+    expect(markup.match(/<tspan[^>]*x="0" dy="24"/g)).toHaveLength(5);
     expect(markup.match(/<text/g)).toHaveLength(7);
     expect(markup).toMatch(/<text[^>]*y="20"[^>]*>nose<\/text>/);
     expect(markup).toMatch(/<text[^>]*y="600"[^>]*>tail<\/text>/);
@@ -61,5 +63,25 @@ describe("deck size diagram", () => {
       'aria-label="nose null, tail 6.5&quot; (16.5cm), width 8.5&quot; (21.6cm), length null, wheelbase 14.25&quot; (36.2cm)"',
     );
     expect(markup.match(/<text/g)).toHaveLength(7);
+  });
+
+  it("preserves all digits at the supported upper precision instead of shortening the visible value", () => {
+    const markup = renderToStaticMarkup(
+      createElement(DeckSizeDiagram, {
+        spec: {
+          nose: 99.9999,
+          tail: 100,
+          width: 99.9999,
+          length: 100,
+          wheelbase: null,
+        },
+      }),
+    );
+
+    expect(markup.match(/>99\.9999&quot;<tspan/g)).toHaveLength(2);
+    expect(markup.match(/>100&quot;<tspan/g)).toHaveLength(2);
+    expect(markup.match(/>\(254\.0cm\)<\/tspan>/g)).toHaveLength(4);
+    expect(markup).toContain("wheelbase null");
+    expect(markup).not.toContain("textLength=");
   });
 });
