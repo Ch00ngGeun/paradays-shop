@@ -27,7 +27,7 @@ type DiagramLabelProps = Readonly<{
   rotate?: number;
 }>;
 
-/** 인치 값 옆에 더 작고 옅은 cm 환산값을 붙입니다. */
+/** 인치를 크게 그리고, cm 환산값은 다음 줄에 두어 좁은 화면에서도 겹치지 않게 합니다. */
 function DiagramLabel({ inches, x, y, rotate }: DiagramLabelProps) {
   return (
     <text
@@ -38,7 +38,7 @@ function DiagramLabel({ inches, x, y, rotate }: DiagramLabelProps) {
     >
       {formatDeckInches(inches)}
       {inches === null ? null : (
-        <tspan className={styles.cm} dx="4">
+        <tspan className={styles.cm} x="0" dy="24">
           ({formatDeckCm(inches)})
         </tspan>
       )}
@@ -94,11 +94,11 @@ export function DeckSizeDiagram({ spec }: Readonly<{ spec: DeckSpec }>) {
       >
         tail
       </text>
-      <DiagramLabel inches={spec.length} rotate={-90} x={45} y={310} />
-      <DiagramLabel inches={spec.width} x={180} y={310} />
-      <DiagramLabel inches={spec.nose} rotate={90} x={305} y={100} />
-      <DiagramLabel inches={spec.wheelbase} rotate={90} x={305} y={310} />
-      <DiagramLabel inches={spec.tail} rotate={90} x={305} y={520} />
+      <DiagramLabel inches={spec.length} rotate={-90} x={32} y={310} />
+      <DiagramLabel inches={spec.width} x={180} y={288} />
+      <DiagramLabel inches={spec.nose} rotate={90} x={320} y={100} />
+      <DiagramLabel inches={spec.wheelbase} rotate={90} x={320} y={310} />
+      <DiagramLabel inches={spec.tail} rotate={90} x={320} y={520} />
     </svg>
   );
 }

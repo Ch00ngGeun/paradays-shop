@@ -14,14 +14,16 @@
 
 .label {
   fill: currentColor;
-  font-size: 15px;
+  font-size: 26px;
+  font-weight: 600;
   letter-spacing: 0.02em;
 }
 
 /* 배경 대비 4.5:1 이상을 지키는 가장 옅은 회색 (흰 배경 #767676, 다크 배경 #8a8a8a) */
 .cm {
   fill: #767676;
-  font-size: 12px;
+  font-size: 20px;
+  font-weight: 400;
 }
 
 :global(:root[data-theme="dark"]) .cm {
