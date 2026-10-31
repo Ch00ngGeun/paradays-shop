@@ -29,6 +29,11 @@ function LongPants({ values }: Readonly<{ values: SizeChartValues }>) {
         <SizeChartArrow x1={193} y1={184} x2={367} y2={184} />
         {/* 4 허벅지단면: 밑위 바로 아래 한쪽 다리 */}
         <SizeChartArrow x1={284} y1={228} x2={366} y2={228} />
+        {/* 인접한 두 치수는 지시선으로 값을 벌려 어느 측정선인지 구분합니다. */}
+        <path
+          className={styles.measure}
+          d="M 367 184 H 380 L 390 166 M 366 228 H 380 L 390 272"
+        />
         {/* 5 밑위: 허리 위부터 가랑이까지 */}
         <SizeChartArrow x1={268} y1={60} x2={268} y2={194} />
         {/* 6 밑단단면 */}
@@ -36,9 +41,9 @@ function LongPants({ values }: Readonly<{ values: SizeChartValues }>) {
       </g>
       <SizeChartValue kind={kind} rotate={-90} value={values.length} x={128} y={235} />
       <SizeChartValue kind={kind} value={values.waist} x={280} y={22} />
-      <SizeChartValue anchor="start" kind={kind} value={values.hip} x={390} y={184} />
-      <SizeChartValue anchor="start" kind={kind} value={values.thigh} x={390} y={228} />
-      <SizeChartValue kind={kind} rotate={-90} value={values.rise} x={250} y={120} />
+      <SizeChartValue anchor="start" kind={kind} value={values.hip} x={390} y={166} />
+      <SizeChartValue anchor="start" kind={kind} value={values.thigh} x={390} y={272} />
+      <SizeChartValue kind={kind} rotate={-90} value={values.rise} x={250} y={142} />
       <SizeChartValue kind={kind} value={values.hem} x={233} y={462} />
     </>
   );
@@ -82,9 +87,9 @@ export function SizeChartBottom({
   return (
     <svg
       aria-label={sizeChartDescription(kind, values, locale)}
-      className={styles.diagram}
+      className={`${styles.diagram} ${styles.readable}`}
       role="img"
-      viewBox="20 0 580 480"
+      viewBox="90 0 510 520"
     >
       {kind === "longPants" ? (
         <LongPants values={values} />
