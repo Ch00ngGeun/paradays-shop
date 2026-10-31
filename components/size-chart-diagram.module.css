@@ -47,6 +47,17 @@
   font-size: 12px;
 }
 
+/* 보조 단위를 별도 줄에 배치한 도면의 숫자를 크게 표시합니다. */
+.readable .label {
+  font-size: 34px;
+  font-weight: 600;
+}
+
+.readable .sub {
+  font-size: 26px;
+  font-weight: 400;
+}
+
 :global(:root[data-theme="dark"]) .sub {
   fill: #8a8a8a;
 }

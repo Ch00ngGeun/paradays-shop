@@ -40,6 +40,7 @@ describe("top size chart diagram", () => {
     for (const inches of ['28.3"', '19.9"', '22.0"', '8.7"', '21.7"', '8.1"', '9.4"'])
       expect(markup).toContain(`>(${inches.replace('"', "&quot;")})</tspan>`);
     expect(markup.match(/<text/g)).toHaveLength(7);
+    expect(markup.match(/<tspan[^>]*x="0" dy="30"/g)).toHaveLength(7);
     expect(markup).toContain('role="img"');
     expect(markup).toContain(
       "반팔: 총장 72cm (28.3&quot;), 어깨너비 50.5cm (19.9&quot;), 가슴단면 56cm (22.0&quot;)",
@@ -67,6 +68,29 @@ describe("top size chart diagram", () => {
     expect(sizeChartDescription("raglanLongSleeve", raglan, "ko")).toBe(
       '래글런 긴팔: 총장 70cm (27.6"), 가슴단면 58cm (22.8"), 소매부리 10cm (3.9"), 화장 80.5cm (31.7"), 밑단단면 50cm (19.7"), 암홀 30cm (11.8")',
     );
+  });
+
+  it("keeps supported large and blank values readable without changing their units", () => {
+    const markup = renderToStaticMarkup(
+      createElement(SizeChartTop, {
+        kind: "raglanLongSleeve",
+        values: {
+          length: 299.9,
+          chest: 300,
+          cuff: null,
+          neckToCuff: 300,
+          hem: 300,
+          armhole: 299.9,
+        },
+        locale: "en",
+      }),
+    );
+
+    expect(markup.match(/>299\.9cm<tspan/g)).toHaveLength(2);
+    expect(markup.match(/>300cm<tspan/g)).toHaveLength(3);
+    expect(markup.match(/<tspan[^>]*x="0" dy="30"/g)).toHaveLength(5);
+    expect(markup).toContain(">null</text>");
+    expect(markup).not.toContain("nullcm");
   });
 
   it("draws blank fields as null alone, without inches, in the drawing and its name", () => {
