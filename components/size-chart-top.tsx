@@ -35,7 +35,7 @@ export function SizeChartArrow({
   );
 }
 
-/** 측정값 하나. 주 단위 값 옆에 괄호 인치 값을 더 작고 옅게 붙입니다. */
+/** 측정값 하나. 좁은 도면은 보조 인치를 다음 줄로 분리할 수 있습니다. */
 export function SizeChartValue({
   kind,
   value,
@@ -53,6 +53,7 @@ export function SizeChartValue({
 }>) {
   // A blank field formats as "null" alone, so it gets no smaller inch part.
   const [main, sub] = formatSizeChartValue(kind, value).split(" ");
+  const stacked = kind === "shortSleeve" || kind === "raglanLongSleeve";
   return (
     <text
       className={styles.label}
@@ -62,7 +63,7 @@ export function SizeChartValue({
     >
       {main}
       {sub ? (
-        <tspan className={styles.sub} dx="4">
+        <tspan className={styles.sub} {...(stacked ? { x: 0, dy: 30 } : { dx: 4 })}>
           {sub}
         </tspan>
       ) : null}
@@ -120,7 +121,7 @@ function ShortSleeve({ values }: Readonly<{ values: SizeChartValues }>) {
         <SizeChartArrow x1={196} y1={114} x2={203} y2={206} />
         <path className={styles.measure} d="M 205 160 H 216" />
       </g>
-      <SizeChartValue kind={kind} rotate={-90} value={values.length} x={70} y={240} />
+      <SizeChartValue kind={kind} rotate={-90} value={values.length} x={40} y={240} />
       <SizeChartValue kind={kind} value={values.shoulder} x={280} y={32} />
       <SizeChartValue kind={kind} value={values.chest} x={280} y={252} />
       <SizeChartValue
@@ -130,7 +131,7 @@ function ShortSleeve({ values }: Readonly<{ values: SizeChartValues }>) {
         x={441}
         y={150}
       />
-      <SizeChartValue kind={kind} value={values.hem} x={280} y={454} />
+      <SizeChartValue kind={kind} value={values.hem} x={280} y={460} />
       <SizeChartValue
         anchor="start"
         kind={kind}
@@ -165,8 +166,8 @@ function RaglanLongSleeve({ values }: Readonly<{ values: SizeChartValues }>) {
       </g>
       <g>
         {/* 1 총장: 목 뒤 가장 높은 곳부터 밑단까지 */}
-        <path className={styles.guide} d="M 82 62 H 280" />
-        <SizeChartArrow x1={82} y1={62} x2={82} y2={398} />
+        <path className={styles.guide} d="M 92 62 H 280" />
+        <SizeChartArrow x1={92} y1={62} x2={92} y2={398} />
         {/* 2 가슴단면 */}
         <SizeChartArrow x1={198} y1={216} x2={362} y2={216} />
         {/* 3 소매부리: 소매 끝 시보리 너비 */}
@@ -182,7 +183,7 @@ function RaglanLongSleeve({ values }: Readonly<{ values: SizeChartValues }>) {
         <SizeChartArrow x1={250} y1={84} x2={200} y2={192} />
         <path className={styles.measure} d="M 226 138 H 240" />
       </g>
-      <SizeChartValue kind={kind} rotate={-90} value={values.length} x={60} y={232} />
+      <SizeChartValue kind={kind} rotate={-90} value={values.length} x={40} y={232} />
       <SizeChartValue kind={kind} value={values.chest} x={280} y={238} />
       <SizeChartValue anchor="start" kind={kind} value={values.cuff} x={450} y={424} />
       <SizeChartValue
@@ -192,7 +193,7 @@ function RaglanLongSleeve({ values }: Readonly<{ values: SizeChartValues }>) {
         x={486}
         y={262}
       />
-      <SizeChartValue kind={kind} value={values.hem} x={280} y={454} />
+      <SizeChartValue kind={kind} value={values.hem} x={280} y={460} />
       <SizeChartValue
         anchor="start"
         kind={kind}
@@ -209,9 +210,9 @@ export function SizeChartTop({ kind, values, locale }: TopProps) {
   return (
     <svg
       aria-label={sizeChartDescription(kind, values, locale)}
-      className={styles.diagram}
+      className={`${styles.diagram} ${styles.readable}`}
       role="img"
-      viewBox="20 0 580 480"
+      viewBox="10 0 590 520"
     >
       {kind === "shortSleeve" ? (
         <ShortSleeve values={values} />
