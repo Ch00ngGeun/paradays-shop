@@ -1,16 +1,9 @@
 "use client";
 import { useRef, useState } from "react";
 import {
-  closeTestSales,
   createTestSales,
-  postTestSale,
-  previewTestStock,
-  reopenTestSales,
-  saveTestSale,
-  TEST_SALES_PRODUCTS,
   TestSalesError,
   testSalesTotals,
-  type TestProductId,
   type TestSaleEntry,
   type TestSaleInput,
   type TestSalesState,
@@ -19,76 +12,23 @@ import {
 import type { Locale } from "@/types/store";
 import { AdminStepper, type AdminStep } from "./admin-stepper";
 import styles from "./admin-sales-ledger.module.css";
-
-const methodLabels = {
-  ko: { CARD: "카드", CASH: "현금", TRANSFER: "이체" },
-  en: { CARD: "Card", CASH: "Cash", TRANSFER: "Transfer" },
-};
-type Notice = string | Readonly<Record<Locale, string>>;
-type Editor = {
-  id?: string;
-  version?: number;
-  time: string;
-  method: TestSaleInput["method"];
-  reference: string;
-  amount: string;
-  lines: {
-    productId: TestProductId;
-    option: string;
-    quantity: string;
-    unitAmount: string;
-  }[];
-};
-const money = (n: number, locale: Locale = "ko") =>
-  locale === "ko"
-    ? `${n.toLocaleString("ko-KR")}원`
-    : `KRW ${n.toLocaleString("en-US")}`;
-const blank = (): Editor => ({
-  time: "09:00",
-  method: "CARD",
-  reference: "TEST_CARD_001",
-  amount: "",
-  lines: [],
-});
-const editorOf = (e: TestSaleEntry): Editor => ({
-  ...e,
-  lines: e.lines.map((line) => ({
-    ...line,
-    quantity: String(line.quantity),
-    unitAmount: String(line.unitAmount),
-  })),
-  amount: String(e.amount),
-});
-const rowOf = (id: TestProductId) => {
-  const product = TEST_SALES_PRODUCTS.find((p) => p.id === id)!;
-  return {
-    productId: id,
-    option: product.options[0],
-    quantity: "1",
-    unitAmount: String(product.unitAmount),
-  };
-};
-function inputOf(editor: Editor): TestSaleInput {
-  if (
-    !editor.amount.trim() ||
-    editor.lines.some((line) => !line.quantity.trim() || !line.unitAmount.trim())
-  )
-    throw new TestSalesError({
-      ko: "가상 금액·상품 수량·단가를 입력해 주세요.",
-      en: "Enter the virtual amount, product quantities and unit prices.",
-    });
-  return {
-    time: editor.time,
-    method: editor.method,
-    reference: editor.reference,
-    amount: Number(editor.amount),
-    lines: editor.lines.map((line) => ({
-      ...line,
-      quantity: Number(line.quantity),
-      unitAmount: Number(line.unitAmount),
-    })),
-  };
-}
+import {
+  blank,
+  editorOf,
+  money,
+  rowOf,
+  type Editor,
+  type Notice,
+} from "./admin-sales-simulation-model";
+import {
+  SimulationDailyClose,
+  SimulationSnapshots,
+  SimulationStockPosting,
+} from "./admin-sales-simulation-close";
+import {
+  SimulationSlipEditor,
+  SimulationSlipList,
+} from "./admin-sales-simulation-slips";
 
 /** No real products, tokens, transport or persistent browser data enter this panel. */
 export function AdminSalesSimulationPanel({
@@ -334,577 +274,65 @@ export function AdminSalesSimulationPanel({
             : "Drafts and plans do not change stock or totals. Stock is deducted once when a sale is posted and not again at the daily close. Stock is the product total, not per option."}
         </p>
       </section>
-      <section
-        className={styles.block}
-        aria-label={isKorean ? "모의 전표 목록" : "Mock slip list"}
-      >
-        <div className={styles.headingRow}>
-          <h3>{isKorean ? "모의 전표 · 판매 시간순" : "Mock slips · By sale time"}</h3>
-          <button
-            type="button"
-            disabled={!open}
-            onClick={() => {
-              setEditor(blank());
-              setDirty(true);
-              clearChecks();
-            }}
-          >
-            {isKorean ? "새 모의 전표" : "New mock slip"}
-          </button>
-        </div>
-        <p>
-          {isKorean
-            ? "예시 버튼은 입력란만 채웁니다. 직접 상품·옵션·수량·단가·금액을 편집하고 저장·확정할 수 있습니다. 실제 승인번호나 개인정보를 입력하지 마세요."
-            : "Example buttons only fill the form. You can edit products, options, quantities, unit prices and amounts yourself, then save and post. Do not enter real approval numbers or personal data."}
-        </p>
-        <div className={styles.actions}>
-          <button type="button" disabled={!open} onClick={() => sample("CARD")}>
-            {isKorean ? "카드 예시 불러오기" : "Load card example"}
-          </button>
-          <button type="button" disabled={!open} onClick={() => sample("CASH")}>
-            {isKorean ? "현금 예시 불러오기" : "Load cash example"}
-          </button>
-          <button type="button" disabled={!open} onClick={() => sample("TRANSFER")}>
-            {isKorean ? "이체 예시 불러오기" : "Load transfer example"}
-          </button>
-        </div>
-        <div className={styles.tableWrap}>
-          <table>
-            <caption>
-              {isKorean ? "합성 TEST 판매 전표" : "Synthetic TEST sales slips"}
-            </caption>
-            <thead>
-              <tr>
-                <th>{isKorean ? "가상 시각" : "Virtual time"}</th>
-                <th>{isKorean ? "수단" : "Method"}</th>
-                <th>{isKorean ? "TEST 참조번호" : "TEST reference"}</th>
-                <th>{isKorean ? "가상금액" : "Virtual amount"}</th>
-                <th>{isKorean ? "상태" : "Status"}</th>
-                <th>{isKorean ? "선택" : "Select"}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {state.entries.map((entry) => (
-                <tr key={entry.id}>
-                  <td>{entry.time}</td>
-                  <td>
-                    <span className={styles.methodChip} data-method={entry.method}>
-                      {methodLabels[locale][entry.method]}
-                    </span>
-                  </td>
-                  <td>{entry.reference}</td>
-                  <td>{won(entry.amount)}</td>
-                  <td>
-                    <span className={styles.entryStatus} data-state={entry.status}>
-                      {entry.status === "DRAFT"
-                        ? isKorean
-                          ? "모의 작성 중"
-                          : "Mock draft"
-                        : isKorean
-                          ? "모의 완료"
-                          : "Mock posted"}
-                    </span>
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      aria-label={
-                        isKorean
-                          ? `${entry.id} 모의 전표 선택`
-                          : `Select mock slip ${entry.id}`
-                      }
-                      onClick={() => choose(entry)}
-                    >
-                      {isKorean ? "상세" : "Details"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {!state.entries.length ? (
-            <p>{isKorean ? "저장된 모의 전표가 없습니다." : "No mock slips saved."}</p>
-          ) : null}
-        </div>
-      </section>
-      <section
-        className={styles.block}
-        aria-label={isKorean ? "모의 전표 입력" : "Mock slip entry"}
-      >
-        <h3>
-          {isKorean
-            ? "1. 카드·현금 수기 입력 → 모의 초안 저장"
-            : "1. Enter card and cash by hand → Save mock draft"}
-        </h3>
-        <p>
-          {editor.id ??
-            (isKorean ? "아직 저장하지 않은 모의 전표" : "Unsaved mock slip")}{" "}
-          ·{" "}
-          {
-            (selected?.status === "POSTED"
-              ? {
-                  ko: "모의 완료 전표는 수정할 수 없습니다.",
-                  en: "A posted mock slip cannot be edited.",
-                }
-              : dirty
-                ? {
-                    ko: "입력 변경분을 먼저 저장해 주세요.",
-                    en: "Save your changes first.",
-                  }
-                : {
-                    ko: "저장된 모의 작성 중 전표입니다.",
-                    en: "This is a saved mock draft slip.",
-                  })[locale]
-          }
-        </p>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!editable) return;
-            const next = perform(
-              (previous) =>
-                saveTestSale(
-                  previous,
-                  inputOf(editor),
-                  editor.id ? { id: editor.id, version: editor.version! } : undefined,
-                ),
-              {
-                ko: "모의 초안을 저장했습니다. 가상 재고·매출은 아직 바뀌지 않았습니다.",
-                en: "Saved the mock draft. Virtual stock and sales have not changed yet.",
-              },
-            );
-            if (next) {
-              const saved = next.entries.find(
-                (e) =>
-                  e.id === editor.id ||
-                  (!editor.id &&
-                    e.reference === editor.reference.trim().toUpperCase() &&
-                    e.method === editor.method),
-              )!;
-              choose(saved);
-            }
-          }}
-        >
-          <fieldset className={styles.fieldset} disabled={!editable}>
-            <div className={styles.fields}>
-              <label>
-                {isKorean ? "가상 판매시각" : "Virtual sale time"}
-                <input
-                  type="time"
-                  required
-                  value={editor.time}
-                  onChange={(event) => change({ time: event.target.value })}
-                />
-              </label>
-              <label>
-                {isKorean ? "모의 결제수단" : "Mock payment method"}
-                <select
-                  value={editor.method}
-                  onChange={(event) =>
-                    change({ method: event.target.value as Editor["method"] })
-                  }
-                >
-                  {(["CARD", "CASH", "TRANSFER"] as const).map((method) => (
-                    <option key={method} value={method}>
-                      {methodLabels[locale][method]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                {isKorean ? "TEST 전표 참조번호" : "TEST slip reference"}
-                <input
-                  required
-                  maxLength={45}
-                  pattern="TEST_[A-Za-z0-9_-]{1,40}"
-                  value={editor.reference}
-                  onChange={(event) => change({ reference: event.target.value })}
-                />
-              </label>
-              <label>
-                {isKorean ? "가상 전표 금액 (원)" : "Virtual slip amount (KRW)"}
-                <input
-                  type="number"
-                  min="1"
-                  max="100000000"
-                  step="1"
-                  required
-                  value={editor.amount}
-                  onChange={(event) => change({ amount: event.target.value })}
-                />
-              </label>
-            </div>
-            <div className={styles.lines}>
-              {editor.lines.map((line, index) => {
-                const product = TEST_SALES_PRODUCTS.find(
-                  (p) => p.id === line.productId,
-                )!;
-                const update = (value: Partial<Editor["lines"][number]>) =>
-                  change({
-                    lines: editor.lines.map((row, i) =>
-                      i === index ? { ...row, ...value } : row,
-                    ),
-                  });
-                return (
-                  <div className={styles.line} key={index}>
-                    <strong>
-                      {isKorean ? "합성 TEST 상품" : "Synthetic TEST product"}{" "}
-                      {index + 1}
-                    </strong>
-                    <label>
-                      {isKorean ? "모의 상품" : "Mock product"} {index + 1}
-                      <select
-                        value={line.productId}
-                        onChange={(event) =>
-                          update(rowOf(event.target.value as TestProductId))
-                        }
-                      >
-                        {TEST_SALES_PRODUCTS.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      {isKorean ? "모의 옵션" : "Mock option"} {index + 1}
-                      <select
-                        value={line.option}
-                        onChange={(event) => update({ option: event.target.value })}
-                      >
-                        {product.options.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      {isKorean ? "모의 수량" : "Mock quantity"} {index + 1}
-                      <input
-                        type="number"
-                        min="1"
-                        max="10000"
-                        step="1"
-                        required
-                        value={line.quantity}
-                        onChange={(event) => update({ quantity: event.target.value })}
-                      />
-                    </label>
-                    <label>
-                      {isKorean
-                        ? `모의 단가 ${index + 1} (원)`
-                        : `Mock unit price ${index + 1} (KRW)`}
-                      <input
-                        type="number"
-                        min="0"
-                        max="100000000"
-                        step="1"
-                        required
-                        value={line.unitAmount}
-                        onChange={(event) => update({ unitAmount: event.target.value })}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      aria-label={
-                        isKorean
-                          ? `모의 상품 ${index + 1} 삭제`
-                          : `Delete mock product ${index + 1}`
-                      }
-                      onClick={() =>
-                        change({ lines: editor.lines.filter((_, i) => i !== index) })
-                      }
-                    >
-                      {isKorean ? "삭제" : "Delete"}
-                    </button>
-                  </div>
-                );
-              })}
-              <button
-                type="button"
-                disabled={editor.lines.length >= 20}
-                onClick={() =>
-                  change({ lines: [...editor.lines, rowOf("TEST_PRODUCT_DECK")] })
-                }
-              >
-                {isKorean ? "합성 TEST 상품 추가" : "Add synthetic TEST product"}
-              </button>
-            </div>
-            <p>
-              {isKorean ? "상품 줄 합계" : "Line total"}:{" "}
-              <output aria-label={isKorean ? "모의 상품 줄 합계" : "Mock line total"}>
-                {Number.isFinite(sum)
-                  ? won(sum)
-                  : isKorean
-                    ? "입력 확인 필요"
-                    : "Check input"}
-              </output>{" "}
-              {isKorean
-                ? "· 전표 금액과 같아야 확정할 수 있습니다. 상품 미연결 초안은 저장할 수 있습니다."
-                : "· It must equal the slip amount to post. Drafts without linked products can be saved."}
-            </p>
-            <button type="submit">
-              {isKorean ? "모의 초안 저장" : "Save mock draft"}
-            </button>
-          </fieldset>
-        </form>
-      </section>
-      <section
-        className={styles.block}
-        aria-label={isKorean ? "모의 재고 확정" : "Mock stock posting"}
-      >
-        <h3>
-          {isKorean
-            ? "2. 가상 재고 예정표 → 명시 확인 → 모의 판매 확정"
-            : "2. Virtual stock plan → Explicit check → Post mock sale"}
-        </h3>
-        <button
-          type="button"
-          disabled={!open || dirty || selected?.status !== "DRAFT"}
-          onClick={() => {
-            try {
-              setPreview(previewTestStock(current.current, editor.id!));
-              setStockConfirmed(false);
-              setFailed(false);
-              setNotice({
-                ko: "가상 재고 예정표입니다. 수량을 확인한 뒤 확인란을 선택해 주세요.",
-                en: "This is the virtual stock plan. Check the quantities, then tick the confirmation.",
-              });
-            } catch (error) {
-              setPreview(null);
-              setStockConfirmed(false);
-              setFailed(true);
-              setNotice(
-                error instanceof TestSalesError
-                  ? error.localized
-                  : {
-                      ko: "예정표를 확인하지 못했습니다.",
-                      en: "Could not check the plan.",
-                    },
-              );
-            }
-          }}
-        >
-          {isKorean ? "가상 재고 예정표 확인" : "Check virtual stock plan"}
-        </button>
-        {preview ? (
-          <>
-            <div className={styles.tableWrap}>
-              <table>
-                <caption>
-                  {isKorean
-                    ? "가상 재고 예정표 · 아직 차감되지 않음"
-                    : "Virtual stock plan · Not deducted yet"}
-                </caption>
-                <thead>
-                  <tr>
-                    <th>{isKorean ? "합성 상품" : "Synthetic product"}</th>
-                    <th>{isKorean ? "현재 가상 재고" : "Current virtual stock"}</th>
-                    <th>{isKorean ? "차감할 수량" : "Quantity to deduct"}</th>
-                    <th>{isKorean ? "확정 후 재고" : "Stock after posting"}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.rows.map((row) => (
-                    <tr key={row.productId}>
-                      <td>{row.name}</td>
-                      <td>
-                        {row.before}
-                        {isKorean ? "개" : ""}
-                      </td>
-                      <td>
-                        -{row.quantity}
-                        {isKorean ? "개" : ""}
-                      </td>
-                      <td>
-                        {row.after}
-                        {isKorean ? "개" : ""}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <label className={styles.check}>
-              <input
-                type="checkbox"
-                checked={stockConfirmed}
-                onChange={(event) => setStockConfirmed(event.target.checked)}
-              />
-              {isKorean
-                ? "예정표의 가상 재고 차감을 확인했습니다"
-                : "I checked the virtual stock deduction in the plan"}
-            </label>
-            <button
-              type="button"
-              disabled={!stockConfirmed || dirty || !open}
-              onClick={() => {
-                const next = perform(
-                  (previous) => postTestSale(previous, preview, stockConfirmed),
-                  {
-                    ko: "모의 판매를 확정했습니다. 가상 재고를 한 번 차감하고 확정 매출에 반영했습니다.",
-                    en: "Posted the mock sale. Virtual stock was deducted once and added to posted sales.",
-                  },
-                );
-                if (next) choose(next.entries.find((e) => e.id === preview.entryId)!);
-              }}
-            >
-              {isKorean ? "모의 판매 확정" : "Post mock sale"}
-            </button>
-          </>
-        ) : (
-          <p>
-            {isKorean
-              ? "저장된 초안을 선택하면 예정표를 확인할 수 있습니다."
-              : "Select a saved draft to check the plan."}
-          </p>
-        )}
-      </section>
-      <section
-        className={styles.block}
-        aria-label={isKorean ? "모의 일마감" : "Mock daily close"}
-      >
-        <h3>
-          {isKorean
-            ? "3. 합계·현금 대조 → 모의 일마감"
-            : "3. Totals and cash check → Mock daily close"}
-        </h3>
-        <p>
-          {isKorean
-            ? `현금 대조는 가상 현금 판매액 ${won(totals.cash)} 기준이며 금고 잔액이 아닙니다. 카드·이체 금액은 현금 대조에 포함하지 않습니다. 모의 온라인 매출은 합성 0원입니다.`
-            : `The cash check is based on virtual cash sales of ${won(totals.cash)}, not the safe balance. Card and transfer amounts are not included. Mock online sales are a synthetic KRW 0.`}
-        </p>
-        {draftCount ? (
-          <p className={styles.warning}>
-            {isKorean
-              ? `모의 작성 중 전표 ${draftCount}건이 있어 마감할 수 없습니다.`
-              : `${draftCount} mock draft slips remain, so the day cannot be closed.`}
-          </p>
-        ) : null}
-        {dirty ? (
-          <p>
-            {isKorean
-              ? "저장하지 않은 입력이 있습니다. 저장·확정하거나 기존 전표를 다시 선택해 주세요."
-              : "There is unsaved input. Save and post it, or select an existing slip again."}
-          </p>
-        ) : null}
-        <label>
-          {isKorean
-            ? "모의 현금 수기 대조액 (원)"
-            : "Mock handwritten cash amount (KRW)"}
-          <input
-            type="number"
-            min="0"
-            step="1"
-            disabled={!open}
-            required
-            value={cashCompared}
-            onChange={(event) => {
-              setCashCompared(event.target.value);
-              setCloseConfirmed(false);
-            }}
-          />
-        </label>
-        <label className={styles.check}>
-          <input
-            type="checkbox"
-            disabled={!open}
-            checked={closeConfirmed}
-            onChange={(event) => setCloseConfirmed(event.target.checked)}
-          />
-          {isKorean
-            ? "모의 합계와 현금 대조액을 확인했습니다"
-            : "I checked the mock totals and cash amount"}
-        </label>
-        <button
-          type="button"
-          disabled={!canClose}
-          onClick={() => {
-            if (!canClose) return;
-            const next = perform(
-              (previous) =>
-                closeTestSales(previous, Number(cashCompared), closeConfirmed),
-              {
-                ko: "모의 일마감을 완료했습니다. 가상 재고는 다시 차감하지 않았습니다.",
-                en: "Finished the mock daily close. Virtual stock was not deducted again.",
-              },
-            );
-            if (next) clearChecks();
-          }}
-        >
-          {isKorean ? "모의 일마감 확정" : "Confirm mock daily close"}
-        </button>
-        {!open ? (
-          <>
-            <label>
-              {isKorean ? "모의 재개방 사유" : "Mock reopen reason"}
-              <input
-                required
-                value={reopenReason}
-                maxLength={85}
-                onChange={(event) => setReopenReason(event.target.value)}
-              />
-            </label>
-            <button
-              type="button"
-              onClick={() => {
-                const next = perform(
-                  (previous) => reopenTestSales(previous, reopenReason),
-                  {
-                    ko: "모의 영업일을 재개방했습니다. 이전 마감본과 가상 재고는 유지했습니다.",
-                    en: "Reopened the mock business day. Earlier closing sheets and virtual stock were kept.",
-                  },
-                );
-                if (next) clearChecks();
-              }}
-            >
-              {isKorean ? "모의 영업일 재개방" : "Reopen mock business day"}
-            </button>
-          </>
-        ) : null}
-      </section>
-      <section
-        className={styles.block}
-        aria-label={isKorean ? "모의 마감 스냅샷" : "Mock closing snapshots"}
-      >
-        <h3>
-          {isKorean
-            ? "가상 마감본 · 당시 확인값"
-            : "Virtual closing sheets · Values at closing"}
-        </h3>
-        {!state.snapshots.length ? (
-          <p>
-            {isKorean ? "아직 모의 마감본이 없습니다." : "No mock closing sheets yet."}
-          </p>
-        ) : null}
-        {state.snapshots.map((snapshot) => (
-          <div key={snapshot.id} className={styles.notice}>
-            <h4>{snapshot.id}</h4>
-            <p>
-              {isKorean
-                ? `모의 카드 ${won(snapshot.totals.card)} · 현금 ${won(snapshot.totals.cash)} · 이체 ${won(snapshot.totals.transfer)} · 온라인 합성 0원 · 통합 ${won(snapshot.totals.combined)}`
-                : `Mock card ${won(snapshot.totals.card)} · Cash ${won(snapshot.totals.cash)} · Transfer ${won(snapshot.totals.transfer)} · Online synthetic KRW 0 · Combined ${won(snapshot.totals.combined)}`}
-            </p>
-            <p>
-              {isKorean
-                ? `확인 현금 ${won(snapshot.cashCompared)} · 모의 완료 전표 ${snapshot.entryIds.length}건 · 가상 데크 ${snapshot.stock.TEST_PRODUCT_DECK}개 · 가상 그립 ${snapshot.stock.TEST_PRODUCT_GRIP}개`
-                : `Checked cash ${won(snapshot.cashCompared)} · Mock posted slips ${snapshot.entryIds.length} · Virtual decks ${snapshot.stock.TEST_PRODUCT_DECK} · Virtual grips ${snapshot.stock.TEST_PRODUCT_GRIP}`}
-            </p>
-            <p>
-              {isKorean
-                ? `전표 목록: ${snapshot.entryIds.join(", ") || "없음"} · 마감 재차감 0개`
-                : `Slips: ${snapshot.entryIds.join(", ") || "None"} · Deducted again at closing: 0`}
-            </p>
-          </div>
-        ))}
-        {state.reopenReasons.map((reason, index) => (
-          <p key={index}>
-            {isKorean ? "가상 재개방 기록" : "Virtual reopen record"} {index + 1}:{" "}
-            {reason}
-          </p>
-        ))}
-      </section>
+      <SimulationSlipList
+        locale={locale}
+        isKorean={isKorean}
+        won={won}
+        state={state}
+        setEditor={setEditor}
+        setDirty={setDirty}
+        open={open}
+        clearChecks={clearChecks}
+        choose={choose}
+        sample={sample}
+      />
+      <SimulationSlipEditor
+        locale={locale}
+        isKorean={isKorean}
+        won={won}
+        editor={editor}
+        dirty={dirty}
+        selected={selected}
+        editable={editable}
+        sum={sum}
+        change={change}
+        perform={perform}
+        choose={choose}
+      />
+      <SimulationStockPosting
+        isKorean={isKorean}
+        current={current}
+        editor={editor}
+        dirty={dirty}
+        preview={preview}
+        setPreview={setPreview}
+        stockConfirmed={stockConfirmed}
+        setStockConfirmed={setStockConfirmed}
+        setNotice={setNotice}
+        setFailed={setFailed}
+        open={open}
+        selected={selected}
+        perform={perform}
+        choose={choose}
+      />
+      <SimulationDailyClose
+        isKorean={isKorean}
+        won={won}
+        dirty={dirty}
+        cashCompared={cashCompared}
+        setCashCompared={setCashCompared}
+        closeConfirmed={closeConfirmed}
+        setCloseConfirmed={setCloseConfirmed}
+        reopenReason={reopenReason}
+        setReopenReason={setReopenReason}
+        totals={totals}
+        open={open}
+        draftCount={draftCount}
+        canClose={canClose}
+        clearChecks={clearChecks}
+        perform={perform}
+      />
+      <SimulationSnapshots isKorean={isKorean} won={won} state={state} />
     </section>
   );
 }
