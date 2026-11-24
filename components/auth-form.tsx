@@ -3,29 +3,22 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "@/contexts/auth-context";
 import { useLocale } from "@/contexts/locale-context";
 import type { LegalDocumentId } from "@/data/legal-terms";
-import { saveConsentReceipt } from "@/lib/auth/consent";
 import {
   isValidKoreanPhoneNumber,
   type IdentityVerificationMethod,
 } from "@/lib/auth/cognito-direct-auth";
-import {
-  clearFirebaseAuthSession,
-  confirmFirebaseSmsCode,
-  sendFirebaseSmsCode,
-} from "@/lib/auth/firebase-phone-auth";
-import { CognitoAuthError } from "@/lib/auth/cognito-client";
+import { clearFirebaseAuthSession } from "@/lib/auth/firebase-phone-auth";
 import {
   getPasswordRuleStates,
   isValidEmail,
   isValidLoginIdentifier,
   isValidPassword,
   normalizeEmail,
-  normalizeLoginIdentifier,
   passwordsMatch,
 } from "@/lib/auth/form-validation";
 import { consumeAuthReturnPath } from "@/lib/auth/return-path";
@@ -34,29 +27,19 @@ import { AccountRecoveryModal } from "./account-recovery-modal";
 import { TermsModal } from "./terms-modal";
 import { VerificationModal, type VerificationModalMode } from "./verification-modal";
 import styles from "./auth-form.module.css";
+import {
+  createAuthSubmitActions,
+  createAuthVerificationActions,
+  type FieldErrors,
+  type ModalState,
+} from "./auth-form-actions";
+import { AuthSignupFields } from "./auth-form-fields";
 
 type AuthFormMode = "login" | "signup";
 
 type AuthFormProps = {
   mode: AuthFormMode;
 };
-
-type FieldErrors = {
-  identifier?: string;
-  password?: string;
-  confirmPassword?: string;
-  phone?: string;
-  terms?: string;
-};
-
-type ModalState = {
-  open: boolean;
-  mode: VerificationModalMode;
-  method: IdentityVerificationMethod;
-};
-
-/** 복구 코드 반복 발송을 짧게 제한해 계정 복구 엔드포인트 남용을 줄입니다. */
-const RECOVERY_RESEND_COOLDOWN_MS = 60_000;
 
 /** `/login`·`/signup` 본문. */
 export function AuthForm({ mode }: AuthFormProps) {
@@ -223,337 +206,62 @@ export function AuthForm({ mode }: AuthFormProps) {
     setModalInfo(null);
   };
 
-  const validateSignupForm = () => {
-    setTouched({
-      identifier: true,
-      password: true,
-      confirmPassword: true,
-      phone: identityMethod === "sms",
-      terms: true,
+  const { handleSubmit, startSocial } = createAuthSubmitActions({
+    mode,
+    copy,
+    isAvailable,
+    signIn,
+    signUp,
+    signInDirect,
+    identifier,
+    password,
+    confirmPassword,
+    phone,
+    identityMethod,
+    agreeTerms,
+    agreePrivacy,
+    agreeAge,
+    marketingOptIn,
+    setTouched,
+    setSubmitError,
+    setInfoMessage,
+    setIsSubmitting,
+    markTouched,
+    finishAuthenticated,
+    openVerificationModal,
+  });
+  const { startPasswordRecovery, handleSendCode, handleConfirmCode } =
+    createAuthVerificationActions({
+      copy,
+      isAvailable,
+      signInDirect,
+      signUpDirect,
+      confirmSignUpDirect,
+      resendSignUpCode,
+      forgotPasswordDirect,
+      confirmForgotPasswordDirect,
+      identifier,
+      password,
+      phone,
+      setInfoMessage,
+      setIsSubmitting,
+      modal,
+      setModal,
+      setModalInfo,
+      setIsRecoveryModalOpen,
+      recoveryEmail,
+      setRecoveryEmail,
+      recoveryCooldownUntil,
+      setRecoveryCooldownUntil,
+      emailSignupStarted,
+      setEmailSignupStarted,
+      finishAuthenticated,
+      openVerificationModal,
+      closeVerificationModal,
     });
-
-    if (!isValidEmail(identifier)) {
-      return false;
-    }
-
-    const phoneOk = identityMethod === "email" || isValidKoreanPhoneNumber(phone);
-
-    return (
-      isValidPassword(password) &&
-      passwordsMatch(password, confirmPassword) &&
-      agreeTerms &&
-      agreePrivacy &&
-      agreeAge &&
-      phoneOk
-    );
-  };
-
-  const handleLoginSubmit = async () => {
-    const result = await signInDirect(normalizeLoginIdentifier(identifier), password);
-
-    if (!result.ok) {
-      setSubmitError(result.error.message);
-      return;
-    }
-
-    await finishAuthenticated();
-  };
-
-  const handleSignupSubmit = async () => {
-    if (!validateSignupForm()) {
-      return;
-    }
-
-    if (!isAvailable) {
-      setSubmitError(copy.accountUnavailable);
-      return;
-    }
-
-    saveConsentReceipt({
-      marketingEmail: marketingOptIn,
-      marketingSms: marketingOptIn,
-      marketingPush: marketingOptIn,
-    });
-
-    openVerificationModal("signup", identityMethod);
-  };
-
-  const startPasswordRecovery = async (email: string) => {
-    if (!isAvailable) {
-      throw new Error(copy.authRecoveryCognitoUnavailable);
-    }
-
-    if (recoveryCooldownUntil) {
-      return "cooldown" as const;
-    }
-
-    const result = await forgotPasswordDirect(email);
-
-    if (
-      !result.ok &&
-      !(
-        result.error instanceof CognitoAuthError &&
-        result.error.code === "AUTH_DIRECT_NOT_AUTHORIZED"
-      )
-    ) {
-      throw new Error(copy.authRecoveryTemporaryError);
-    }
-
-    setRecoveryEmail(email);
-    setRecoveryCooldownUntil(RECOVERY_RESEND_COOLDOWN_MS);
-    setIsRecoveryModalOpen(false);
-    openVerificationModal("resetPassword", "email");
-    setModalInfo(copy.authRecoveryRequestAccepted);
-    return "accepted" as const;
-  };
-
-  const resendPasswordRecoveryCode = async () => {
-    if (!recoveryEmail) {
-      throw new Error(copy.authRecoveryTemporaryError);
-    }
-
-    if (recoveryCooldownUntil) {
-      setModalInfo(copy.authRecoveryCooldown);
-      return;
-    }
-
-    const result = await forgotPasswordDirect(recoveryEmail);
-
-    if (
-      !result.ok &&
-      !(
-        result.error instanceof CognitoAuthError &&
-        result.error.code === "AUTH_DIRECT_NOT_AUTHORIZED"
-      )
-    ) {
-      throw new Error(copy.authRecoveryTemporaryError);
-    }
-
-    setRecoveryCooldownUntil(RECOVERY_RESEND_COOLDOWN_MS);
-    setModalInfo(copy.authRecoveryRequestAccepted);
-  };
-
-  const handleSendCode = async () => {
-    if (modal.method === "sms") {
-      if (modal.mode !== "signup") {
-        throw new Error(copy.authRecoveryTemporaryError);
-      }
-
-      await sendFirebaseSmsCode({ phoneNumber: phone });
-      setModalInfo(copy.authVerifySent);
-      return;
-    }
-
-    if (modal.mode === "signup") {
-      const email = normalizeEmail(identifier);
-
-      if (emailSignupStarted) {
-        const resent = await resendSignUpCode(email);
-
-        if (!resent.ok) {
-          throw resent.error;
-        }
-
-        setModalInfo(copy.authVerifySent);
-        return;
-      }
-
-      const signUpResult = await signUpDirect({
-        email,
-        password,
-      });
-
-      if (!signUpResult.ok) {
-        throw signUpResult.error;
-      }
-
-      setEmailSignupStarted(true);
-
-      if (signUpResult.result.userConfirmed) {
-        const loginResult = await signInDirect(email, password);
-
-        if (!loginResult.ok) {
-          throw loginResult.error;
-        }
-
-        closeVerificationModal();
-        await finishAuthenticated();
-        return;
-      }
-
-      setModalInfo(copy.authVerifySent);
-      return;
-    }
-
-    await resendPasswordRecoveryCode();
-  };
-
-  const handleConfirmCode = async (input: { code: string; newPassword?: string }) => {
-    setIsSubmitting(true);
-
-    try {
-      if (modal.mode === "signup") {
-        if (modal.method === "sms") {
-          const sms = await confirmFirebaseSmsCode(input.code);
-          const email = normalizeEmail(identifier);
-          const signUpResult = await signUpDirect({
-            email,
-            password,
-            phoneNumber: phone,
-            firebaseIdToken: sms.idToken,
-          });
-
-          if (!signUpResult.ok) {
-            throw signUpResult.error;
-          }
-
-          if (!signUpResult.result.userConfirmed) {
-            // PreSignUp 미배포 시 이메일 코드로 폴백
-            setModal({ open: true, mode: "signup", method: "email" });
-            setModalInfo(copy.authVerifyEmailFallback);
-            return;
-          }
-
-          const loginResult = await signInDirect(email, password);
-
-          if (!loginResult.ok) {
-            throw loginResult.error;
-          }
-
-          closeVerificationModal();
-          await finishAuthenticated();
-          return;
-        }
-
-        // email signup confirm
-        const email = normalizeEmail(identifier);
-        const confirmResult = await confirmSignUpDirect(email, input.code);
-
-        if (!confirmResult.ok) {
-          throw confirmResult.error;
-        }
-
-        const loginResult = await signInDirect(email, password);
-
-        if (!loginResult.ok) {
-          throw loginResult.error;
-        }
-
-        closeVerificationModal();
-        await finishAuthenticated();
-        return;
-      }
-
-      if (!recoveryEmail || !input.newPassword) {
-        throw new Error(copy.authRecoveryCodeInvalid);
-      }
-
-      const confirmResult = await confirmForgotPasswordDirect({
-        email: recoveryEmail,
-        code: input.code,
-        newPassword: input.newPassword,
-      });
-
-      if (!confirmResult.ok) {
-        if (
-          confirmResult.error instanceof CognitoAuthError &&
-          confirmResult.error.code === "AUTH_DIRECT_INVALID_PASSWORD"
-        ) {
-          throw new Error(copy.authPasswordInvalid);
-        }
-
-        throw new Error(copy.authRecoveryCodeInvalid);
-      }
-
-      setRecoveryEmail(null);
-      setRecoveryCooldownUntil(null);
-      setInfoMessage(copy.authPasswordResetDone);
-      closeVerificationModal();
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleResendInModal = async () => {
     await handleSendCode();
-  };
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setSubmitError(null);
-    setInfoMessage(null);
-
-    if (mode === "login") {
-      setTouched({ identifier: true, password: true });
-
-      if (!isValidLoginIdentifier(identifier) || password.length === 0) {
-        return;
-      }
-
-      if (!isAvailable) {
-        setSubmitError(copy.accountUnavailable);
-        return;
-      }
-
-      setIsSubmitting(true);
-
-      try {
-        await handleLoginSubmit();
-      } catch (caughtError) {
-        setSubmitError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : copy.accountRequestFailed,
-        );
-      } finally {
-        setIsSubmitting(false);
-      }
-
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      await handleSignupSubmit();
-    } catch (caughtError) {
-      setSubmitError(
-        caughtError instanceof Error ? caughtError.message : copy.accountRequestFailed,
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const startSocial = async () => {
-    setSubmitError(null);
-
-    if (!isAvailable) {
-      setSubmitError(copy.accountUnavailable);
-      return;
-    }
-
-    if (mode === "signup" && !(agreeTerms && agreePrivacy && agreeAge)) {
-      markTouched("terms");
-      setSubmitError(copy.authTermsRequired);
-      return;
-    }
-
-    if (mode === "signup") {
-      saveConsentReceipt({
-        marketingEmail: marketingOptIn,
-        marketingSms: marketingOptIn,
-        marketingPush: marketingOptIn,
-      });
-    }
-
-    setIsSubmitting(true);
-    const result = mode === "login" ? await signIn() : await signUp();
-    setIsSubmitting(false);
-
-    if (!result.ok) {
-      setSubmitError(result.error.message);
-    }
   };
 
   const openRecoveryModal = () => {
@@ -612,134 +320,27 @@ export function AuthForm({ mode }: AuthFormProps) {
         </label>
 
         {mode === "signup" ? (
-          <>
-            <ul className={styles.passwordRules} aria-label={copy.authPasswordPolicy}>
-              {passwordRules.map((rule) => {
-                const ruleLabel =
-                  rule.id === "lowercase"
-                    ? copy.authPasswordRule_lowercase
-                    : rule.id === "uppercase"
-                      ? copy.authPasswordRule_uppercase
-                      : rule.id === "number"
-                        ? copy.authPasswordRule_number
-                        : rule.id === "length"
-                          ? copy.authPasswordRule_length
-                          : rule.id === "special"
-                            ? copy.authPasswordRule_special
-                            : copy.authPasswordRule_noEdgeSpace;
-
-                return (
-                  <li className={rule.met ? styles.ruleMet : undefined} key={rule.id}>
-                    <span aria-hidden="true">{rule.met ? "✓" : "○"}</span>
-                    {ruleLabel}
-                  </li>
-                );
-              })}
-            </ul>
-
-            <label>
-              <span>{copy.authConfirmPassword}</span>
-              <input
-                autoComplete="new-password"
-                name="confirmPassword"
-                onBlur={() => markTouched("confirmPassword")}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                type="password"
-                value={confirmPassword}
-              />
-              {fieldErrors.confirmPassword ? (
-                <em>{fieldErrors.confirmPassword}</em>
-              ) : null}
-            </label>
-
-            <fieldset className={styles.identityMethods}>
-              <legend>{copy.authIdentityMethod}</legend>
-              <label className={styles.identityOption}>
-                <input
-                  checked={identityMethod === "email"}
-                  name="identityMethod"
-                  onChange={() => setIdentityMethod("email")}
-                  type="radio"
-                  value="email"
-                />
-                <span>{copy.authIdentityEmail}</span>
-              </label>
-              <label className={styles.identityOption}>
-                <input
-                  checked={identityMethod === "sms"}
-                  name="identityMethod"
-                  onChange={() => setIdentityMethod("sms")}
-                  type="radio"
-                  value="sms"
-                />
-                <span>{copy.authIdentitySms}</span>
-              </label>
-            </fieldset>
-
-            {identityMethod === "sms" ? (
-              <label>
-                <span>{copy.authPhone}</span>
-                <input
-                  autoComplete="tel"
-                  inputMode="tel"
-                  name="phone"
-                  onBlur={() => markTouched("phone")}
-                  onChange={(event) => setPhone(event.target.value)}
-                  placeholder="01012345678"
-                  type="tel"
-                  value={phone}
-                />
-                {fieldErrors.phone ? <em>{fieldErrors.phone}</em> : null}
-              </label>
-            ) : null}
-
-            <fieldset className={styles.consents}>
-              <legend>{copy.authAgreements}</legend>
-              <ConsentRow
-                checked={agreeTerms && agreePrivacy && agreeAge && marketingOptIn}
-                label={copy.authAgreeAll}
-                onChange={(value) => {
-                  setAgreeTerms(value);
-                  setAgreePrivacy(value);
-                  setAgreeAge(value);
-                  setMarketingOptIn(value);
-                }}
-                showTag={false}
-              />
-              <ConsentRow
-                checked={agreeTerms}
-                label={copy.authAgreeTerms}
-                onChange={setAgreeTerms}
-                onView={() => setOpenDocumentId("termsOfService")}
-                required
-                viewLabel={copy.authViewTerms}
-              />
-              <ConsentRow
-                checked={agreePrivacy}
-                label={copy.authAgreePrivacy}
-                onChange={setAgreePrivacy}
-                onView={() => setOpenDocumentId("privacyPolicy")}
-                required
-                viewLabel={copy.authViewTerms}
-              />
-              <ConsentRow
-                checked={agreeAge}
-                label={copy.authAgreeAge}
-                onChange={setAgreeAge}
-                onView={() => setOpenDocumentId("ageGate")}
-                required
-                viewLabel={copy.authViewTerms}
-              />
-              <ConsentRow
-                checked={marketingOptIn}
-                label={copy.authMarketingAll}
-                onChange={setMarketingOptIn}
-                onView={() => setOpenDocumentId("marketing")}
-                viewLabel={copy.authViewTerms}
-              />
-              {fieldErrors.terms ? <em>{fieldErrors.terms}</em> : null}
-            </fieldset>
-          </>
+          <AuthSignupFields
+            copy={copy}
+            confirmPassword={confirmPassword}
+            setConfirmPassword={setConfirmPassword}
+            phone={phone}
+            setPhone={setPhone}
+            identityMethod={identityMethod}
+            setIdentityMethod={setIdentityMethod}
+            agreeTerms={agreeTerms}
+            setAgreeTerms={setAgreeTerms}
+            agreePrivacy={agreePrivacy}
+            setAgreePrivacy={setAgreePrivacy}
+            agreeAge={agreeAge}
+            setAgreeAge={setAgreeAge}
+            marketingOptIn={marketingOptIn}
+            setMarketingOptIn={setMarketingOptIn}
+            setOpenDocumentId={setOpenDocumentId}
+            passwordRules={passwordRules}
+            fieldErrors={fieldErrors}
+            markTouched={markTouched}
+          />
         ) : null}
 
         {infoMessage ? <p className={styles.hint}>{infoMessage}</p> : null}
@@ -833,44 +434,5 @@ export function AuthForm({ mode }: AuthFormProps) {
         showNewPassword={modal.mode === "resetPassword"}
       />
     </section>
-  );
-}
-
-function ConsentRow({
-  checked,
-  label,
-  onChange,
-  onView,
-  required = false,
-  showTag = true,
-  viewLabel,
-}: {
-  checked: boolean;
-  label: string;
-  onChange: (value: boolean) => void;
-  onView?: () => void;
-  required?: boolean;
-  showTag?: boolean;
-  viewLabel?: string;
-}) {
-  return (
-    <div className={styles.consentRow}>
-      <label>
-        <input
-          checked={checked}
-          onChange={(event) => onChange(event.target.checked)}
-          type="checkbox"
-        />
-        <span>
-          {showTag ? (required ? "[필수] " : "[선택] ") : null}
-          {label}
-        </span>
-      </label>
-      {onView && viewLabel ? (
-        <button onClick={onView} type="button">
-          {viewLabel}
-        </button>
-      ) : null}
-    </div>
   );
 }

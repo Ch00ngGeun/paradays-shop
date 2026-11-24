@@ -14,7 +14,8 @@ const auth = vi.hoisted(() => ({
   }),
 }));
 vi.mock("@/contexts/auth-context", () => ({ useAuth: () => auth }));
-import { AdminSalesLedgerPanel, historyReason } from "@/components/admin-sales-ledger";
+import { AdminSalesLedgerPanel } from "@/components/admin-sales-ledger";
+import { historyReason } from "@/components/admin-sales-ledger-model";
 import { AdminSalesSimulationPanel } from "@/components/admin-sales-simulation";
 
 beforeEach(() => {
