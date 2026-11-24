@@ -1,4 +1,5 @@
 "use client";
+import adminWorkspaceLayoutStyles from "./admin-workspace-layout.module.css";
 import Link from "next/link";
 import styles from "./admin-dashboard.module.css";
 import { AdminMenuIcon, sectionItems, sectionShortLabels } from "./admin-navigation";
@@ -35,7 +36,7 @@ export function AdminWorkspaceLayout({
         aria-label={locale === "ko" ? "관리자 메뉴" : "Admin menu"}
         className={styles.sidebar}
       >
-        <div className={styles.sidebarIntro}>
+        <div className={adminWorkspaceLayoutStyles.sidebarIntro}>
           <strong>PARADAYS</strong>
           <span>{locale === "ko" ? "관리자" : "Admin"}</span>
         </div>
@@ -44,8 +45,8 @@ export function AdminWorkspaceLayout({
           aria-expanded={isOpsMenuOpen}
           className={
             isMenuButtonHidden
-              ? `${styles.opsMenuButton} ${styles.opsMenuButtonHidden}`
-              : styles.opsMenuButton
+              ? `${adminWorkspaceLayoutStyles.opsMenuButton} ${adminWorkspaceLayoutStyles.opsMenuButtonHidden}`
+              : adminWorkspaceLayoutStyles.opsMenuButton
           }
           onClick={() => setIsOpsMenuOpen((open) => !open)}
           ref={menuButtonRef}
@@ -65,7 +66,7 @@ export function AdminWorkspaceLayout({
       {isOpsMenuOpen && !isDesktopAdmin ? (
         <button
           aria-label={locale === "ko" ? "메뉴 닫기" : "Close menu"}
-          className={styles.opsMenuScrim}
+          className={adminWorkspaceLayoutStyles.opsMenuScrim}
           onClick={() => {
             setIsOpsMenuOpen(false);
             menuButtonRef.current?.focus();
@@ -80,22 +81,22 @@ export function AdminWorkspaceLayout({
         aria-modal={isOpsMenuOpen && !isDesktopAdmin ? true : undefined}
         className={
           isOpsMenuOpen
-            ? `${styles.opsMenuDrawer} ${styles.opsMenuDrawerOpen}`
-            : styles.opsMenuDrawer
+            ? `${adminWorkspaceLayoutStyles.opsMenuDrawer} ${adminWorkspaceLayoutStyles.opsMenuDrawerOpen}`
+            : adminWorkspaceLayoutStyles.opsMenuDrawer
         }
         id="ops-menu-drawer"
         inert={!isMenuVisible}
         ref={menuDrawerRef}
         role={isDesktopAdmin ? "navigation" : "dialog"}
       >
-        <div className={styles.opsMenuDrawerHeader}>
-          <div className={styles.sidebarBrand}>
+        <div className={adminWorkspaceLayoutStyles.opsMenuDrawerHeader}>
+          <div className={adminWorkspaceLayoutStyles.sidebarBrand}>
             <strong>PARADAYS</strong>
             <span>{locale === "ko" ? "관리자" : "Admin"}</span>
           </div>
           <button
             aria-label={locale === "ko" ? "메뉴 닫기" : "Close menu"}
-            className={styles.opsMenuClose}
+            className={adminWorkspaceLayoutStyles.opsMenuClose}
             onClick={() => {
               setIsOpsMenuOpen(false);
               menuButtonRef.current?.focus();
@@ -106,7 +107,11 @@ export function AdminWorkspaceLayout({
             ×
           </button>
         </div>
-        <div className={styles.tabList} role="tablist" aria-orientation="vertical">
+        <div
+          className={adminWorkspaceLayoutStyles.tabList}
+          role="tablist"
+          aria-orientation="vertical"
+        >
           {sectionItems.map((section) => (
             <button
               aria-label={
@@ -131,7 +136,7 @@ export function AdminWorkspaceLayout({
           ))}
         </div>
         <Link
-          className={styles.sidebarStoreLink}
+          className={adminWorkspaceLayoutStyles.sidebarStoreLink}
           href={storeReturnPath}
           tabIndex={isMenuVisible ? undefined : -1}
         >

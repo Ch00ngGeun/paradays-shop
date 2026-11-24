@@ -1,4 +1,5 @@
 "use client";
+import adminSharedStyles from "./admin-shared.module.css";
 import { listProductOptions } from "@/lib/admin-ui/product-form";
 import { AdminApiRequestError } from "@/lib/commerce/admin-api-client";
 import {
@@ -9,7 +10,6 @@ import {
 } from "@/lib/size-chart";
 import type { DeckSpec, Locale } from "@/types/store";
 import { useRef, useState } from "react";
-import styles from "./admin-dashboard.module.css";
 import { AdminHelpButton } from "./admin-help-button";
 
 export function useAdminProductSizeModal({
@@ -154,7 +154,7 @@ export function useAdminProductSizeModal({
       )
     : undefined;
   const sizeInfoHelp = (
-    <span className={styles.fieldHelp}>
+    <span className={adminSharedStyles.fieldHelp}>
       <AdminHelpButton locale={locale} target={isKorean ? "상세사이즈" : "Size chart"}>
         <p>
           {isKorean

@@ -1,4 +1,5 @@
 "use client";
+import adminSharedStyles from "./admin-shared.module.css";
 import { useLocale } from "@/contexts/locale-context";
 import { adminGuideSteps } from "@/lib/admin-ui/admin-guides";
 import { type AdminSection } from "@/lib/admin-ui/navigation";
@@ -167,7 +168,7 @@ export function OverviewSection({
         <div>
           <h2>{copy.adminOverviewTitle}</h2>
           <p
-            className={styles.overviewTimestamp}
+            className={adminSharedStyles.overviewTimestamp}
             role={metricsState === "error" ? "alert" : "status"}
           >
             {formattedAsOf
@@ -176,7 +177,7 @@ export function OverviewSection({
           </p>
         </div>
         {/* Pushed to the end so "New product" stays a direct child with its header styles. */}
-        <span className={styles.pushEnd}>
+        <span className={adminSharedStyles.pushEnd}>
           <AdminGuideButton locale={locale} steps={adminGuideSteps("home", locale)} />
         </span>
         <button className={styles.secondaryButton} onClick={onOpenCreate} type="button">
@@ -219,7 +220,7 @@ export function OverviewSection({
         <h2 id="quick-actions-title">
           {isKorean ? "운영 바로가기" : "Operations shortcuts"}
         </h2>
-        <div className={styles.overviewTaskList}>
+        <div className={adminSharedStyles.overviewTaskList}>
           <QuickAction
             icon="ocr"
             label={isKorean ? "입고 검토" : "Intake review"}
@@ -265,15 +266,15 @@ export function OverviewSection({
         </div>
       </section>
       <section
-        className={styles.recentOperations}
+        className={adminSharedStyles.recentOperations}
         aria-labelledby="recent-operations-title"
       >
         <header>
-          <div className={styles.titleWithHelp}>
+          <div className={adminSharedStyles.titleWithHelp}>
             <h2 id="recent-operations-title">
               {isKorean ? "최근 운영 기록" : "Recent activity"}
             </h2>
-            <span className={styles.fieldHelp}>
+            <span className={adminSharedStyles.fieldHelp}>
               <AdminHelpButton
                 locale={locale}
                 target={isKorean ? "최근 운영 기록" : "Recent activity"}
@@ -304,13 +305,13 @@ export function OverviewSection({
           ) : null}
         </header>
         {activities.length === 0 ? (
-          <p className={styles.operationEmpty}>
+          <p className={adminSharedStyles.operationEmpty}>
             {isKorean
               ? "아직 이 화면에서 수행한 작업이 없습니다."
               : "No tasks done on this screen yet."}
           </p>
         ) : (
-          <ul className={styles.operationList}>
+          <ul className={adminSharedStyles.operationList}>
             {activities.slice(0, showAllActivities ? 12 : 5).map((activity) => {
               const resume = canResumeActivity(activity);
               if (activity.status === "attention") {
@@ -354,7 +355,7 @@ export function OverviewSection({
                           : isKorean
                             ? "메뉴 보기"
                             : "Open menu"}
-                        <span className={styles.srOnly}>
+                        <span className={adminSharedStyles.srOnly}>
                           {" "}
                           · {sectionShortLabels[locale][activity.section]}
                         </span>
@@ -384,7 +385,7 @@ export function OverviewSection({
                   >
                     <AdminMenuIcon section={activity.section} />
                   </div>
-                  <div className={styles.operationDescription}>
+                  <div className={adminSharedStyles.operationDescription}>
                     <strong>
                       {sectionShortLabels[locale][activity.section]}{" "}
                       {isKorean ? "작업" : "task"}
@@ -413,7 +414,7 @@ export function OverviewSection({
                       : isKorean
                         ? "메뉴 보기"
                         : "Open menu"}
-                    <span className={styles.srOnly}>
+                    <span className={adminSharedStyles.srOnly}>
                       {" "}
                       · {sectionShortLabels[locale][activity.section]}
                     </span>
@@ -453,7 +454,7 @@ export function OverviewSection({
           )}
         />
       </div>
-      <details className={styles.overviewHelp}>
+      <details className={adminSharedStyles.overviewHelp}>
         <summary>{isKorean ? "집계 기준·개인정보 안내" : "Metrics & privacy"}</summary>
         <p>
           {isKorean

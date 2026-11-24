@@ -1,4 +1,5 @@
 "use client";
+import adminAccessPanelStyles from "./admin-access-panel.module.css";
 import { useLocale } from "@/contexts/locale-context";
 import { subscribeToAdminSection } from "@/lib/admin-ui/navigation";
 import {
@@ -33,14 +34,14 @@ export function AdminAccessPanel({
   );
 
   return (
-    <section className={styles.accessPage} aria-live="polite">
-      <div className={styles.accessTopBar}>
+    <section className={adminAccessPanelStyles.accessPage} aria-live="polite">
+      <div className={adminAccessPanelStyles.accessTopBar}>
         <Link className={styles.homeLink} href={storeReturnPath}>
           {copy.adminBackToStore}
         </Link>
       </div>
-      <section className={styles.accessPanel}>
-        <p className={styles.eyebrow}>{eyebrow}</p>
+      <section className={adminAccessPanelStyles.accessPanel}>
+        <p className={adminAccessPanelStyles.eyebrow}>{eyebrow}</p>
         <h1>{title}</h1>
         <p>{description}</p>
         {loading ? <span className={styles.loadingLine}>{loadingLabel}</span> : null}

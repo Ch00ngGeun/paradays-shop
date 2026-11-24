@@ -1,4 +1,5 @@
 "use client";
+import adminOcrSectionStyles from "./admin-ocr-section.module.css";
 import { OCR_INPUT_LIMITS } from "@/lib/admin-ui/ocr-input-validation";
 import type { AdminOcrReviewRow } from "@/lib/admin-ui/types";
 import type { Locale } from "@/types/store";
@@ -81,16 +82,19 @@ export function AdminOcrReviewPanel({
           }
         />
       ) : (
-        <ol className={styles.ocrReviewRows} data-admin-guide="ocr.review">
+        <ol
+          className={adminOcrSectionStyles.ocrReviewRows}
+          data-admin-guide="ocr.review"
+        >
           {rows.map((row, index) => (
             <li key={row.id}>
               <article
                 aria-label={
                   isKorean ? `${index + 1}번째 입고 행` : `Stock-in row ${index + 1}`
                 }
-                className={styles.ocrReviewRow}
+                className={adminOcrSectionStyles.ocrReviewRow}
               >
-                <div className={styles.ocrRowHeading}>
+                <div className={adminOcrSectionStyles.ocrRowHeading}>
                   <strong>{isKorean ? `${index + 1}번 행` : `Row ${index + 1}`}</strong>
                   <button
                     aria-label={
@@ -105,7 +109,7 @@ export function AdminOcrReviewPanel({
                     {isKorean ? "행 삭제" : "Delete row"}
                   </button>
                 </div>
-                <div className={styles.ocrMainFields}>
+                <div className={adminOcrSectionStyles.ocrMainFields}>
                   <label>
                     <span>{isKorean ? "상품명" : "Product name"}</span>
                     <GrowingLineInput
@@ -155,7 +159,7 @@ export function AdminOcrReviewPanel({
                     />
                   </label>
                 </div>
-                <details className={styles.ocrRowDetails}>
+                <details className={adminOcrSectionStyles.ocrRowDetails}>
                   <summary>
                     {isKorean ? "인식 원문·상세 보기" : "View source text and details"}
                   </summary>
@@ -206,7 +210,7 @@ export function AdminOcrReviewPanel({
         </p>
       </details>
       <div className={styles.ocrReviewSave}>
-        <p className={styles.ocrSaveBoundary}>
+        <p className={adminOcrSectionStyles.ocrSaveBoundary}>
           {locale === "ko"
             ? "검토본을 저장해도 재고는 변경되지 않습니다. 입고 반영은 저장 후 별도로 확인하며 신규 상품은 비공개 초안으로 생성됩니다."
             : "Saving a review does not change inventory. Inventory application requires separate confirmation after saving; new products are created as private drafts."}

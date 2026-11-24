@@ -1,4 +1,5 @@
 "use client";
+import adminMarketingSectionStyles from "./admin-marketing-section.module.css";
 import { useLocale } from "@/contexts/locale-context";
 import { adminGuideSteps } from "@/lib/admin-ui/admin-guides";
 import { CAMPAIGN_LOGO, campaignChannelSupport } from "@/lib/admin-ui/campaign-message";
@@ -54,7 +55,7 @@ export function MarketingSection({
   const saved = notice?.kind === "success";
   return (
     <div className={`${styles.sectionStack} ${styles.campaignScreen}`}>
-      <header className={styles.campaignHeader}>
+      <header className={adminMarketingSectionStyles.campaignHeader}>
         <div>
           <p>
             {isKorean
@@ -84,7 +85,7 @@ export function MarketingSection({
         />
       </header>
       {/* A safety notice, so it stays on screen instead of inside the help. */}
-      <p className={styles.campaignSaveNote}>
+      <p className={adminMarketingSectionStyles.campaignSaveNote}>
         {isKorean
           ? "이 화면은 제목·메시지·채널을 초안으로만 저장합니다. 수신자 조회·예약·발송·이미지 첨부는 지원하지 않습니다."
           : "This screen saves the title, message and channels as a draft only. Recipient lookup, scheduling, sending and image attachments are not supported."}
@@ -112,10 +113,10 @@ export function MarketingSection({
           { label: isKorean ? "고객 발송" : "Send to customers", state: "unavailable" },
         ]}
       />
-      <div className={styles.campaignWorkspace}>
+      <div className={adminMarketingSectionStyles.campaignWorkspace}>
         <form
           aria-label={isKorean ? "캠페인 초안 작성" : "Campaign draft"}
-          className={styles.campaignForm}
+          className={adminMarketingSectionStyles.campaignForm}
           noValidate
           onSubmit={onSubmit}
         >
@@ -127,10 +128,13 @@ export function MarketingSection({
               <legend>
                 {isKorean ? "초안 채널 선택 (복수 선택)" : "Draft channels (multiple)"}
               </legend>
-              <div className={styles.campaignChannelCards}>
+              <div className={adminMarketingSectionStyles.campaignChannelCards}>
                 {(["email", "sms", "push"] as const).map((channel) => (
                   <label data-selected={channels[channel]} key={channel}>
-                    <span className={styles.campaignChannelIcon} aria-hidden="true">
+                    <span
+                      className={adminMarketingSectionStyles.campaignChannelIcon}
+                      aria-hidden="true"
+                    >
                       <CampaignChannelIcon channel={channel} />
                     </span>
                     <input
@@ -146,7 +150,7 @@ export function MarketingSection({
                       type="checkbox"
                     />
                     <strong>{channelLabel(channel, locale)}</strong>
-                    <span className={styles.campaignChannelState}>
+                    <span className={adminMarketingSectionStyles.campaignChannelState}>
                       {channels[channel]
                         ? isKorean
                           ? "초안 포함"
@@ -156,7 +160,7 @@ export function MarketingSection({
                           : "Not in draft"}
                     </span>
                     <small
-                      className={styles.campaignChannelSupport}
+                      className={adminMarketingSectionStyles.campaignChannelSupport}
                       data-inline-logo={campaignChannelSupport(channel).inlineLogo}
                     >
                       {campaignChannelSupport(channel, locale).label}
@@ -165,7 +169,7 @@ export function MarketingSection({
                 ))}
               </div>
             </fieldset>
-            <div className={styles.campaignScopeNote}>
+            <div className={adminMarketingSectionStyles.campaignScopeNote}>
               <AdminHelpButton
                 locale={locale}
                 target={isKorean ? "채널 선택" : "Channel selection"}
@@ -231,7 +235,7 @@ export function MarketingSection({
                   : `${body.length.toLocaleString("en-US")}/8,000 characters · The draft API save limit, not an SMS length or split rule.`}
               </small>
             </label>
-            <div className={styles.campaignConsentNote}>
+            <div className={adminMarketingSectionStyles.campaignConsentNote}>
               <strong>
                 {isKorean
                   ? "수신 대상 미조회 · 발송 없음"
@@ -244,11 +248,11 @@ export function MarketingSection({
               </p>
             </div>
             {hasInput && validationMessage ? (
-              <p className={styles.campaignValidation}>
+              <p className={adminMarketingSectionStyles.campaignValidation}>
                 {localizedText(validationMessage, locale)}
               </p>
             ) : null}
-            <p className={styles.campaignSaveNote}>
+            <p className={adminMarketingSectionStyles.campaignSaveNote}>
               {canSaveToServer
                 ? isKorean
                   ? "서버에 초안만 저장하며 고객에게 메시지를 보내지 않습니다."
@@ -279,7 +283,7 @@ export function MarketingSection({
           {notice ? <NoticeMessage notice={notice} /> : null}
         </form>
         <aside
-          className={styles.campaignPreview}
+          className={adminMarketingSectionStyles.campaignPreview}
           data-admin-guide="marketing.preview"
           aria-label={
             isKorean ? "선택 채널 문구 미리보기" : "Selected channel text preview"
@@ -295,7 +299,7 @@ export function MarketingSection({
                 : "Channel text preview"}
           </h3>
           <div
-            className={styles.campaignPreviewChoices}
+            className={adminMarketingSectionStyles.campaignPreviewChoices}
             role="group"
             aria-label={isKorean ? "미리보기 채널" : "Preview channel"}
           >
@@ -311,12 +315,18 @@ export function MarketingSection({
             ))}
           </div>
           {activePreview ? (
-            <div className={styles.campaignMessage} data-channel={activePreview}>
+            <div
+              className={adminMarketingSectionStyles.campaignMessage}
+              data-channel={activePreview}
+            >
               {campaignChannelSupport(activePreview).inlineLogo ? (
-                <div className={styles.campaignMessageBrand} data-inline-logo="true">
+                <div
+                  className={adminMarketingSectionStyles.campaignMessageBrand}
+                  data-inline-logo="true"
+                >
                   <Image
                     alt={CAMPAIGN_LOGO.alt}
-                    className={styles.campaignLogo}
+                    className={adminMarketingSectionStyles.campaignLogo}
                     height={CAMPAIGN_LOGO.height}
                     src={CAMPAIGN_LOGO.path}
                     width={CAMPAIGN_LOGO.width}
@@ -328,7 +338,10 @@ export function MarketingSection({
                   </span>
                 </div>
               ) : (
-                <div className={styles.campaignMessageBrand} data-inline-logo="false">
+                <div
+                  className={adminMarketingSectionStyles.campaignMessageBrand}
+                  data-inline-logo="false"
+                >
                   PARADAYS{" "}
                   <span>
                     {isKorean
@@ -337,7 +350,7 @@ export function MarketingSection({
                   </span>
                 </div>
               )}
-              <div className={styles.campaignMessageBody}>
+              <div className={adminMarketingSectionStyles.campaignMessageBody}>
                 <strong>
                   {title.trim() || (isKorean ? "캠페인 제목" : "Campaign title")}
                 </strong>
@@ -364,13 +377,13 @@ export function MarketingSection({
               </small>
             </div>
           ) : (
-            <p className={styles.campaignEmptyPreview}>
+            <p className={adminMarketingSectionStyles.campaignEmptyPreview}>
               {isKorean
                 ? "초안에 포함할 채널을 하나 이상 선택해 주세요."
                 : "Select at least one channel to include in the draft."}
             </p>
           )}
-          <p className={styles.campaignPreviewNote}>
+          <p className={adminMarketingSectionStyles.campaignPreviewNote}>
             {isKorean
               ? "이 미리보기는 실제 전송물이 아닙니다. 초안을 저장해도 고객에게 메시지가 발송되지 않습니다."
               : "This preview is not an actual message. Saving the draft does not send anything to customers."}

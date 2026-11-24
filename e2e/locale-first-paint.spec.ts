@@ -180,7 +180,7 @@ test("app scripts that never arrive release the hidden page after the final time
 test("a child with an explicit visibility:visible stays hidden while the Korean preference is pending", async ({
   page,
 }) => {
-  // 관리자 메뉴(admin-dashboard.module.css의 visibility: visible)와 같은 조건을 장바구니에서 재현함.
+  // 관리자 메뉴(admin-workspace-layout.module.css의 visibility: visible)와 같은 조건을 장바구니에서 재현함.
   await prepare(page, "ko");
   await page.addInitScript(() => {
     document.addEventListener("DOMContentLoaded", () => {

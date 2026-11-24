@@ -1,4 +1,7 @@
 "use client";
+import adminInventorySectionStyles from "./admin-inventory-section.module.css";
+import adminProductSectionStyles from "./admin-product-section.module.css";
+import adminSharedStyles from "./admin-shared.module.css";
 import { useLocale } from "@/contexts/locale-context";
 import type { AdminCatalogListItem } from "@/lib/admin-ui/types";
 import { useRef, useState } from "react";
@@ -120,11 +123,11 @@ export function StockStepper({
       aria-label={isKorean ? "재고 조정" : "Adjust stock"}
       aria-busy={locked}
     >
-      <div className={styles.inventoryAdjustmentHeader}>
+      <div className={adminInventorySectionStyles.inventoryAdjustmentHeader}>
         <h2 id="inventory-adjustment-title" tabIndex={-1} data-product-id={product.id}>
           {isKorean ? "재고 조정" : "Adjust stock"}
         </h2>
-        <span className={styles.productSaveState} role="status">
+        <span className={adminProductSectionStyles.productSaveState} role="status">
           {statusLabel}
         </span>
       </div>
@@ -151,17 +154,20 @@ export function StockStepper({
         </div>
       </div>
       {!remote ? (
-        <p className={styles.productStorageNote}>
+        <p className={adminProductSectionStyles.productStorageNote}>
           {isKorean
             ? "이 화면에서만 수량을 변경합니다. 서버 재고에는 반영되지 않습니다."
             : "Changes the quantity on this screen only. Server stock is not updated."}
         </p>
       ) : null}
-      <div className={styles.titleWithHelp}>
-        <label className={styles.inventoryQuantityLabel} htmlFor="inventory-next-stock">
+      <div className={adminSharedStyles.titleWithHelp}>
+        <label
+          className={adminInventorySectionStyles.inventoryQuantityLabel}
+          htmlFor="inventory-next-stock"
+        >
           {isKorean ? "변경 후 재고 수량" : "Stock after change"}
         </label>
-        <span className={styles.fieldHelp}>
+        <span className={adminSharedStyles.fieldHelp}>
           <AdminHelpButton
             locale={locale}
             target={isKorean ? "변경 후 재고 수량" : "Stock after change"}
@@ -241,7 +247,7 @@ export function StockStepper({
         </p>
       ) : null}
       <div
-        className={styles.inventoryImpact}
+        className={adminInventorySectionStyles.inventoryImpact}
         aria-label={isKorean ? "재고 변경 미리보기" : "Stock change preview"}
         role="group"
       >
@@ -293,7 +299,7 @@ export function StockStepper({
             : "Restart with latest stock"}
       </button>
       {!changed && valid && !stale && !reviewRequired ? (
-        <p className={styles.inventoryInputHint}>
+        <p className={adminInventorySectionStyles.inventoryInputHint}>
           {isKorean ? "변경할 수량을 입력해 주세요." : "Enter the quantity to change."}
         </p>
       ) : null}

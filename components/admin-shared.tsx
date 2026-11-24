@@ -1,4 +1,5 @@
 "use client";
+import adminSharedStyles from "./admin-shared.module.css";
 import { useLocale } from "@/contexts/locale-context";
 import { type AdminSection } from "@/lib/admin-ui/navigation";
 import { getOcrInputErrorMessage } from "@/lib/admin-ui/ocr-input-validation";
@@ -151,11 +152,11 @@ export function QuickAction({
       <div className={styles.taskIcon} data-tone={operationIconTone[icon]}>
         <AdminMenuIcon section={icon} />
       </div>
-      <div className={styles.taskDescription}>
+      <div className={adminSharedStyles.taskDescription}>
         <h3>
           {label}
           {value !== undefined ? (
-            <span className={styles.taskCount}>{value}</span>
+            <span className={adminSharedStyles.taskCount}>{value}</span>
           ) : null}
           {needsAttention ? (
             <AdminStatusBadge locale={locale} status="attention" />

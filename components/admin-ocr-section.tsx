@@ -1,4 +1,7 @@
 "use client";
+import adminOcrSectionStyles from "./admin-ocr-section.module.css";
+import adminProductSectionStyles from "./admin-product-section.module.css";
+import adminSharedStyles from "./admin-shared.module.css";
 import { useLocale } from "@/contexts/locale-context";
 import { adminGuideSteps } from "@/lib/admin-ui/admin-guides";
 import type { AdminOcrReviewRow } from "@/lib/admin-ui/types";
@@ -141,7 +144,7 @@ export function OcrSection({
     <div
       className={`${styles.sectionStack} ${styles.ocrSectionStack} ${styles.ocrScreen}`}
     >
-      <header className={styles.ocrHeader}>
+      <header className={adminOcrSectionStyles.ocrHeader}>
         <div>
           <p>{isKorean ? "재고 / 입고 OCR" : "Inventory / Stock-in OCR"}</p>
           <h2>{isKorean ? "입고 검토" : "Stock-in review"}</h2>
@@ -151,8 +154,10 @@ export function OcrSection({
               : "Compare the image with recognition results and review the product information."}
           </p>
         </div>
-        <div className={`${styles.productListHeaderActions} ${styles.wrapRow}`}>
-          <span className={styles.ocrReviewBadge} role="status">
+        <div
+          className={`${adminProductSectionStyles.productListHeaderActions} ${adminSharedStyles.wrapRow}`}
+        >
+          <span className={adminOcrSectionStyles.ocrReviewBadge} role="status">
             {statusLabel}
           </span>
           <AdminGuideButton locale={locale} steps={adminGuideSteps("ocr", locale)} />
@@ -164,7 +169,7 @@ export function OcrSection({
         steps={ocrSteps}
       />
       <div
-        className={styles.ocrSummary}
+        className={adminOcrSectionStyles.ocrSummary}
         aria-label={isKorean ? "현재 검토 행 요약" : "Current review row summary"}
       >
         <article>
@@ -207,11 +212,11 @@ export function OcrSection({
         </article>
       </div>
       {notice ? <NoticeMessage notice={notice} /> : null}
-      <div className={styles.ocrWorkspace}>
+      <div className={adminOcrSectionStyles.ocrWorkspace}>
         <section className={styles.ocrSourcePanel} aria-labelledby="ocr-source-title">
-          <div className={styles.titleWithHelp}>
+          <div className={adminSharedStyles.titleWithHelp}>
             <h3 id="ocr-source-title">{isKorean ? "원본 이미지" : "Source image"}</h3>
-            <span className={styles.fieldHelp}>
+            <span className={adminSharedStyles.fieldHelp}>
               <AdminHelpButton
                 locale={locale}
                 target={isKorean ? "원본 이미지" : "Source image"}
@@ -226,7 +231,7 @@ export function OcrSection({
           </div>
           {remoteOcrDemo ? (
             <div
-              className={styles.ocrTransferNote}
+              className={adminOcrSectionStyles.ocrTransferNote}
               role="note"
               aria-label={
                 locale === "ko" ? "PC OCR 임시 테스트" : "Temporary PC OCR test"
@@ -248,7 +253,7 @@ export function OcrSection({
             </div>
           ) : localOcr ? (
             <div
-              className={styles.ocrTransferNote}
+              className={adminOcrSectionStyles.ocrTransferNote}
               role="note"
               aria-label={locale === "ko" ? "로컬 OCR 테스트" : "Local OCR test"}
             >
@@ -260,13 +265,16 @@ export function OcrSection({
               </p>
             </div>
           ) : (
-            <p className={styles.ocrTransferNote}>
+            <p className={adminOcrSectionStyles.ocrTransferNote}>
               {locale === "ko"
                 ? "이미지는 관리자 API로 전송합니다. 개인정보 포함 여부를 확인하세요. 검토본 저장만으로 재고나 상품 공개 상태는 바뀌지 않습니다."
                 : "Images are sent to the administrator API. Check for personal information before sending. Saving a review does not change inventory or publish products."}
             </p>
           )}
-          <label className={styles.ocrFileControl} data-admin-guide="ocr.image">
+          <label
+            className={adminOcrSectionStyles.ocrFileControl}
+            data-admin-guide="ocr.image"
+          >
             <span>{isKorean ? "이미지 파일 선택" : "Choose image file"}</span>
             <input
               accept="image/png,image/jpeg,image/webp"
@@ -292,7 +300,7 @@ export function OcrSection({
           {file ? (
             <OcrSourcePreview file={file} />
           ) : (
-            <div className={styles.ocrSourceEmpty}>
+            <div className={adminOcrSectionStyles.ocrSourceEmpty}>
               <span aria-hidden="true">▧</span>
               <p>
                 {isKorean

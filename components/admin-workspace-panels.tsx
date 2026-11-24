@@ -1,8 +1,8 @@
 "use client";
+import adminSharedStyles from "./admin-shared.module.css";
 import { navigateToAdminProductEditor } from "@/lib/admin-ui/navigation";
 import { BrandSection } from "./admin-brand-section";
 import { CouponSection } from "./admin-coupon-section";
-import styles from "./admin-dashboard.module.css";
 import { InventorySection } from "./admin-inventory-section";
 import { MarketingSection } from "./admin-marketing-section";
 import { MembersSection } from "./admin-members-section";
@@ -106,7 +106,7 @@ export function AdminWorkspacePanels({
   return (
     <section
       aria-labelledby={`admin-tab-${activeSection}`}
-      className={`${styles.workspace} ${requiredStyles.requiredScope}`}
+      className={`${adminSharedStyles.workspace} ${requiredStyles.requiredScope}`}
       id={`admin-panel-${activeSection}`}
       role="tabpanel"
       tabIndex={-1}

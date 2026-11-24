@@ -1,4 +1,6 @@
 "use client";
+import adminWorkspaceLayoutStyles from "./admin-workspace-layout.module.css";
+import adminSharedStyles from "./admin-shared.module.css";
 import Link from "next/link";
 import styles from "./admin-dashboard.module.css";
 import { AdminMenuIcon, sectionShortLabels } from "./admin-navigation";
@@ -19,7 +21,7 @@ export function AdminWorkspaceHeader({
   return (
     <header className={styles.adminHeader}>
       <div>
-        <p className={styles.adminBreadcrumb}>
+        <p className={adminWorkspaceLayoutStyles.adminBreadcrumb}>
           {locale === "ko" ? "관리자" : "Admin"}
           <span aria-hidden="true">/</span>
           {activeSection === "overview"
@@ -28,12 +30,15 @@ export function AdminWorkspaceHeader({
               : "Home"
             : sectionShortLabels[locale][activeSection]}
         </p>
-        <h1 className={styles.srOnly}>
+        <h1 className={adminSharedStyles.srOnly}>
           {locale === "ko" ? "스토어 운영" : "Store operations"}
         </h1>
       </div>
-      <div className={styles.headerActions}>
-        <div className={styles.languageSwitch} aria-label="Language">
+      <div className={adminWorkspaceLayoutStyles.headerActions}>
+        <div
+          className={adminWorkspaceLayoutStyles.languageSwitch}
+          aria-label="Language"
+        >
           <button
             aria-pressed={locale === "ko"}
             onClick={() => setLocale("ko")}
@@ -41,7 +46,7 @@ export function AdminWorkspaceHeader({
           >
             {languageLabels.ko}
           </button>
-          <span aria-hidden="true" className={styles.languageSep}>
+          <span aria-hidden="true" className={adminWorkspaceLayoutStyles.languageSep}>
             /
           </span>
           <button
@@ -52,14 +57,14 @@ export function AdminWorkspaceHeader({
             {languageLabels.en}
           </button>
         </div>
-        <div className={styles.headerStatusRow}>
+        <div className={adminWorkspaceLayoutStyles.headerStatusRow}>
           <Link
             className={`${styles.homeLink} ${styles.mobileStoreLink}`}
             href={storeReturnPath}
           >
             {copy.adminBackToStore}
           </Link>
-          <div className={styles.securityBadge} title={adminName}>
+          <div className={adminWorkspaceLayoutStyles.securityBadge} title={adminName}>
             <AdminMenuIcon section="members" />
             {locale === "ko" ? "관리자" : "Administrator"}
           </div>

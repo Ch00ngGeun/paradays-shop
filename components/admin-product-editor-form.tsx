@@ -1,4 +1,6 @@
 "use client";
+import adminProductSectionStyles from "./admin-product-section.module.css";
+import adminSharedStyles from "./admin-shared.module.css";
 import type { AdminProductDraft } from "@/lib/admin-ui/types";
 import { type SizeChartKind, type SizeChartValues } from "@/lib/size-chart";
 import type { DeckSpec, Locale } from "@/types/store";
@@ -382,7 +384,7 @@ export function AdminProductEditorForm({
 
       {notice ? <NoticeMessage notice={notice} /> : null}
       {!canSaveToServer ? (
-        <p className={styles.productStorageNote} role="status">
+        <p className={adminProductSectionStyles.productStorageNote} role="status">
           {isKorean
             ? "서버 미연결 · 이 브라우저에만 보관되며 새로고침하면 사라집니다. 스토어에는 공개되지 않습니다."
             : "No server connection · Kept only in this browser and lost on refresh. Not published to the store."}
@@ -390,7 +392,7 @@ export function AdminProductEditorForm({
       ) : null}
       <div className={styles.formActions}>
         {canSaveToServer ? (
-          <span className={styles.fieldHelp}>
+          <span className={adminSharedStyles.fieldHelp}>
             <AdminHelpButton
               locale={locale}
               target={isKorean ? "상품 저장" : "Saving the product"}
@@ -443,7 +445,7 @@ export function AdminProductEditorForm({
         </button>
       </div>
       {canSaveToServer ? null : (
-        <p className={styles.productSaveHint}>
+        <p className={adminProductSectionStyles.productSaveHint}>
           {isKorean
             ? "서버 저장·공개는 관리자 API 연결 후 가능합니다."
             : "Saving to the server and publishing need the admin API connection."}

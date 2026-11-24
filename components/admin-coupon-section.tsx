@@ -1,4 +1,6 @@
 "use client";
+import adminCouponSectionStyles from "./admin-coupon-section.module.css";
+import adminSharedStyles from "./admin-shared.module.css";
 import { useLocale } from "@/contexts/locale-context";
 import { adminGuideSteps } from "@/lib/admin-ui/admin-guides";
 import { type FormEvent } from "react";
@@ -69,7 +71,7 @@ export function CouponSection({
 
   return (
     <div className={`${styles.sectionStack} ${styles.couponScreen}`}>
-      <header className={styles.couponHeader}>
+      <header className={adminCouponSectionStyles.couponHeader}>
         <div>
           <p>
             {isKorean ? "고객 / 쿠폰 / 새 초안" : "Customers / Coupons / New draft"}
@@ -94,7 +96,7 @@ export function CouponSection({
         <AdminGuideButton locale={locale} steps={adminGuideSteps("coupons", locale)} />
       </header>
       {/* A safety notice, so it stays on screen instead of inside the help. */}
-      <p className={styles.couponSaveNote}>
+      <p className={adminCouponSectionStyles.couponSaveNote}>
         {isKorean
           ? "이 화면은 쿠폰 초안만 저장합니다. 고객에게 발급하거나 결제에 적용하지 않습니다."
           : "This screen saves coupon drafts only. It does not issue coupons to customers or apply them at checkout."}
@@ -122,14 +124,14 @@ export function CouponSection({
           },
         ]}
       />
-      <div className={styles.couponWorkspace}>
+      <div className={adminCouponSectionStyles.couponWorkspace}>
         <form
           aria-label={isKorean ? "쿠폰 초안 설정" : "Coupon draft settings"}
-          className={styles.couponForm}
+          className={adminCouponSectionStyles.couponForm}
           noValidate
           onSubmit={onSubmit}
         >
-          <div className={styles.titleWithHelp}>
+          <div className={adminSharedStyles.titleWithHelp}>
             <h3>{isKorean ? "혜택 설정" : "Set benefit"}</h3>
             <AdminHelpButton
               locale={locale}
@@ -198,7 +200,7 @@ export function CouponSection({
               </span>
             </div>
             <div
-              className={styles.couponInlineFields}
+              className={adminCouponSectionStyles.couponInlineFields}
               data-admin-guide="coupons.benefit"
             >
               <label>
@@ -290,11 +292,11 @@ export function CouponSection({
               </span>
             </div>
             {hasInput && validationMessage ? (
-              <p className={styles.couponValidation}>
+              <p className={adminCouponSectionStyles.couponValidation}>
                 {localizedText(validationMessage, locale)}
               </p>
             ) : null}
-            <p className={styles.couponSaveNote}>
+            <p className={adminCouponSectionStyles.couponSaveNote}>
               {canSaveToServer
                 ? isKorean
                   ? "서버에 초안만 저장합니다. 고객 발급·할인 적용은 하지 않습니다."
@@ -325,17 +327,20 @@ export function CouponSection({
           {notice ? <NoticeMessage notice={notice} /> : null}
         </form>
         <aside
-          className={styles.couponDraftPreview}
+          className={adminCouponSectionStyles.couponDraftPreview}
           data-admin-guide="coupons.preview"
           aria-label={isKorean ? "쿠폰 고객 노출 미리보기" : "Coupon customer preview"}
         >
-          <div className={styles.couponPreviewHeading}>
+          <div className={adminCouponSectionStyles.couponPreviewHeading}>
             <h3>{isKorean ? "쿠폰 미리보기" : "Coupon preview"}</h3>
             <span>
               {isKorean ? "초안 예시 · 사용 불가" : "Draft example · Not usable"}
             </span>
           </div>
-          <div className={styles.couponDraftTicket} data-valid={!validationMessage}>
+          <div
+            className={adminCouponSectionStyles.couponDraftTicket}
+            data-valid={!validationMessage}
+          >
             <span>PARADAYS</span>
             <strong>{benefitPreview}</strong>
             <p>
@@ -363,7 +368,7 @@ export function CouponSection({
                   : "No expiry set"}
             </small>
           </div>
-          <div className={styles.couponUnissued}>
+          <div className={adminCouponSectionStyles.couponUnissued}>
             <strong>{isKorean ? "아직 발급되지 않았습니다" : "Not issued yet"}</strong>
             <p>
               {isKorean

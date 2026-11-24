@@ -1,4 +1,6 @@
 "use client";
+import adminProductSectionStyles from "./admin-product-section.module.css";
+import adminSharedStyles from "./admin-shared.module.css";
 import { useLocale } from "@/contexts/locale-context";
 import { adminGuideSteps } from "@/lib/admin-ui/admin-guides";
 import type { AdminCatalogListItem, AdminProductDraft } from "@/lib/admin-ui/types";
@@ -249,7 +251,7 @@ export function ProductSection({
   return (
     <div className={`${styles.sectionStack} ${styles.productScreen}`}>
       {productStepper}
-      <div className={styles.productEditorToolbar}>
+      <div className={adminProductSectionStyles.productEditorToolbar}>
         <button
           className={styles.backToListButton}
           onClick={onCloseEditor}
@@ -257,18 +259,20 @@ export function ProductSection({
         >
           {isKorean ? "← 목록으로" : "← Back to list"}
         </button>
-        <span className={styles.pushEnd}>
+        <span className={adminSharedStyles.pushEnd}>
           <AdminGuideButton
             locale={locale}
             steps={adminGuideSteps("products", locale)}
           />
         </span>
       </div>
-      <div className={`${styles.productPageHeading} ${styles.productCompactHeading}`}>
+      <div
+        className={`${adminProductSectionStyles.productPageHeading} ${adminProductSectionStyles.productCompactHeading}`}
+      >
         <div>
-          <div className={styles.productEditorTitle}>
+          <div className={adminProductSectionStyles.productEditorTitle}>
             <h2>{editorTitle}</h2>
-            <span className={styles.productSaveState}>
+            <span className={adminProductSectionStyles.productSaveState}>
               {canSaveToServer
                 ? draft.isVisible
                   ? isKorean
@@ -303,7 +307,7 @@ export function ProductSection({
             </p>
           ) : null}
         </div>
-        <label className={styles.productManagementCode}>
+        <label className={adminProductSectionStyles.productManagementCode}>
           <span>{isKorean ? "SKU / 관리 코드" : "SKU / code"}</span>
           <input
             readOnly

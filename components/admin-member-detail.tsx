@@ -1,4 +1,5 @@
 "use client";
+import adminMembersSectionStyles from "./admin-members-section.module.css";
 import { useLocale } from "@/contexts/locale-context";
 import type { AdminMember } from "@/lib/admin-ui/types";
 import { useState } from "react";
@@ -49,8 +50,11 @@ export function MemberDetail({
     Boolean(member.userSub && member.userSub === currentUserSub);
   const cannotChange = locked || needsRefresh || !canUpdate;
   return (
-    <aside className={styles.memberDetail} aria-labelledby="member-detail-title">
-      <div className={styles.memberDetailHeading}>
+    <aside
+      className={adminMembersSectionStyles.memberDetail}
+      aria-labelledby="member-detail-title"
+    >
+      <div className={adminMembersSectionStyles.memberDetailHeading}>
         <h3
           data-member-username={member.username}
           id="member-detail-title"
@@ -72,7 +76,7 @@ export function MemberDetail({
                 : "View & permissions"}
         </span>
       </div>
-      <dl className={styles.memberFacts}>
+      <dl className={adminMembersSectionStyles.memberFacts}>
         <div>
           <dt>{isKorean ? "계정 식별자" : "Account ID"}</dt>
           <dd>{member.username}</dd>
@@ -108,7 +112,7 @@ export function MemberDetail({
         </div>
       </dl>
       <fieldset
-        className={styles.memberPermissionFields}
+        className={adminMembersSectionStyles.memberPermissionFields}
         data-admin-guide="members.roles"
         disabled={cannotChange}
       >
@@ -118,7 +122,7 @@ export function MemberDetail({
             ? "변경할 권한을 선택해 현재 상태와 적용할 내용을 비교하세요."
             : "Choose a permission to compare the current state with the change."}
         </p>
-        <div className={styles.memberPermissionChoices}>
+        <div className={adminMembersSectionStyles.memberPermissionChoices}>
           {(["support", "admin"] as const).map((value) => {
             const removing = member.groups.includes(value);
             const isSelfAdmin =
@@ -151,7 +155,7 @@ export function MemberDetail({
         {member.groups.includes("admin") &&
         member.userSub &&
         member.userSub === currentUserSub ? (
-          <p className={styles.memberStateNote}>
+          <p className={adminMembersSectionStyles.memberStateNote}>
             {isKorean
               ? "본인 계정의 admin 권한은 해제할 수 없습니다."
               : "You cannot remove the admin permission from your own account."}
@@ -159,7 +163,7 @@ export function MemberDetail({
         ) : null}
         {group ? (
           <div
-            className={styles.memberChangePreview}
+            className={adminMembersSectionStyles.memberChangePreview}
             aria-label={isKorean ? "권한 변경 미리보기" : "Permission change preview"}
           >
             <strong>{isKorean ? "아직 미반영" : "Not applied yet"}</strong>
@@ -196,7 +200,7 @@ export function MemberDetail({
             </label>
           </div>
         ) : null}
-        <div className={styles.memberPermissionActions}>
+        <div className={adminMembersSectionStyles.memberPermissionActions}>
           <button
             className={styles.primaryButton}
             disabled={!group || !confirmed || selfAdminBlocked}
@@ -236,19 +240,19 @@ export function MemberDetail({
         </div>
       </fieldset>
       {needsRefresh ? (
-        <p className={styles.memberStateWarning}>
+        <p className={adminMembersSectionStyles.memberStateWarning}>
           {isKorean
             ? "최신 권한을 확인해야 합니다. 회원 목록을 다시 불러온 뒤 변경 내용을 새로 검토하세요."
             : "Check the latest permissions. Load the member list again, then review the change from scratch."}
         </p>
       ) : !canUpdate ? (
-        <p className={styles.memberStateNote}>
+        <p className={adminMembersSectionStyles.memberStateNote}>
           {isKorean
             ? "권한 변경 API가 연결되지 않아 읽기만 가능합니다."
             : "The permission API is not connected, so this is read-only."}
         </p>
       ) : (
-        <div className={styles.memberStateNote}>
+        <div className={adminMembersSectionStyles.memberStateNote}>
           <AdminHelpButton
             locale={locale}
             target={isKorean ? "운영 권한 변경" : "Change operating permission"}

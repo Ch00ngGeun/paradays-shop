@@ -1,4 +1,6 @@
 "use client";
+import adminProductSectionStyles from "./admin-product-section.module.css";
+import adminSharedStyles from "./admin-shared.module.css";
 import type { Locale } from "@/types/store";
 import styles from "./admin-dashboard.module.css";
 import { AdminHelpButton } from "./admin-help-button";
@@ -53,10 +55,10 @@ export function AdminProductPreview({
       data-admin-guide="products.preview"
     >
       <div className={styles.previewHeader}>
-        <div className={styles.productPreviewTitle}>
+        <div className={adminProductSectionStyles.productPreviewTitle}>
           <h2>{isKorean ? "고객 화면 미리보기" : "Customer preview"}</h2>
           {canSaveToServer ? (
-            <span className={styles.fieldHelp}>
+            <span className={adminSharedStyles.fieldHelp}>
               <AdminHelpButton
                 locale={locale}
                 target={isKorean ? "고객 화면 미리보기" : "Customer preview"}
@@ -74,7 +76,7 @@ export function AdminProductPreview({
             </span>
           ) : null}
         </div>
-        <span className={styles.productSaveState}>
+        <span className={adminProductSectionStyles.productSaveState}>
           {canSaveToServer
             ? draft.isVisible
               ? isKorean
@@ -88,14 +90,14 @@ export function AdminProductPreview({
               : "Local preview"}
         </span>
       </div>
-      <article className={styles.storeCardPreview}>
+      <article className={adminSharedStyles.storeCardPreview}>
         <div className={styles.storeCardDetail}>
           <div className={styles.storeCardInfo}>
-            <p className={styles.productPreviewBrand}>
+            <p className={adminProductSectionStyles.productPreviewBrand}>
               {draft.brand.trim() || (isKorean ? "브랜드" : "Brand")}
             </p>
             <h3>{previewName}</h3>
-            <div className={styles.productPreviewPrice}>
+            <div className={adminProductSectionStyles.productPreviewPrice}>
               <span>
                 {previewPrice > 0
                   ? moneyFormatter.format(previewPrice)
@@ -146,7 +148,9 @@ export function AdminProductPreview({
           </div>
 
           <div className={styles.storeCardMedia}>
-            {draft.isFeatured ? <span className={styles.newBadge}>NEW</span> : null}
+            {draft.isFeatured ? (
+              <span className={adminProductSectionStyles.newBadge}>NEW</span>
+            ) : null}
             {/* 파일 선택으로 생긴 blob URL은 정적 export의 이미지 최적화 경로를 거치지 않습니다. */}
             <AdminProductImage
               alt={

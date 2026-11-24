@@ -1,4 +1,6 @@
 "use client";
+import adminMembersSectionStyles from "./admin-members-section.module.css";
+import adminSharedStyles from "./admin-shared.module.css";
 import { useLocale } from "@/contexts/locale-context";
 import { adminGuideSteps } from "@/lib/admin-ui/admin-guides";
 import type { AdminMember } from "@/lib/admin-ui/types";
@@ -130,7 +132,7 @@ export function MembersSection({
         locale={locale}
         steps={memberSteps}
       />
-      <header className={styles.memberHeader}>
+      <header className={adminMembersSectionStyles.memberHeader}>
         <div>
           <p>{isKorean ? "고객 / 회원" : "Customers / Members"}</p>
           <h2>{isKorean ? "회원 관리" : "Members"}</h2>
@@ -175,21 +177,21 @@ export function MembersSection({
         </p>
       </section>
       {!canLoad ? (
-        <p className={styles.memberStateNote}>
+        <p className={adminMembersSectionStyles.memberStateNote}>
           {isKorean
             ? "회원 목록 API가 연결되지 않았습니다. 서버 연결 후 조회할 수 있습니다."
             : "The member list API is not connected. You can load members once the server is connected."}
         </p>
       ) : null}
       {notice ? <NoticeMessage notice={notice} /> : null}
-      <div className={styles.memberWorkspace}>
+      <div className={adminMembersSectionStyles.memberWorkspace}>
         <section
-          className={styles.memberDirectory}
+          className={adminMembersSectionStyles.memberDirectory}
           aria-labelledby="member-list-title"
           data-admin-guide="members.list"
         >
-          <div className={styles.memberDirectoryHeading}>
-            <div className={styles.titleWithHelp}>
+          <div className={adminMembersSectionStyles.memberDirectoryHeading}>
+            <div className={adminSharedStyles.titleWithHelp}>
               <h3 id="member-list-title">
                 {loaded
                   ? isKorean
@@ -226,7 +228,7 @@ export function MembersSection({
             </p>
           </div>
           {matching.length ? (
-            <ul className={styles.memberDirectoryList}>
+            <ul className={adminMembersSectionStyles.memberDirectoryList}>
               {matching.map((member) => {
                 const label = member.displayName ?? member.email ?? member.username;
                 return (
@@ -240,18 +242,18 @@ export function MembersSection({
                       onClick={() => selectMember(member.username)}
                       type="button"
                     >
-                      <span className={styles.memberIdentity}>
+                      <span className={adminMembersSectionStyles.memberIdentity}>
                         <strong>{label}</strong>
                         <span>{member.email ?? member.username}</span>
                       </span>
-                      <span className={styles.memberGroupSummary}>
+                      <span className={adminMembersSectionStyles.memberGroupSummary}>
                         {member.groups.length
                           ? member.groups.join(" · ")
                           : isKorean
                             ? "운영 그룹 없음"
                             : "No operating group"}
                       </span>
-                      <span className={styles.memberEnabled}>
+                      <span className={adminMembersSectionStyles.memberEnabled}>
                         {member.enabled
                           ? isKorean
                             ? "활성"
@@ -292,7 +294,7 @@ export function MembersSection({
             saving={saving}
           />
         ) : (
-          <aside className={styles.memberDetailEmpty}>
+          <aside className={adminMembersSectionStyles.memberDetailEmpty}>
             <span aria-hidden="true">◎</span>
             <h3>{isKorean ? "회원 상세" : "Member details"}</h3>
             <p>

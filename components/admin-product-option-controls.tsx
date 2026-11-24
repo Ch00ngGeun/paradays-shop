@@ -1,4 +1,5 @@
 "use client";
+import adminProductSectionStyles from "./admin-product-section.module.css";
 import { useLocale } from "@/contexts/locale-context";
 import {
   appendProductOption,
@@ -189,7 +190,7 @@ export function ProductOptionControls({
       {options.length ? (
         <ul
           aria-label={isKorean ? "추가된 옵션" : "Added options"}
-          className={styles.productOptionChips}
+          className={adminProductSectionStyles.productOptionChips}
         >
           {options.map((item, index) => {
             const markId = `${editorId}-option-${index}-chart`;
@@ -200,7 +201,10 @@ export function ProductOptionControls({
             ) : null;
             // The box holds the name and its chart mark; the remove button sits outside it.
             return (
-              <li className={styles.productOptionChip} key={`${index}:${item}`}>
+              <li
+                className={adminProductSectionStyles.productOptionChip}
+                key={`${index}:${item}`}
+              >
                 {onOpenOption ? (
                   <button
                     aria-describedby={mark ? markId : undefined}

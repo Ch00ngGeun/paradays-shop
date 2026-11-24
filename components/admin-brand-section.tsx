@@ -1,4 +1,6 @@
 "use client";
+import adminBrandSectionStyles from "./admin-brand-section.module.css";
+import adminSharedStyles from "./admin-shared.module.css";
 import { useLocale } from "@/contexts/locale-context";
 import { adminGuideSteps } from "@/lib/admin-ui/admin-guides";
 import type { AdminCatalogListItem } from "@/lib/admin-ui/types";
@@ -143,21 +145,21 @@ export function BrandSection({
         locale={locale}
         steps={brandSteps}
       />
-      <header className={styles.brandHeader}>
+      <header className={adminBrandSectionStyles.brandHeader}>
         <div>
           <p>{isKorean ? "상품·재고 / 브랜드" : "Products & stock / Brands"}</p>
           <h2>{isKorean ? "브랜드 관리" : "Brands"}</h2>
         </div>
         <AdminGuideButton locale={locale} steps={adminGuideSteps("brands", locale)} />
       </header>
-      <div className={styles.brandWorkspace}>
+      <div className={adminBrandSectionStyles.brandWorkspace}>
         <section
-          className={styles.brandCatalog}
+          className={adminBrandSectionStyles.brandCatalog}
           aria-labelledby="brand-list-title"
           data-admin-guide="brands.list"
         >
-          <div className={styles.brandCatalogHeading}>
-            <div className={styles.titleWithHelp}>
+          <div className={adminBrandSectionStyles.brandCatalogHeading}>
+            <div className={adminSharedStyles.titleWithHelp}>
               <h3 id="brand-list-title">
                 {isKorean ? "이 화면에서 확인한 브랜드" : "Brands found on this screen"}
               </h3>
@@ -183,7 +185,7 @@ export function BrandSection({
                 : "From loaded products and additions here · Not the full list"}
             </p>
           </div>
-          <label className={styles.brandSearch}>
+          <label className={adminBrandSectionStyles.brandSearch}>
             <span>{isKorean ? "브랜드명 검색" : "Search brand name"}</span>
             <input
               onChange={(event) => setSearch(event.target.value)}
@@ -193,7 +195,7 @@ export function BrandSection({
             />
           </label>
           <div
-            className={styles.brandFilters}
+            className={adminBrandSectionStyles.brandFilters}
             role="group"
             aria-label={isKorean ? "상품 연결 필터" : "Product link filter"}
           >
@@ -220,13 +222,13 @@ export function BrandSection({
             ))}
           </div>
           {loading ? (
-            <p className={styles.brandListNotice} role="status">
+            <p className={adminBrandSectionStyles.brandListNotice} role="status">
               {isKorean
                 ? "상품의 브랜드를 불러오는 중…"
                 : "Loading brands from products…"}
             </p>
           ) : loadFailed ? (
-            <p className={styles.brandListError} role="alert">
+            <p className={adminBrandSectionStyles.brandListError} role="alert">
               {isKorean
                 ? "상품 목록을 불러오지 못했습니다. 아래 연결 수는 현재 이 화면에 남은 상품만 기준으로 하며 전체 수량이 아닙니다."
                 : "Could not load the product list. The link counts below use only the products left on this screen and are not totals."}
@@ -235,8 +237,8 @@ export function BrandSection({
           {matching.length === 0 ? (
             <EmptyState title={emptyTitle} description={emptyDescription} />
           ) : (
-            <div className={styles.brandTableWrap}>
-              <table className={styles.brandTable}>
+            <div className={adminBrandSectionStyles.brandTableWrap}>
+              <table className={adminBrandSectionStyles.brandTable}>
                 <caption>
                   {isKorean
                     ? "브랜드별 이 화면 상품 연결"
@@ -253,8 +255,11 @@ export function BrandSection({
                   {matching.map((entry) => (
                     <tr key={entry.name.toLowerCase()}>
                       <th scope="row">
-                        <span className={styles.brandRowIdentity}>
-                          <span className={styles.brandTextMark} aria-hidden="true">
+                        <span className={adminBrandSectionStyles.brandRowIdentity}>
+                          <span
+                            className={adminBrandSectionStyles.brandTextMark}
+                            aria-hidden="true"
+                          >
                             {entry.name.slice(0, 2).toUpperCase()}
                           </span>
                           <span>{entry.name}</span>
@@ -292,15 +297,15 @@ export function BrandSection({
         </section>
         <form
           aria-label={isKorean ? "브랜드 추가" : "Add brand"}
-          className={styles.brandForm}
+          className={adminBrandSectionStyles.brandForm}
           noValidate
           onSubmit={onSubmit}
         >
-          <div className={styles.brandFormHeading}>
-            <div className={styles.titleWithHelp}>
+          <div className={adminBrandSectionStyles.brandFormHeading}>
+            <div className={adminSharedStyles.titleWithHelp}>
               <h3>{isKorean ? "브랜드 추가" : "Add brand"}</h3>
               {canSaveToServer ? (
-                <span className={styles.fieldHelp}>
+                <span className={adminSharedStyles.fieldHelp}>
                   <AdminHelpButton
                     locale={locale}
                     target={isKorean ? "브랜드 추가" : "Add brand"}
@@ -329,17 +334,17 @@ export function BrandSection({
             </span>
           </div>
           {canSaveToServer ? null : (
-            <p className={styles.brandSaveHint}>
+            <p className={adminBrandSectionStyles.brandSaveHint}>
               {isKorean
                 ? "서버 연결이 없어 이 화면에만 임시 추가합니다."
                 : "Without a server connection, it is added on this screen only."}
             </p>
           )}
-          <fieldset disabled={saving} className={styles.brandFields}>
+          <fieldset disabled={saving} className={adminBrandSectionStyles.brandFields}>
             <label>
               <span>
                 {isKorean ? "브랜드명" : "Brand name"}{" "}
-                <span className={styles.brandRequired}>
+                <span className={adminBrandSectionStyles.brandRequired}>
                   {isKorean ? "(필수)" : "(required)"}
                 </span>
                 <span aria-hidden="true" className={requiredStyles.requiredMark}>
@@ -370,7 +375,7 @@ export function BrandSection({
               />
             </label>
             <section
-              className={styles.brandPreview}
+              className={adminBrandSectionStyles.brandPreview}
               aria-label={
                 isKorean ? "브랜드명 표시 예시" : "Brand name display example"
               }

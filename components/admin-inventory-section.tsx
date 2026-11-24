@@ -1,4 +1,7 @@
 "use client";
+import adminSharedStyles from "./admin-shared.module.css";
+import adminProductSectionStyles from "./admin-product-section.module.css";
+import adminInventorySectionStyles from "./admin-inventory-section.module.css";
 import { useLocale } from "@/contexts/locale-context";
 import { adminGuideSteps } from "@/lib/admin-ui/admin-guides";
 import type { AdminCatalogListItem } from "@/lib/admin-ui/types";
@@ -194,8 +197,8 @@ export function InventorySection({
         locale={locale}
         steps={inventorySteps}
       />
-      <div className={`${styles.productListHeader} ${styles.wrapRow}`}>
-        <div className={styles.productPageHeading}>
+      <div className={`${styles.productListHeader} ${adminSharedStyles.wrapRow}`}>
+        <div className={adminProductSectionStyles.productPageHeading}>
           <h2>{isKorean ? "재고 관리" : "Inventory"}</h2>
           <p>
             {isKorean
@@ -203,7 +206,7 @@ export function InventorySection({
               : "Select a product and check the quantity before and after the change."}
           </p>
         </div>
-        <div className={styles.productListHeaderActions}>
+        <div className={adminProductSectionStyles.productListHeaderActions}>
           <AdminGuideButton
             locale={locale}
             steps={adminGuideSteps("inventory", locale)}
@@ -288,7 +291,7 @@ export function InventorySection({
         </p>
       ) : null}
 
-      <div className={styles.inventoryWorkspace}>
+      <div className={adminInventorySectionStyles.inventoryWorkspace}>
         <div className={styles.inventoryPanel} aria-busy={loading}>
           <div className={styles.listPanelHeading}>
             <h2>{isKorean ? "상품 재고 목록" : "Product stock list"}</h2>
@@ -315,7 +318,10 @@ export function InventorySection({
           ) : null}
 
           {filteredProducts.length > 0 ? (
-            <ul className={styles.inventoryList} data-admin-guide="inventory.list">
+            <ul
+              className={adminInventorySectionStyles.inventoryList}
+              data-admin-guide="inventory.list"
+            >
               {filteredProducts.map((product) => {
                 return (
                   <li className={styles.inventoryRow} key={product.id}>
@@ -352,7 +358,7 @@ export function InventorySection({
                                 : "Private"}
                         </span>
                       </div>
-                      <div className={styles.inventoryQuantity}>
+                      <div className={adminInventorySectionStyles.inventoryQuantity}>
                         <strong>
                           {isKorean ? `${product.stock}개` : product.stock}
                         </strong>

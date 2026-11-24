@@ -1,4 +1,6 @@
 "use client";
+import adminSharedStyles from "./admin-shared.module.css";
+import adminProductSectionStyles from "./admin-product-section.module.css";
 import { adminGuideSteps } from "@/lib/admin-ui/admin-guides";
 import type { AdminCatalogListItem } from "@/lib/admin-ui/types";
 import { type SizeChartKind, type SizeChartValues } from "@/lib/size-chart";
@@ -135,8 +137,8 @@ export function AdminProductList({
   return (
     <div className={`${styles.sectionStack} ${styles.productScreen}`}>
       {productStepper}
-      <div className={`${styles.productListHeader} ${styles.wrapRow}`}>
-        <div className={styles.productPageHeading}>
+      <div className={`${styles.productListHeader} ${adminSharedStyles.wrapRow}`}>
+        <div className={adminProductSectionStyles.productPageHeading}>
           <h2>{isKorean ? "상품 관리" : "Products"}</h2>
           <p>
             {isKorean
@@ -144,7 +146,7 @@ export function AdminProductList({
               : "Check each product's visibility and stock."}
           </p>
         </div>
-        <div className={styles.productListHeaderActions}>
+        <div className={adminProductSectionStyles.productListHeaderActions}>
           <AdminGuideButton
             locale={locale}
             steps={adminGuideSteps("products", locale)}
@@ -162,7 +164,7 @@ export function AdminProductList({
       {notice ? <NoticeMessage notice={notice} /> : null}
       <div className={styles.productToolbar}>
         <label className={styles.productFilterSearch}>
-          <span className={styles.srOnly}>
+          <span className={adminSharedStyles.srOnly}>
             {isKorean ? "상품 검색" : "Search products"}
           </span>
           <input
@@ -211,7 +213,7 @@ export function AdminProductList({
           <span
             aria-hidden="true"
             aria-checked={allFilteredSelected}
-            className={styles.productCheckbox}
+            className={adminProductSectionStyles.productCheckbox}
           />
           <span>{isKorean ? "전체 선택" : "Select all"}</span>
         </button>
@@ -268,7 +270,7 @@ export function AdminProductList({
               <li
                 className={
                   isSelected
-                    ? `${styles.productListItem} ${styles.productListItemSelected}`
+                    ? `${styles.productListItem} ${adminProductSectionStyles.productListItemSelected}`
                     : styles.productListItem
                 }
                 key={product.id}
@@ -291,7 +293,7 @@ export function AdminProductList({
                   <span
                     aria-hidden="true"
                     aria-checked={isSelected}
-                    className={styles.productCheckbox}
+                    className={adminProductSectionStyles.productCheckbox}
                   />
                 </button>
                 <div className={styles.productListIdentity}>

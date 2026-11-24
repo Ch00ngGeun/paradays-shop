@@ -1,4 +1,5 @@
 "use client";
+import adminOcrSourcePreviewStyles from "./admin-ocr-source-preview.module.css";
 import { useLocale } from "@/contexts/locale-context";
 import type { AdminOcrReviewRow } from "@/lib/admin-ui/types";
 import { useEffect, useRef } from "react";
@@ -25,7 +26,7 @@ export function OcrSourcePreview({ file }: Readonly<{ file: File }>) {
     };
   }, [file]);
   return (
-    <figure className={styles.ocrSourceFigure}>
+    <figure className={adminOcrSourcePreviewStyles.ocrSourceFigure}>
       {/* 로컬 blob을 DOM ref로 교체·폐기하는 미리보기이며 최적화 서버로 전송하지 않습니다. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -45,7 +46,7 @@ export function OcrSourcePreview({ file }: Readonly<{ file: File }>) {
       </button>
       <dialog
         aria-labelledby="ocr-image-dialog-title"
-        className={styles.ocrImageDialog}
+        className={adminOcrSourcePreviewStyles.ocrImageDialog}
         ref={dialogRef}
       >
         <div>
