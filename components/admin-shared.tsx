@@ -4,7 +4,7 @@ import { useLocale } from "@/contexts/locale-context";
 import { type AdminSection } from "@/lib/admin-ui/navigation";
 import { getOcrInputErrorMessage } from "@/lib/admin-ui/ocr-input-validation";
 import type { AdminProductDraft } from "@/lib/admin-ui/types";
-import { getOcrRequestErrorMessage } from "@/lib/commerce/admin-api-client";
+import { getOcrRequestErrorMessage } from "@/lib/commerce/admin-api-client-ocr-errors";
 import type { Locale } from "@/types/store";
 import styles from "./admin-dashboard.module.css";
 import { AdminMenuIcon } from "./admin-navigation";

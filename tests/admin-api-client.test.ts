@@ -3,14 +3,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   AdminApiRequestError,
-  AdminApiResponseError,
   AdminOcrInputError,
-  AdminOcrDemoConnectionError,
   createAdminApiClient,
-  getOcrRequestErrorMessage,
+} from "@/lib/commerce/admin-api-client";
+import {
+  AdminApiResponseError,
+  AdminOcrDemoConnectionError,
+} from "@/lib/commerce/admin-api-client-errors";
+import { getOcrRequestErrorMessage } from "@/lib/commerce/admin-api-client-ocr-errors";
+import {
   isLocalOcrDevelopmentMode,
   isRemoteOcrDemoMode,
-} from "@/lib/commerce/admin-api-client";
+} from "@/lib/commerce/admin-api-client-environment";
 import { OCR_INPUT_LIMITS } from "@/lib/admin-ui/ocr-input-validation";
 import { getCheckoutApiConfig } from "@/lib/commerce/checkout-api-client";
 import type {
