@@ -18,34 +18,29 @@ import {
   clearPkceTransaction,
   CognitoAuthError,
   completeHostedUiCallback,
-  createHostedUiAuthorizationUrl,
   createHostedUiLogoutUrl,
   getValidAccessToken,
   persistAuthSession,
   readPersistedAuthSession,
   readTabAuthSession,
   rememberTabAuthSession,
-  removeHostedUiCallbackParameters,
   type AuthenticatedUser,
   type HostedUiFlow,
   type InMemoryAuthSession,
-  type SessionStorageLike,
 } from "@/lib/auth/cognito-client";
-import {
-  getCognitoConfiguration,
-  type CognitoAuthConfig,
-} from "@/lib/auth/cognito-config";
-import {
-  confirmForgotPassword,
-  confirmSignUpWithCode,
-  forgotPassword,
-  resendSignUpConfirmationCode,
-  signInWithPassword,
-  signUpWithPassword,
-  type CodeDeliveryDetails,
-  type SignUpDirectResult,
+import { getCognitoConfiguration } from "@/lib/auth/cognito-config";
+import type {
+  CodeDeliveryDetails,
+  SignUpDirectResult,
 } from "@/lib/auth/cognito-direct-auth";
 import { createMemberApiClientFromEnvironment } from "@/lib/commerce/member-api-client";
+
+import {
+  beginHostedUiFlow,
+  clearCallbackQueryFromAddressBar,
+  getSessionStorage,
+} from "./auth-context-helpers";
+import { useDirectAuthActions } from "./auth-direct-actions";
 
 /** 화면이 표시할 수 있는 최소 인증 상태. */
 export type AuthStatus = "initializing" | "anonymous" | "authenticated" | "unavailable";
@@ -103,41 +98,6 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-/** sessionStorage 접근이 차단된 브라우저에서는 로그인 시작을 안전하게 중단합니다. */
-function getSessionStorage(): SessionStorageLike | null {
-  try {
-    return window.sessionStorage;
-  } catch {
-    return null;
-  }
-}
-
-/** callback code/state/error를 주소창에서 한 번만 지웁니다. */
-function clearCallbackQueryFromAddressBar() {
-  const cleanPath = removeHostedUiCallbackParameters(window.location.href);
-
-  window.history.replaceState(window.history.state, "", cleanPath);
-}
-
-/** Cognito UI로 이동할 공통 시작 함수입니다. */
-async function beginHostedUiFlow({
-  flow,
-  storage,
-  config,
-}: Readonly<{
-  flow: HostedUiFlow;
-  storage: SessionStorageLike;
-  config: CognitoAuthConfig;
-}>) {
-  const authorizationUrl = await createHostedUiAuthorizationUrl({
-    config,
-    storage,
-    flow,
-  });
-
-  window.location.assign(authorizationUrl);
-}
 
 /**
  * 인증 Provider.
@@ -334,210 +294,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return configuration.config;
   }, [configuration]);
 
-  const signInDirect = useCallback(
-    async (email: string, password: string): Promise<AuthActionResult> => {
-      const config = requireConfig();
-
-      if (!config) {
-        return {
-          ok: false,
-          error: new CognitoAuthError("AUTH_CALLBACK_ERROR", "Cognito 미설정"),
-        };
-      }
-
-      try {
-        const session = await signInWithPassword({ config, email, password });
-        applySession(session);
-        return { ok: true };
-      } catch (caughtError) {
-        const authenticationError =
-          caughtError instanceof CognitoAuthError
-            ? caughtError
-            : new CognitoAuthError("AUTH_DIRECT_FAILED", "로그인에 실패했습니다.");
-        setError(authenticationError);
-        return { ok: false, error: authenticationError };
-      }
-    },
-    [applySession, requireConfig],
-  );
-
-  const signUpDirect = useCallback(
-    async (input: {
-      email: string;
-      password: string;
-      phoneNumber?: string;
-      firebaseIdToken?: string;
-    }) => {
-      const config = requireConfig();
-
-      if (!config) {
-        return {
-          ok: false as const,
-          error: new CognitoAuthError("AUTH_CALLBACK_ERROR", "Cognito 미설정"),
-        };
-      }
-
-      try {
-        const result = await signUpWithPassword({
-          config,
-          email: input.email,
-          password: input.password,
-          phoneNumber: input.phoneNumber,
-          firebaseIdToken: input.firebaseIdToken,
-        });
-        setError(null);
-        return { ok: true as const, result };
-      } catch (caughtError) {
-        const authenticationError =
-          caughtError instanceof CognitoAuthError
-            ? caughtError
-            : new CognitoAuthError("AUTH_DIRECT_FAILED", "가입에 실패했습니다.");
-        setError(authenticationError);
-        return { ok: false as const, error: authenticationError };
-      }
-    },
-    [requireConfig],
-  );
-
-  const confirmSignUpDirect = useCallback(
-    async (email: string, code: string): Promise<AuthActionResult> => {
-      const config = requireConfig();
-
-      if (!config) {
-        return {
-          ok: false,
-          error: new CognitoAuthError("AUTH_CALLBACK_ERROR", "Cognito 미설정"),
-        };
-      }
-
-      try {
-        await confirmSignUpWithCode({ config, email, code });
-        setError(null);
-        return { ok: true };
-      } catch (caughtError) {
-        const authenticationError =
-          caughtError instanceof CognitoAuthError
-            ? caughtError
-            : new CognitoAuthError(
-                "AUTH_DIRECT_FAILED",
-                "인증 코드 확인에 실패했습니다.",
-              );
-        setError(authenticationError);
-        return { ok: false, error: authenticationError };
-      }
-    },
-    [requireConfig],
-  );
-
-  const resendSignUpCode = useCallback(
-    async (email: string) => {
-      const config = requireConfig();
-
-      if (!config) {
-        return {
-          ok: false as const,
-          error: new CognitoAuthError("AUTH_CALLBACK_ERROR", "Cognito 미설정"),
-        };
-      }
-
-      try {
-        const codeDelivery = await resendSignUpConfirmationCode({ config, email });
-        setError(null);
-        return { ok: true as const, codeDelivery };
-      } catch (caughtError) {
-        const authenticationError =
-          caughtError instanceof CognitoAuthError
-            ? caughtError
-            : new CognitoAuthError(
-                "AUTH_DIRECT_FAILED",
-                "인증 코드 재발송에 실패했습니다.",
-              );
-        setError(authenticationError);
-        return { ok: false as const, error: authenticationError };
-      }
-    },
-    [requireConfig],
-  );
-
-  const forgotPasswordDirect = useCallback(
-    async (email: string) => {
-      const config = requireConfig();
-
-      if (!config) {
-        return {
-          ok: false as const,
-          error: new CognitoAuthError("AUTH_CALLBACK_ERROR", "Cognito 미설정"),
-        };
-      }
-
-      try {
-        const codeDelivery = await forgotPassword({ config, email });
-        setError(null);
-        return { ok: true as const, codeDelivery };
-      } catch (caughtError) {
-        const authenticationError =
-          caughtError instanceof CognitoAuthError
-            ? caughtError
-            : new CognitoAuthError(
-                "AUTH_DIRECT_FAILED",
-                "비밀번호 재설정 코드를 보내지 못했습니다.",
-              );
-
-        // UserNotFound/NotAuthorized는 존재 여부 비공개를 위해 성공과 동일하게 취급합니다.
-        if (authenticationError.code === "AUTH_DIRECT_NOT_AUTHORIZED") {
-          setError(null);
-          return { ok: true as const, codeDelivery: undefined };
-        }
-
-        // 복구 호출의 provider 원문은 전역 auth.error에도 보관하지 않습니다.
-        // 호출측이 계정 존재·전달 대상과 무관한 안전한 문구로만 매핑합니다.
-        setError(null);
-
-        return { ok: false as const, error: authenticationError };
-      }
-    },
-    [requireConfig],
-  );
-
-  const confirmForgotPasswordDirect = useCallback(
-    async (input: {
-      email: string;
-      code: string;
-      newPassword: string;
-    }): Promise<AuthActionResult> => {
-      const config = requireConfig();
-
-      if (!config) {
-        return {
-          ok: false,
-          error: new CognitoAuthError("AUTH_CALLBACK_ERROR", "Cognito 미설정"),
-        };
-      }
-
-      try {
-        await confirmForgotPassword({
-          config,
-          email: input.email,
-          code: input.code,
-          newPassword: input.newPassword,
-        });
-        setError(null);
-        return { ok: true };
-      } catch (caughtError) {
-        const authenticationError =
-          caughtError instanceof CognitoAuthError
-            ? caughtError
-            : new CognitoAuthError(
-                "AUTH_DIRECT_FAILED",
-                "비밀번호 재설정에 실패했습니다.",
-              );
-        // 복구 UI가 안전한 문구로 매핑하므로 전역 auth.error에 Cognito 원문을 남기지 않습니다.
-        setError(null);
-        return { ok: false, error: authenticationError };
-      }
-    },
-    [requireConfig],
-  );
+  const {
+    signInDirect,
+    signUpDirect,
+    confirmSignUpDirect,
+    resendSignUpCode,
+    forgotPasswordDirect,
+    confirmForgotPasswordDirect,
+  } = useDirectAuthActions({ requireConfig, applySession, setError });
 
   /** Cognito session cookie와 현재 페이지·탭 복원용 세션을 함께 비웁니다. */
   const signOut = useCallback((): AuthActionResult => {
