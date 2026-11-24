@@ -2,13 +2,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
-  Suspense,
   useEffect,
   useRef,
   useState,
-  useSyncExternalStore,
   type FocusEvent,
   type KeyboardEvent,
 } from "react";
@@ -18,17 +16,11 @@ import { useCart } from "@/contexts/cart-context";
 import { useCatalogFilter } from "@/contexts/catalog-filter-context";
 import { useLocale } from "@/contexts/locale-context";
 import { useTheme } from "@/contexts/theme-context";
-import { menuGroups, menuLeafTops, menuRootAll } from "@/data/navigation";
 
 import { useHeaderScroll } from "@/hooks/use-header-scroll";
-import { rememberAuthReturnPath } from "@/lib/auth/return-path";
-import {
-  buildAdminEntryHref,
-  getServerStorefrontHashSnapshot,
-  getStorefrontHashSnapshot,
-  subscribeToStorefrontHash,
-} from "@/lib/admin-ui/store-return";
 
+import { HeaderAccountNav } from "./header-account";
+import { HeaderMenuDropdown } from "./header-menu";
 import { LogoPlaceholder } from "./logo-placeholder";
 import { SearchModal } from "./search-modal";
 import styles from "./header.module.css";
@@ -230,106 +222,14 @@ export function Header() {
 
   /** Menu 트리거 + 드롭다운 본문 (PC·모바일 동일 스타일 공유) */
   const menuDropdown = isMenuMounted ? (
-    <div
-      className={
-        isMenuVisible
-          ? `${styles.menuDropdown} ${styles.menuDropdownVisible}`
-          : styles.menuDropdown
-      }
-      id="store-menu-dropdown"
-      onTransitionEnd={(event) => {
-        if (
-          event.target !== event.currentTarget ||
-          event.propertyName !== "opacity" ||
-          isMenuOpen ||
-          isMenuVisible
-        ) {
-          return;
-        }
-
-        setIsMenuMounted(false);
-      }}
-    >
-      {/* 상단: All | Clothes | SkateBoard | SALE */}
-      <section className={`${styles.leafTopSection} ${styles.menuAll}`}>
-        <button
-          aria-pressed={isSelected(menuRootAll.id)}
-          className={styles.leafTopButton}
-          data-menu-item
-          onClick={() => handleMenuSelection(menuRootAll.id)}
-          type="button"
-        >
-          {menuRootAll.label[locale]}
-        </button>
-      </section>
-
-      {menuGroups
-        .filter((group) => group.id !== "brand")
-        .map((group) => (
-          <section
-            className={
-              group.id === "clothes"
-                ? styles.menuClothes
-                : group.id === "skateboard"
-                  ? styles.menuSkate
-                  : undefined
-            }
-            key={group.id}
-          >
-            <p className={styles.groupHeading}>{group.label[locale]}</p>
-            {group.items.map((item) => (
-              <button
-                aria-pressed={isSelected(item.id)}
-                data-menu-item
-                key={item.id}
-                onClick={() => handleMenuSelection(item.id)}
-                type="button"
-              >
-                {item.label[locale]}
-              </button>
-            ))}
-          </section>
-        ))}
-
-      {menuLeafTops.map((item) => (
-        <section
-          className={`${styles.leafTopSection} ${styles.menuSale}`}
-          key={item.id}
-        >
-          <button
-            aria-pressed={isSelected(item.id)}
-            className={styles.leafTopButton}
-            data-menu-item
-            onClick={() => handleMenuSelection(item.id)}
-            type="button"
-          >
-            {item.label[locale]}
-          </button>
-        </section>
-      ))}
-
-      {/* 하단: Brand — Clothes 아래부터 가로로 펼쳐 스크롤 없이 표시 */}
-      {menuGroups
-        .filter((group) => group.id === "brand")
-        .map((group) => (
-          <section className={styles.brandSection} key={group.id}>
-            <p className={styles.groupHeading}>{group.label[locale]}</p>
-            <div className={styles.brandItems}>
-              {group.items.map((item) => (
-                <button
-                  aria-pressed={isSelected(item.id)}
-                  data-menu-item
-                  key={item.id}
-                  onClick={() => handleMenuSelection(item.id)}
-                  type="button"
-                >
-                  {item.label[locale]}
-                </button>
-              ))}
-            </div>
-          </section>
-        ))}
-    </div>
+    <HeaderMenuDropdown
+      isSelected={isSelected}
+      locale={locale}
+      isMenuOpen={isMenuOpen}
+      setIsMenuMounted={setIsMenuMounted}
+      isMenuVisible={isMenuVisible}
+      handleMenuSelection={handleMenuSelection}
+    />
   ) : null;
 
   if (isAdminRoute) {
@@ -344,58 +244,12 @@ export function Header() {
         }
       >
         {/* 좌상단: Sign / Login (로그인 시 마이페이지 / 유저이름 [/ 관리자페이지]) */}
-        <nav aria-label="Account" className={styles.authNav}>
-          {isAuthenticated && user ? (
-            <>
-              <Link
-                aria-current={pathname === "/account" ? "page" : undefined}
-                href="/account"
-              >
-                {copy.myPage}
-              </Link>
-              <span aria-hidden="true" className={styles.authNavSep}>
-                /
-              </span>
-              <span className={styles.authNavUser}>
-                {user.displayName?.trim() || user.email || user.username}
-              </span>
-              {user.groups.includes("admin") ? (
-                <>
-                  <span aria-hidden="true" className={styles.authNavSep}>
-                    /
-                  </span>
-                  <Suspense
-                    fallback={
-                      <Link href={buildAdminEntryHref(pathname)}>{copy.adminPage}</Link>
-                    }
-                  >
-                    <AdminEntryLink pathname={pathname} label={copy.adminPage} />
-                  </Suspense>
-                </>
-              ) : null}
-            </>
-          ) : (
-            <>
-              <Link
-                aria-current={pathname === "/signup" ? "page" : undefined}
-                href="/signup"
-                onClick={() => rememberAuthReturnPath()}
-              >
-                {copy.authNavSign}
-              </Link>
-              <span aria-hidden="true" className={styles.authNavSep}>
-                /
-              </span>
-              <Link
-                aria-current={pathname === "/login" ? "page" : undefined}
-                href="/login"
-                onClick={() => rememberAuthReturnPath()}
-              >
-                {copy.authNavLogin}
-              </Link>
-            </>
-          )}
-        </nav>
+        <HeaderAccountNav
+          pathname={pathname}
+          isAuthenticated={isAuthenticated}
+          user={user}
+          copy={copy}
+        />
 
         {/* 우상단: 언어 전환 + 아래 호버로 살짝 나오는 테마 토글 */}
         <div className={styles.utilitySwitch}>
@@ -580,24 +434,5 @@ export function Header() {
       <div aria-hidden="true" className={styles.headerSpacer} />
       <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
     </>
-  );
-}
-
-/** query 기반 신규 상품도 현재 상세 위치를 갖는 실제 링크로 만들어 새 탭 동작을 유지합니다. */
-function AdminEntryLink({
-  pathname,
-  label,
-}: Readonly<{ pathname: string; label: string }>) {
-  const searchParams = useSearchParams();
-  const hash = useSyncExternalStore(
-    subscribeToStorefrontHash,
-    getStorefrontHashSnapshot,
-    getServerStorefrontHashSnapshot,
-  );
-  const search = searchParams.toString();
-  return (
-    <Link href={buildAdminEntryHref(`${pathname}${search ? `?${search}` : ""}${hash}`)}>
-      {label}
-    </Link>
   );
 }
