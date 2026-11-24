@@ -11,10 +11,8 @@ import {
   type InventoryLedger,
   type RefundIntent,
 } from "./order-inventory-domain.js";
-import {
-  writeInventoryOrder,
-  settleInventoryPayment,
-} from "./order-inventory-store.js";
+import { settleInventoryPayment } from "./order-inventory-store.js";
+import { writeInventoryOrder } from "./order-inventory-writer.js";
 import type { OrderRecord } from "./order-record.js";
 import {
   cancelTossPayment,

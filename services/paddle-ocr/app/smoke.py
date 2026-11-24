@@ -15,12 +15,11 @@ from typing import Any
 
 from .image_validation import validate_base64_image
 from .ocr_engine import (
-    MAX_BOUNDING_COORDINATE,
-    MAX_OCR_TEXT_CHARACTERS,
     MAX_RAW_TEXT_CHARACTERS,
     preload_ocr_engine,
     run_ocr_in_memory,
 )
+from .ocr_engine_values import MAX_BOUNDING_COORDINATE, MAX_OCR_TEXT_CHARACTERS
 from .settings import get_settings
 
 

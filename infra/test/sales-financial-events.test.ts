@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { GetCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { documentClient } from "../lambda/dynamodb-client.js";
-import { writeInventoryOrder } from "../lambda/order-inventory-store.js";
+import { writeInventoryOrder } from "../lambda/order-inventory-writer.js";
 import { validFinancialEvents, type OrderRecord } from "../lambda/order-record.js";
 import type { TossPayment } from "../lambda/toss-payments.js";
 process.env.ORDER_TABLE_NAME = "test_orders";
