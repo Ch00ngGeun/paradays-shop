@@ -8,7 +8,7 @@ const DECK = { slug: "odwyer-sync-1-8-375", id: "prd_deck_size_synthetic" };
 const PLAIN = { slug: "synthetic-deck-without-spec", id: "prd_deck_size_plain" };
 const SPEC = { nose: 6.875, tail: 6.5, width: 8.5, length: 31.75, wheelbase: 14.25 };
 
-type Values = Record<string, number>;
+type Values = Record<string, number | null>;
 type Stored = {
   productId: string;
   slug: string;
@@ -1320,76 +1320,210 @@ test("a top without any size chart shows no size chart button", async ({ page })
   expect(audit.blocked).toEqual([]);
 });
 
-/** Rendered size of a value and its inch note: the SVG font size times the drawing's scale. */
+/** Actual screen font sizes include SVG transforms and any height-based scaling. */
 async function renderedLabelSizes(svg: ReturnType<Page["locator"]>) {
   return svg.evaluate((element) => {
     const drawing = element as SVGSVGElement;
-    const scale = drawing.getBoundingClientRect().width / drawing.viewBox.baseVal.width;
-    const size = (selector: string) =>
-      Math.min(
-        ...[...drawing.querySelectorAll(selector)].map(
-          (node) => parseFloat(getComputedStyle(node).fontSize) * scale,
-        ),
-      );
-    return { value: size("text"), inch: size("tspan") };
+    const size = (selector: string) => {
+      const nodes = [...drawing.querySelectorAll<SVGGraphicsElement>(selector)];
+      return nodes.length
+        ? Math.min(
+            ...nodes.map((node) => {
+              const matrix = node.getScreenCTM()!;
+              return (
+                parseFloat(getComputedStyle(node).fontSize) *
+                Math.hypot(matrix.a, matrix.b)
+              );
+            }),
+          )
+        : null;
+    };
+    return { value: size("text")!, inch: size("tspan") };
   });
 }
 
-test("the wide clothing drawing keeps readable labels at 375, 768, 1024 and 1440px and scrolls only when its box is narrower", async ({
-  page,
-}) => {
-  const audit = await setup(page, `/products/${DECK.slug}`, undefined, {
-    category: "Bottom",
-    sizes: ["32"],
-    sizeChart: {
-      kind: "longPants",
-      values: {
-        length: 288.8,
-        waist: 288.8,
-        hip: 288.8,
-        thigh: 288.8,
-        rise: 288.8,
-        hem: 288.8,
-      },
-    },
-    sizeChartKind: "longPants",
+/** A chart fits by sizing its SVG, rather than by clipping or scrolling its labels. */
+async function expectChartFits(
+  page: Page,
+  svg: ReturnType<Page["locator"]>,
+  width: number,
+) {
+  const dialog = page.getByRole("dialog");
+  const sizes = await renderedLabelSizes(svg);
+  expect(sizes.value, `${width}px primary value`).toBeGreaterThanOrEqual(16);
+  if (sizes.inch !== null)
+    expect(sizes.inch, `${width}px conversion`).toBeGreaterThanOrEqual(12);
+  const layout = await svg.evaluate((element) => {
+    const drawing = element as SVGSVGElement;
+    const box = drawing.getBoundingClientRect();
+    const image = drawing.closest('[role="dialog"]')!.querySelector("img")!;
+    const imageBox = image.getBoundingClientRect();
+    const parent = drawing.parentElement!;
+    const clipped = [...drawing.querySelectorAll("text")].filter((text) => {
+      const label = text.getBoundingClientRect();
+      return (
+        label.left < box.left - 1 ||
+        label.top < box.top - 1 ||
+        label.right > box.right + 1 ||
+        label.bottom > box.bottom + 1
+      );
+    });
+    return {
+      clipped: clipped.map((text) => text.textContent),
+      svgWidth: box.width,
+      svgTop: box.top,
+      svgLeft: box.left,
+      imageBottom: imageBox.bottom,
+      imageRight: imageBox.right,
+      imageHeight: imageBox.height,
+      parentFits: parent.scrollWidth <= parent.clientWidth + 1,
+    };
   });
-  const region = page
-    .getByRole("dialog")
-    .getByRole("region", { name: "상세사이즈 도면, 옆으로 넘겨 보기" });
-  const seen: Record<number, boolean> = {};
-  for (const width of [375, 768, 1024, 1440]) {
-    await page.setViewportSize({ width, height: 900 });
-    const svg = await storefrontChart(page);
-    const sizes = await renderedLabelSizes(svg);
-    expect(sizes.value, `${width}px value`).toBeGreaterThanOrEqual(12);
-    expect(sizes.inch, `${width}px inch`).toBeGreaterThanOrEqual(10);
-    const box = svg.locator("xpath=..");
-    const overflows = await box.evaluate(
-      (element) => element.scrollWidth > element.clientWidth,
-    );
-    seen[width] = overflows;
-    if (overflows) {
-      // Only a box that really scrolls is a keyboard stop.
-      await expect(region).toHaveCount(1);
-      await region.focus();
-      await page.keyboard.press("ArrowRight");
-      await expect
-        .poll(() => region.evaluate((element) => element.scrollLeft))
-        .toBeGreaterThan(0);
-    } else await expect(region).toHaveCount(0);
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-    ).toBe(true);
-    await page.keyboard.press("Escape");
+  expect(layout.clipped).toEqual([]);
+  expect(layout.parentFits).toBe(true);
+  expect(
+    await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
+  ).toBe(true);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+  await expect(dialog.getByRole("region")).toHaveCount(0);
+  if (width < 768) {
+    expect(layout.svgTop).toBeGreaterThanOrEqual(layout.imageBottom);
+    expect(layout.svgTop - layout.imageBottom).toBeLessThanOrEqual(16);
+    expect(layout.svgWidth).toBeGreaterThanOrEqual(width * 0.94);
+    expect(layout.imageHeight).toBeLessThanOrEqual(288);
+  } else {
+    expect(layout.svgLeft).toBeGreaterThanOrEqual(layout.imageRight);
   }
-  // A phone scrolls inside the box; a wide desktop shows the whole drawing.
-  expect(seen[375]).toBe(true);
-  expect(seen[1440]).toBe(false);
-  expect(audit.blocked).toEqual([]);
-});
+}
 
-test("widening the screen while the scrolling box has focus keeps the focus in the dialog", async ({
+const responsiveCharts: {
+  kind: string;
+  product: Partial<Stored>;
+  spec?: typeof SPEC;
+}[] = [
+  { kind: "deck", product: {}, spec: SPEC },
+  {
+    kind: "shortSleeve",
+    product: {
+      category: "Top",
+      sizes: ["S"],
+      sizeChart: { kind: "shortSleeve", values: TOP },
+      sizeChartKind: "shortSleeve",
+    },
+  },
+  {
+    kind: "raglanLongSleeve",
+    product: {
+      category: "Outerwear",
+      sizes: ["S"],
+      sizeChart: {
+        kind: "raglanLongSleeve",
+        values: {
+          length: 70,
+          chest: 58,
+          cuff: 10,
+          neckToCuff: 80.5,
+          hem: 50,
+          armhole: 30,
+        },
+      },
+      sizeChartKind: "raglanLongSleeve",
+    },
+  },
+  {
+    kind: "longPants",
+    product: {
+      category: "Bottom",
+      sizes: ["32"],
+      sizeChart: {
+        kind: "longPants",
+        values: { length: 100, waist: 40, hip: 52, thigh: 32, rise: 30, hem: 21.5 },
+      },
+      sizeChartKind: "longPants",
+    },
+  },
+  {
+    kind: "shorts",
+    product: {
+      category: "Bottom",
+      sizes: ["32"],
+      sizeChart: {
+        kind: "shorts",
+        values: { length: 50, waist: 40, hip: 52, thigh: 32, rise: 28, hem: 26 },
+      },
+      sizeChartKind: "shorts",
+    },
+  },
+  {
+    kind: "wheel",
+    product: {
+      category: "Wheels",
+      sizes: ["54mm"],
+      sizeChart: {
+        kind: "wheel",
+        values: { diameter: 54, width: 33.5, contactWidth: 20 },
+      },
+      sizeChartKind: "wheel",
+    },
+  },
+];
+
+for (const fixture of responsiveCharts)
+  test(`${fixture.kind} fits the detail overlay without sideways scrolling on phones and desktops`, async ({
+    page,
+  }, testInfo) => {
+    const audit = await setup(
+      page,
+      `/products/${DECK.slug}`,
+      fixture.spec,
+      fixture.product,
+    );
+    for (const width of [320, 375, 390, 430, 768, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      const svg = await storefrontChart(page);
+      await expectChartFits(page, svg, width);
+      if (width === 375) {
+        await svg.scrollIntoViewIfNeeded();
+        await page.screenshot({ path: testInfo.outputPath(`${fixture.kind}-375.png`) });
+      }
+      await page.keyboard.press("Escape");
+    }
+    // Maximum-length and blank stored values still fit; no real catalog write occurs.
+    const item = audit.store[0];
+    if (fixture.spec)
+      item.deckSpec = {
+        nose: null,
+        tail: 99.9999,
+        width: 99.9999,
+        length: 100,
+        wheelbase: null,
+      } as unknown as typeof SPEC;
+    else {
+      const chart = item.sizeChart!;
+      chart.values = Object.fromEntries(
+        Object.keys(chart.values).map((key, index) => [
+          key,
+          index % 2 ? null : fixture.kind === "wheel" ? 99.9 : 299.9,
+        ]),
+      );
+    }
+    await page.setViewportSize({ width: 320, height: 900 });
+    await page.reload();
+    const svg = await storefrontChart(page);
+    await expect(svg).toContainText("null");
+    await expectChartFits(page, svg, 320);
+    await svg.scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath(`${fixture.kind}-320-boundary.png`),
+    });
+    await page.keyboard.press("Escape");
+    expect(audit.patches).toEqual([]);
+    expect(audit.blocked).toEqual([]);
+  });
+
+test("resizing a chart preserves modal focus, Escape, close target and background scroll lock", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 375, height: 800 });
@@ -1399,28 +1533,34 @@ test("widening the screen while the scrolling box has focus keeps the focus in t
     sizeChart: { kind: "shortSleeve", values: TOP },
     sizeChartKind: "shortSleeve",
   });
+  const trigger = page.getByRole("button", { name: "상세사이즈" });
   await storefrontChart(page);
   const dialog = page.getByRole("dialog");
-  const region = dialog.getByRole("region", {
-    name: "상세사이즈 도면, 옆으로 넘겨 보기",
-  });
-  await region.focus();
-  await expect(region).toBeFocused();
+  const close = dialog.getByRole("button", { name: "닫기", exact: true });
+  const closeBox = (await close.boundingBox())!;
+  expect(closeBox.width).toBeGreaterThanOrEqual(44);
+  expect(closeBox.height).toBeGreaterThanOrEqual(44);
+  await expect(close).toBeFocused();
+  expect(await page.evaluate(() => document.body.style.overflow)).toBe("hidden");
   await page.setViewportSize({ width: 1440, height: 900 });
-  await expect(region).toHaveCount(0);
-  const inDialog = () =>
-    page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]')));
-  expect(await inDialog()).toBe(true);
-  // Tab still cycles inside the dialog.
+  await expect(close).toBeFocused();
   await page.keyboard.press("Tab");
-  expect(await inDialog()).toBe(true);
+  await expect(close).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(close).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  expect(await page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
+  await trigger.click();
+  await close.click();
+  await expect(dialog).toHaveCount(0);
+  expect(audit.patches).toEqual([]);
   expect(audit.blocked).toEqual([]);
 });
 
 for (const theme of ["light", "dark"] as const)
-  test(`the wide clothing drawing stays readable on a 375px screen in the ${theme} theme`, async ({
+  test(`all six size charts stay readable without sideways scrolling in the ${theme} theme`, async ({
     page,
   }, testInfo) => {
     await page.setViewportSize({ width: 375, height: 800 });
@@ -1428,48 +1568,24 @@ for (const theme of ["light", "dark"] as const)
       (value) => localStorage.setItem("paradays-theme", value),
       theme,
     );
-    const audit = await setup(page, `/products/${DECK.slug}`, undefined, {
-      category: "Top",
-      sizes: ["S"],
-      sizeChart: {
-        kind: "raglanLongSleeve",
-        values: {
-          length: 288.8,
-          chest: 288.8,
-          cuff: 288.8,
-          neckToCuff: 288.8,
-          hem: 288.8,
-          armhole: 288.8,
-        },
-      },
-      sizeChartKind: "raglanLongSleeve",
-    });
-    await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-    const svg = await storefrontChart(page);
-    const sizes = await renderedLabelSizes(svg);
-    expect(sizes.value).toBeGreaterThanOrEqual(12);
-    expect(sizes.inch).toBeGreaterThanOrEqual(10);
-    // The wider drawing scrolls inside its own box; the page itself never scrolls sideways.
-    const box = page
-      .getByRole("dialog")
-      .getByRole("region", { name: "상세사이즈 도면, 옆으로 넘겨 보기" });
-    expect(
-      await box.evaluate((element) => element.scrollWidth > element.clientWidth),
-    ).toBe(true);
-    // The keyboard reaches the box and scrolls it.
-    await box.focus();
-    await expect(box).toBeFocused();
-    await page.keyboard.press("ArrowRight");
-    await expect
-      .poll(() => box.evaluate((element) => element.scrollLeft))
-      .toBeGreaterThan(0);
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-    ).toBe(true);
-    await svg.scrollIntoViewIfNeeded();
-    await page.screenshot({ path: testInfo.outputPath(`size-chart-375-${theme}.png`) });
-    await page.keyboard.press("Escape");
-    expect(audit.blocked).toEqual([]);
+    for (const fixture of responsiveCharts) {
+      const audit = await setup(
+        page,
+        `/products/${DECK.slug}`,
+        fixture.spec,
+        fixture.product,
+      );
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      const svg = await storefrontChart(page);
+      await expectChartFits(page, svg, 375);
+      await svg.scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: testInfo.outputPath(`${fixture.kind}-375-${theme}.png`),
+      });
+      await page.keyboard.press("Escape");
+      expect(audit.patches).toEqual([]);
+      expect(audit.blocked).toEqual([]);
+    }
   });
 
 test("a deck saves a partial size chart with null, shows null, reopens empty and deletes when emptied", async ({

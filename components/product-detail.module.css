@@ -214,28 +214,16 @@
 
 .sizeChartDiagram {
   align-items: center;
+  align-self: start;
   display: flex;
   justify-content: center;
+  min-width: 0;
 }
 
 .sizeChartDiagram svg {
-  height: min(80vh, 48rem);
-  max-width: 100%;
-  width: auto;
-}
-
-/* 가로로 넓은 의류 도면을 감싸는 칸. 폭 580 도면은 500px 아래로 줄면 값 글자가 12px보다 작아지므로,
-   어느 화면에서든 500px 이상으로 그리고 칸이 그보다 좁으면 칸 안에서만 옆으로 넘깁니다. */
-.wideDiagram {
-  max-width: 100%;
-  overflow-x: auto;
-  width: 100%;
-}
-
-.sizeChartDiagram .wideDiagram svg {
   height: auto;
-  max-width: none;
-  min-width: 500px;
+  max-height: min(80dvh, 48rem);
+  max-width: 100%;
   width: 100%;
 }
 
@@ -423,16 +411,19 @@
 
   /* 좁은 화면 — 상세사이즈는 이미지 위·도면 아래로 스택 */
   .sizeChartOverlay {
+    align-content: start;
+    gap: 0.75rem;
     grid-template-columns: minmax(0, 1fr);
+    padding: 3.75rem 0.5rem 1rem;
   }
 
   .sizeChartImage {
-    min-height: 50vh;
+    height: clamp(10rem, 32dvh, 18rem);
+    min-height: 0;
   }
 
   .sizeChartDiagram svg {
-    height: auto;
-    width: 100%;
+    max-height: none;
   }
 
   /* 좁은 화면 — 화살표 숨기고 드래그/스와이프로만 넘김 */
