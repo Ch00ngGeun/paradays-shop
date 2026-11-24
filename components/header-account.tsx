@@ -14,7 +14,7 @@ import {
   subscribeToStorefrontHash,
 } from "@/lib/admin-ui/store-return";
 
-import styles from "./header.module.css";
+import styles from "./header-account.module.css";
 
 export function HeaderAccountNav({
   pathname,

@@ -4,7 +4,7 @@ import type { useLocale } from "@/contexts/locale-context";
 import type { useTheme } from "@/contexts/theme-context";
 import type { Locale } from "@/types/store";
 
-import styles from "./header.module.css";
+import styles from "./header-utility.module.css";
 
 export function HeaderUtilitySwitch({
   locale,
