@@ -3,30 +3,27 @@ import { createPublicKey, randomUUID, verify, type JsonWebKey } from "node:crypt
 import { createServer, type IncomingMessage } from "node:http";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import {
-  isOcrMapping,
-  parseOcrTableRows,
-  type OcrMapping,
-  type OcrTableParseResult,
-} from "../infra/lambda/ocr-table-parser.js";
+import { isOcrMapping, parseOcrTableRows } from "../infra/lambda/ocr-table-parser.js";
 import {
   MAX_PADDLE_OCR_RESPONSE_BYTES,
   parseOcrImageUpload,
   parseRecognitionResponse,
 } from "../infra/lambda/paddle-ocr.js";
+import {
+  type RecordValue,
+  type Job,
+  record,
+  text,
+  Failure,
+  deadlineJson,
+  publicJob,
+  publicAnalysis,
+  checkJobSize,
+  reviewedRows,
+  requestBody,
+  demoRequestBody,
+} from "./local-ocr-relay-values.js";
 
-type RecordValue = Record<string, unknown>;
-type Row = RecordValue & { id: string; sourceText: string };
-type Job = {
-  jobId: string;
-  ownerSub: string;
-  version: number;
-  rawText: string;
-  rows: Row[];
-  sourceRows?: Row[];
-  mapping?: OcrMapping;
-  expiresAt: number;
-};
 export type RelayOptions = {
   origin: string;
   /** Explicit opt-in adds only https://paradays.web.app; local origin remains required. */
@@ -42,75 +39,6 @@ export type RelayOptions = {
   now?: () => number;
   jwksLoader?: () => Promise<unknown>;
 };
-const record = (value: unknown): value is RecordValue =>
-  !!value && typeof value === "object" && !Array.isArray(value);
-const text = (value: unknown, max: number): value is string =>
-  typeof value === "string" && value.length <= max && !value.includes("\0");
-const REQUEST_LIMIT = Math.ceil((4 * 1024 * 1024) / 3) * 4 + 4096;
-class Failure extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: string,
-    readonly details?: RecordValue,
-  ) {
-    super(code);
-  }
-}
-
-/** Streaming bytes and the entire upstream response share a hard deadline. */
-async function boundedJson(response: Response, maximum: number): Promise<unknown> {
-  if (!response.ok || !response.body)
-    throw new Failure(502, "OCR_PROVIDER_REQUEST_FAILED");
-  const reader = response.body.getReader();
-  const bytes = new Uint8Array(maximum);
-  let length = 0;
-  try {
-    while (true) {
-      const chunk = await reader.read();
-      if (chunk.done) break;
-      if (length + chunk.value.byteLength > maximum)
-        throw new Failure(502, "OCR_PROVIDER_RESPONSE_INVALID");
-      bytes.set(chunk.value, length);
-      length += chunk.value.byteLength;
-    }
-    return JSON.parse(
-      new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(0, length)),
-    );
-  } finally {
-    void reader.cancel().catch(() => {});
-    reader.releaseLock();
-  }
-}
-
-async function deadlineJson(
-  fetcher: typeof fetch,
-  url: string,
-  init: RequestInit,
-  maximum: number,
-  milliseconds: number,
-) {
-  const controller = new AbortController();
-  let timeout: ReturnType<typeof setTimeout>;
-  const deadline = new Promise<never>((_, reject) => {
-    timeout = setTimeout(() => {
-      controller.abort();
-      reject(new Failure(502, "OCR_PROVIDER_REQUEST_FAILED"));
-    }, milliseconds);
-  });
-  try {
-    return await Promise.race([
-      (async () =>
-        boundedJson(
-          await fetcher(url, { ...init, signal: controller.signal, redirect: "error" }),
-          maximum,
-        ))(),
-      deadline,
-    ]);
-  } finally {
-    clearTimeout(timeout!);
-    controller.abort();
-  }
-}
 
 export function createLocalOcrRelay(options: RelayOptions) {
   const origin = new URL(options.origin);
@@ -507,137 +435,6 @@ export function createLocalOcrRelay(options: RelayOptions) {
   server.requestTimeout = 15000;
   server.headersTimeout = 10000;
   return server;
-}
-
-function publicJob(job: Job) {
-  const sources = job.sourceRows ?? (job.version === 1 ? job.rows : undefined);
-  return {
-    jobId: job.jobId,
-    version: job.version,
-    rawText: job.rawText,
-    rows: job.rows,
-    analysis: sources
-      ? publicAnalysis(parseOcrTableRows(sources, job.mapping))
-      : { mode: "unclassified", reason: "source-rows-unavailable" },
-  };
-}
-function publicAnalysis(parsed: OcrTableParseResult): RecordValue {
-  return {
-    mode: parsed.mode,
-    ...("reason" in parsed ? { reason: parsed.reason } : {}),
-    ...(parsed.table ? { table: parsed.table } : {}),
-    ...(parsed.mode === "table" ? { mapping: parsed.mapping } : {}),
-    ...(parsed.region ? { region: parsed.region } : {}),
-  };
-}
-function checkJobSize(job: Job) {
-  if (Buffer.byteLength(JSON.stringify(job), "utf8") > 380 * 1024)
-    throw new Failure(413, "OCR_JOB_TOO_LARGE");
-}
-function reviewedRows(value: unknown, previous: Row[]): Row[] {
-  if (!Array.isArray(value) || value.length === 0 || value.length > 500)
-    throw new Failure(400, "OCR_JOB_ROWS_INVALID");
-  const ids = new Set<string>();
-  return value.map((row: unknown) => {
-    if (
-      !record(row) ||
-      !text(row.id, 128) ||
-      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(row.id) ||
-      ids.has(row.id)
-    )
-      throw new Failure(400, "OCR_JOB_ROWS_INVALID");
-    ids.add(row.id);
-    const result: Row = { id: row.id, sourceText: "" };
-    for (const [key, maximum] of [
-      ["sourceText", 1000],
-      ["productName", 240],
-      ["brand", 100],
-      ["option", 200],
-      ["quantity", 12],
-    ] as const) {
-      if (!text(row[key], maximum)) throw new Failure(400, "OCR_JOB_ROWS_INVALID");
-      result[key] = row[key].trim();
-    }
-    if (!/^(?:[0-9]{1,9})?$/.test(String(result.quantity)))
-      throw new Failure(400, "OCR_JOB_ROWS_INVALID");
-    const metadata = previous.find((item) => item.id === row.id);
-    if (metadata?.confidence !== undefined) result.confidence = metadata.confidence;
-    if (metadata?.box !== undefined) result.box = metadata.box;
-    return result;
-  });
-}
-async function requestBody(request: IncomingMessage): Promise<unknown> {
-  const bytes = Buffer.allocUnsafe(REQUEST_LIMIT);
-  let size = 0;
-  for await (const chunk of request) {
-    const nextSize = size + chunk.length;
-    if (nextSize > REQUEST_LIMIT) throw new Failure(413, "OCR_IMAGE_TOO_LARGE");
-    bytes.set(chunk, size);
-    size = nextSize;
-  }
-  try {
-    return JSON.parse(
-      new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(0, size)),
-    );
-  } catch {
-    throw new Failure(400, "OCR_JOB_BODY_INVALID");
-  }
-}
-
-/** Demo uploads have a fixed read deadline and reserve a bounded slot before allocation. */
-function demoRequestBody(request: IncomingMessage): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const bytes = Buffer.allocUnsafe(REQUEST_LIMIT);
-    let size = 0;
-    const timeout = setTimeout(
-      () => finish(new Failure(408, "LOCAL_OCR_BODY_TIMEOUT")),
-      5000,
-    );
-    function cleanup() {
-      clearTimeout(timeout);
-      request.off("data", onData);
-      request.off("end", onEnd);
-      request.off("error", onError);
-      request.off("aborted", onAborted);
-    }
-    function finish(error?: Failure, value?: unknown) {
-      cleanup();
-      if (error) {
-        request.pause();
-        reject(error);
-      } else resolve(value);
-    }
-    function onData(chunk: Buffer) {
-      if (size + chunk.length > REQUEST_LIMIT) {
-        finish(new Failure(413, "OCR_IMAGE_TOO_LARGE"));
-        return;
-      }
-      bytes.set(chunk, size);
-      size += chunk.length;
-    }
-    function onEnd() {
-      try {
-        finish(
-          undefined,
-          JSON.parse(
-            new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(0, size)),
-          ),
-        );
-      } catch {
-        finish(new Failure(400, "OCR_JOB_BODY_INVALID"));
-      }
-    }
-    function onError() {
-      finish(new Failure(400, "OCR_JOB_BODY_INVALID"));
-    }
-    function onAborted() {
-      finish(new Failure(400, "OCR_JOB_BODY_INVALID"));
-    }
-    request.on("data", onData);
-    request.once("end", onEnd);
-    request.once("error", onError);
-    request.once("aborted", onAborted);
-  });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
