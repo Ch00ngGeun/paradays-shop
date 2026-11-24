@@ -1,0 +1,330 @@
+.campaignHeader {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.campaignHeader > div > p {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  margin: 0 0 0.4rem;
+}
+
+.campaignHeader > div > div {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.campaignHeader h2 {
+  font-size: clamp(1.5rem, 2.2vw, 1.875rem);
+  letter-spacing: -0.035em;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.campaignHeader > div > div > span {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 100px;
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  padding: 0.4rem 0.7rem;
+}
+
+.campaignWorkspace {
+  align-items: start;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  min-width: 0;
+}
+
+.campaignForm,
+.campaignPreview {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 7px;
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+  padding: 1.5rem;
+}
+
+.campaignPreview h3 {
+  font-size: 1.25rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.campaignChannelCards {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.campaignChannelCards label {
+  align-items: center;
+  background: var(--color-paper);
+  border: 1px solid var(--campaign-field-border);
+  border-radius: 6px;
+  cursor: pointer;
+  display: grid;
+  gap: 0.75rem 0.5rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 1rem;
+}
+
+.campaignChannelCards label[data-selected="true"] {
+  background: var(--admin-wash);
+  outline: 1px solid var(--color-ink);
+  outline-offset: -2px;
+}
+
+.campaignChannelIcon {
+  align-items: center;
+  display: flex;
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 1.75rem;
+}
+
+.campaignChannelCards input[type="checkbox"] {
+  accent-color: var(--color-ink);
+  grid-column: 2;
+  grid-row: 1;
+  height: 1.125rem;
+  margin: 0;
+  width: 1.125rem;
+}
+
+.campaignChannelCards strong {
+  font-size: 0.9375rem;
+  grid-column: 1 / -1;
+}
+
+.campaignChannelState {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  grid-column: 1 / -1;
+}
+
+/* Channel image support: email inline logo is neutral info; image-less channels stay gray. */
+.campaignChannelSupport {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  color: var(--admin-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  grid-column: 1 / -1;
+  justify-self: start;
+  line-height: 1.5;
+  padding: 0.125rem 0.375rem;
+}
+
+.campaignLogo {
+  display: block;
+  height: auto;
+  margin: 0 auto;
+  max-width: 100%;
+}
+
+.campaignScopeNote,
+.campaignSaveNote {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.campaignConsentNote {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  padding: 1rem;
+}
+
+.campaignConsentNote strong {
+  font-size: 0.9375rem;
+}
+
+.campaignConsentNote p {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0.5rem 0 0;
+}
+
+.campaignValidation {
+  border-left: 3px solid var(--campaign-danger);
+  color: var(--campaign-danger);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+  padding-left: 0.75rem;
+}
+
+.campaignPreviewChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.campaignPreviewChoices button {
+  background: var(--color-paper);
+  border: 1px solid var(--campaign-field-border);
+  border-radius: 5px;
+  color: var(--color-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  min-height: 2.75rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.campaignPreviewChoices button[aria-pressed="true"] {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.campaignPreviewChoices button:hover:not([aria-pressed="true"]) {
+  background: var(--admin-wash);
+}
+
+.campaignMessage {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 7px;
+  display: grid;
+  gap: 1.25rem;
+  min-height: 20rem;
+  min-width: 0;
+  padding: 1.5rem;
+}
+
+.campaignMessageBrand {
+  border-bottom: 1px solid var(--color-rule);
+  display: grid;
+  font-size: 1.5rem;
+  font-weight: 800;
+  gap: 0.5rem;
+  letter-spacing: -0.035em;
+  padding-bottom: 1rem;
+}
+
+.campaignMessageBrand[data-inline-logo="true"] {
+  justify-items: center;
+  text-align: center;
+}
+
+.campaignMessageBrand > span,
+.campaignMessage > small {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.6;
+}
+
+.campaignMessageBody {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.campaignMessageBody strong {
+  font-size: 1.125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.campaignMessageBody p {
+  font-size: 0.9375rem;
+  line-height: 1.8;
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.campaignMessage[data-channel="sms"] {
+  border-color: var(--campaign-field-border);
+  border-radius: 1.25rem;
+}
+
+.campaignMessage[data-channel="sms"] .campaignMessageBody {
+  background: var(--admin-wash);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.campaignMessage[data-channel="push"] {
+  background: var(--admin-wash);
+  min-height: 0;
+}
+
+.campaignMessage[data-channel="push"] .campaignMessageBrand {
+  font-size: 1.125rem;
+}
+
+.campaignEmptyPreview,
+.campaignPreviewNote {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.campaignEmptyPreview {
+  background: var(--admin-wash);
+  border: 1px dashed var(--campaign-field-border);
+  border-radius: 7px;
+  padding: 2rem 1rem;
+}
+
+@media (max-width: 1200px) {
+  .campaignWorkspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .campaignForm,
+  .campaignPreview,
+  .campaignMessage {
+    padding: 1rem;
+  }
+
+  .campaignChannelCards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .campaignChannelCards label {
+    gap: 0.5rem 1rem;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .campaignChannelIcon {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+
+  .campaignChannelCards input[type="checkbox"] {
+    grid-column: 3;
+    grid-row: 1 / 3;
+  }
+
+  .campaignChannelCards strong {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .campaignChannelState {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}

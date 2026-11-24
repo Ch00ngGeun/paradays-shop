@@ -1,0 +1,225 @@
+.ocrHeader {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.ocrHeader h2 {
+  font-size: clamp(1.5rem, 2.2vw, 1.875rem);
+  letter-spacing: -0.035em;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.ocrHeader > div > p {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0.5rem 0 0;
+}
+
+.ocrHeader > div > p:first-child {
+  font-size: 0.8125rem;
+  margin: 0 0 0.4rem;
+}
+
+.ocrReviewBadge {
+  background: var(--admin-wash);
+  border: 1px solid var(--ocr-field-border);
+  border-radius: 5px;
+  font-size: 0.875rem;
+  padding: 0.7rem 0.85rem;
+}
+
+.ocrSummary {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ocrSummary article {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+}
+
+.ocrSummary article > span {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+}
+
+.ocrSummary strong {
+  font-size: 1.5rem;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
+}
+
+.ocrSummary small {
+  color: var(--admin-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.ocrWorkspace {
+  align-items: start;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.4fr);
+  min-width: 0;
+}
+
+.ocrTransferNote {
+  background: var(--admin-wash);
+  border-left: 3px solid var(--color-ink);
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding: 0.75rem;
+}
+
+.ocrTransferNote strong {
+  color: var(--color-ink);
+}
+
+.ocrTransferNote p {
+  margin: 0.5rem 0 0;
+}
+
+.ocrFileControl {
+  display: grid;
+  font-size: 0.875rem;
+  font-weight: 600;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.ocrSourceEmpty {
+  background: var(--admin-wash);
+  border: 1px dashed var(--ocr-field-border);
+  border-radius: 5px;
+  color: var(--admin-muted);
+  display: grid;
+  font-size: 0.875rem;
+  gap: 0.75rem;
+  justify-items: center;
+  min-height: 12rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.ocrSourceEmpty > span {
+  font-size: 3rem;
+}
+
+.ocrSourceEmpty p {
+  line-height: 1.6;
+  margin: 0;
+}
+
+.ocrReviewRows {
+  display: grid;
+  gap: 1rem;
+  list-style: none;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.ocrReviewRow {
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.ocrRowHeading {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.ocrRowHeading > strong {
+  font-size: 0.875rem;
+}
+
+.ocrMainFields {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr);
+}
+
+.ocrMainFields label,
+.ocrRowDetails label {
+  display: grid;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.ocrRowDetails {
+  border-top: 1px solid var(--color-rule);
+  min-width: 0;
+}
+
+.ocrRowDetails dl {
+  display: grid;
+  gap: 0.8rem;
+  margin: 1rem 0 0;
+}
+
+.ocrRowDetails dl > div {
+  display: grid;
+  font-size: 0.8125rem;
+  gap: 0.4rem;
+}
+
+.ocrRowDetails dt {
+  color: var(--admin-muted);
+}
+
+.ocrRowDetails dd {
+  font-family: var(--font-mono);
+  line-height: 1.6;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ocrSaveBoundary {
+  background: var(--admin-wash);
+  border-left: 3px solid var(--color-ink);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  margin: 0;
+  padding: 0.75rem;
+}
+
+@media (max-width: 1200px) {
+  .ocrWorkspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .ocrSummary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ocrMainFields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ocrMainFields label:first-child {
+    grid-column: 1 / -1;
+  }
+}

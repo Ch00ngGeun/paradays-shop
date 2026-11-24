@@ -1,0 +1,106 @@
+.inventoryList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.inventoryWorkspace {
+  align-items: start;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+}
+
+.inventoryQuantity {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.inventoryQuantity strong {
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.inventoryQuantity > span:not([data-stock-status]) {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  color: var(--admin-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.4rem;
+}
+
+.inventoryAdjustmentHeader {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: space-between;
+}
+
+.inventoryAdjustmentHeader h2 {
+  scroll-margin-top: 1rem;
+}
+
+.inventoryAdjustmentHeader h2:focus-visible {
+  outline: 3px solid #2864b4;
+  outline-offset: 3px;
+}
+
+.inventoryQuantityLabel {
+  color: var(--color-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.inventoryInputHint {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.inventoryImpact {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  display: grid;
+  gap: 0.4rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 0.85rem 0.5rem;
+}
+
+.inventoryImpact > div {
+  display: grid;
+  gap: 0.35rem;
+  text-align: center;
+}
+
+.inventoryImpact span {
+  color: var(--admin-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.inventoryImpact strong {
+  color: var(--color-ink);
+  font-size: clamp(1rem, 1.6vw, 1.5rem);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1200px) {
+  .inventoryWorkspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .inventoryQuantity strong {
+    font-size: 0.875rem;
+  }
+}

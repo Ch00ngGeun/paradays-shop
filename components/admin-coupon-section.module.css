@@ -1,0 +1,188 @@
+.couponHeader {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.couponHeader > div > p {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  margin: 0 0 0.4rem;
+}
+
+.couponHeader > div > div {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.couponHeader h2 {
+  font-size: clamp(1.5rem, 2.2vw, 1.875rem);
+  letter-spacing: -0.035em;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.couponHeader > div > div > span,
+.couponPreviewHeading > span {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 100px;
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  padding: 0.4rem 0.7rem;
+}
+
+.couponWorkspace {
+  align-items: start;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  min-width: 0;
+}
+
+.couponForm,
+.couponDraftPreview {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 7px;
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+  padding: 1.5rem;
+}
+
+.couponForm h3,
+.couponPreviewHeading h3 {
+  font-size: 1.25rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.couponInlineFields {
+  align-items: start;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.couponValidation {
+  border-left: 3px solid var(--coupon-accent);
+  color: var(--coupon-accent);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+  padding-left: 0.75rem;
+}
+
+.couponSaveNote {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.couponPreviewHeading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.couponDraftTicket {
+  align-content: center;
+  background: color-mix(in srgb, #c22727 5%, var(--color-paper));
+  border: 1px solid color-mix(in srgb, #c22727 30%, var(--color-paper));
+  border-radius: 7px;
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+  min-height: 21rem;
+  min-width: 0;
+  padding: 1.75rem 1.25rem;
+  text-align: center;
+}
+
+.couponDraftTicket > span {
+  color: var(--coupon-accent);
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+
+.couponDraftTicket > strong {
+  color: var(--coupon-accent);
+  font-size: clamp(2.25rem, 4vw, 4.5rem);
+  letter-spacing: -0.055em;
+  line-height: 1.15;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.couponDraftTicket[data-valid="false"] > strong {
+  font-size: 1.5rem;
+  letter-spacing: -0.03em;
+}
+
+.couponDraftTicket > p {
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.couponDraftTicket code {
+  border: 1px solid var(--coupon-field-border);
+  border-radius: 4px;
+  font-size: 0.875rem;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 0.5rem 0.75rem;
+}
+
+.couponDraftTicket small {
+  border-top: 1px dashed var(--coupon-field-border);
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  padding-top: 0.85rem;
+}
+
+.couponUnissued {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  padding: 1rem;
+}
+
+.couponUnissued strong {
+  font-size: 0.9375rem;
+}
+
+.couponUnissued p {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0.5rem 0 0;
+}
+
+@media (max-width: 1200px) {
+  .couponWorkspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .couponForm,
+  .couponDraftPreview {
+    padding: 1rem;
+  }
+
+  .couponInlineFields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

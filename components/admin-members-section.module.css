@@ -1,0 +1,369 @@
+.memberHeader {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.memberHeader h2 {
+  font-size: clamp(1.5rem, 2.2vw, 1.875rem);
+  letter-spacing: -0.035em;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.memberHeader > div > p {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  margin: 0 0 0.4rem;
+}
+
+.memberWorkspace {
+  align-items: start;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  min-width: 0;
+}
+
+.memberDirectory,
+.memberDetail,
+.memberDetailEmpty {
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 7px;
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+  padding: 1.5rem;
+}
+
+.memberDirectoryHeading h3,
+.memberDetailHeading h3,
+.memberDetailEmpty h3 {
+  font-size: 1.25rem;
+  line-height: 1.4;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.memberDirectoryHeading p {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  margin: 0.4rem 0 0;
+}
+
+.memberDirectoryList {
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.memberDirectoryList li + li {
+  border-top: 1px solid var(--color-rule);
+}
+
+.memberDirectoryList button {
+  align-items: center;
+  background: var(--color-paper);
+  border: 2px solid transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) minmax(5rem, auto) auto;
+  min-height: 4.75rem;
+  padding: 1rem;
+  text-align: left;
+  width: 100%;
+}
+
+.memberDirectoryList button[aria-pressed="true"] {
+  background: var(--admin-wash);
+  border-color: var(--color-ink);
+}
+
+.memberDirectoryList button:hover:not(:disabled) {
+  background: var(--admin-wash);
+}
+
+.memberDirectoryList button:disabled {
+  cursor: wait;
+}
+
+.memberIdentity {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.memberIdentity strong {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.memberIdentity > span,
+.memberGroupSummary {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.memberEnabled {
+  background: var(--admin-wash);
+  border: 1px solid var(--member-field-border);
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  padding: 0.3rem 0.5rem;
+  white-space: nowrap;
+}
+
+.memberDetailHeading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.memberDetailHeading > span {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 100px;
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  padding: 0.4rem 0.7rem;
+}
+
+.memberDetailHeading h3 {
+  scroll-margin-top: 1.5rem;
+}
+
+.memberFacts {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.memberFacts > div {
+  border-top: 1px solid var(--color-rule);
+  display: grid;
+  font-size: 0.875rem;
+  gap: 0.45rem;
+  padding: 0.85rem 0;
+}
+
+.memberFacts dt {
+  color: var(--admin-muted);
+}
+
+.memberFacts dt > span {
+  font-size: 0.8125rem;
+}
+
+.memberFacts dd {
+  line-height: 1.6;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.memberPermissionFields {
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.memberPermissionFields legend {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  padding: 0 0.4rem;
+}
+
+.memberPermissionFields > p {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.memberPermissionChoices,
+.memberPermissionActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.memberPermissionChoices button {
+  background: var(--color-paper);
+  border: 1px solid var(--member-field-border);
+  border-radius: 5px;
+  color: var(--color-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  min-height: 2.75rem;
+  padding: 0.65rem 0.75rem;
+}
+
+.memberPermissionChoices button[aria-pressed="true"] {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.memberPermissionChoices button:hover:not(:disabled) {
+  border-color: var(--color-ink);
+}
+
+.memberPermissionFields:disabled button,
+.memberPermissionChoices button:disabled {
+  cursor: not-allowed;
+}
+
+.memberChangePreview {
+  background: var(--admin-wash);
+  border: 1px solid var(--member-field-border);
+  border-radius: 5px;
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
+.memberChangePreview > strong {
+  font-size: 0.875rem;
+}
+
+.memberChangePreview dl {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.memberChangePreview dl > div {
+  display: grid;
+  font-size: 0.875rem;
+  gap: 0.25rem;
+}
+
+.memberChangePreview dt {
+  color: var(--admin-muted);
+}
+
+.memberChangePreview dd {
+  font-weight: 650;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.memberChangePreview > p {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.memberChangePreview label {
+  align-items: start;
+  display: flex;
+  font-size: 0.875rem;
+  gap: 0.6rem;
+  line-height: 1.6;
+  min-height: 2.75rem;
+  padding: 0.5rem 0;
+}
+
+.memberChangePreview input[type="checkbox"] {
+  accent-color: var(--color-ink);
+  flex: 0 0 auto;
+  height: 1.125rem;
+  margin: 0.15rem 0 0;
+  width: 1.125rem;
+}
+
+.memberStateNote,
+.memberStateWarning {
+  background: var(--admin-wash);
+  border-left: 3px solid var(--color-ink);
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding: 0.75rem;
+}
+
+.memberStateWarning {
+  border-color: var(--member-danger);
+  color: var(--member-danger);
+}
+
+.memberDetailEmpty {
+  justify-items: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.memberDetailEmpty > span {
+  background: var(--admin-wash);
+  border-radius: 50%;
+  display: grid;
+  font-size: 2rem;
+  height: 4rem;
+  place-items: center;
+  width: 4rem;
+}
+
+.memberDetailEmpty > p {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+@media (max-width: 1200px) {
+  .memberWorkspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .memberDirectory,
+  .memberDetail {
+    padding: 1rem;
+  }
+
+  .memberDirectoryList button {
+    gap: 0.6rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 0.75rem;
+  }
+
+  .memberGroupSummary {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .memberEnabled {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+
+  .memberPermissionActions {
+    flex-direction: column;
+  }
+
+  .memberPermissionActions button {
+    width: 100%;
+  }
+}

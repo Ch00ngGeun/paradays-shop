@@ -1,0 +1,64 @@
+/* 역할: PARADAYS의 얇은 선·대담한 압축 타이포를 유지한 반응형 관리자 워크스페이스입니다. */
+
+.accessPage {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  justify-content: center;
+  min-height: min(42rem, 72vh);
+  padding: clamp(3.5rem, 9vw, 8rem) var(--page-gutter);
+  position: relative;
+}
+
+.accessTopBar {
+  display: flex;
+  justify-content: flex-end;
+  max-width: min(42rem, 100%);
+  width: 100%;
+}
+
+.accessPanel {
+  border: 1px solid var(--color-rule);
+  color: var(--color-muted);
+  max-width: min(42rem, 100%);
+  overflow-x: auto;
+  padding: clamp(2rem, 6vw, 4rem);
+  text-align: center;
+}
+
+/* Your Cart과 동일 색·계열, 긴 문장은 한 줄 유지 */
+.accessPanel h1 {
+  color: var(--color-muted);
+  font-family: var(--font-display);
+  font-size: clamp(1rem, 2.15vw + 0.35rem, 1.35rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.accessPanel > p:not(.eyebrow) {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  line-height: 1.55;
+  margin: 1rem auto 0;
+  max-width: 30rem;
+}
+
+.eyebrow {
+  color: var(--color-red);
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  line-height: 1;
+  margin: 0 0 0.65rem;
+}
+
+@media (max-width: 767px) {
+  .accessPage {
+    min-height: 28rem;
+  }
+}

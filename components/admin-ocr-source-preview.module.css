@@ -1,0 +1,76 @@
+.ocrSourceFigure {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0;
+  min-width: 0;
+}
+
+.ocrSourceFigure > img {
+  background: var(--admin-wash);
+  border: 1px solid var(--color-rule);
+  border-radius: 5px;
+  height: auto;
+  max-height: 30rem;
+  object-fit: contain;
+  width: 100%;
+}
+
+.ocrSourceFigure figcaption {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.ocrSourceFigure > button {
+  justify-self: start;
+}
+
+.ocrImageDialog {
+  background: var(--color-paper);
+  border: 1px solid var(--ocr-field-border);
+  border-radius: 7px;
+  color: var(--color-ink);
+  margin: auto;
+  max-height: calc(100dvh - 2rem);
+  max-width: calc(100vw - 2rem);
+  overflow: auto;
+  padding: 1.25rem;
+  width: 70rem;
+}
+
+.ocrImageDialog::backdrop {
+  background: rgb(0 0 0 / 65%);
+}
+
+.ocrImageDialog > div {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.ocrImageDialog h3 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.ocrImageDialog > p {
+  color: var(--admin-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.ocrImageDialog > img {
+  height: auto;
+  object-fit: contain;
+  width: 100%;
+}
+
+@media (max-width: 767px) {
+  .ocrImageDialog {
+    padding: 1rem;
+  }
+}
