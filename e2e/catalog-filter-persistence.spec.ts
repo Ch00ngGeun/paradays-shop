@@ -1,3 +1,4 @@
+// 역할: 카탈로그 필터 저장값의 복원·명시적 해제·새로고침 유지와 다른 페이지·별도 브라우저 컨텍스트 격리를 검증함.
 import { expect, test, type Page, type Route } from "@playwright/test";
 
 const ORIGIN = "http://127.0.0.1:3139";
@@ -79,7 +80,7 @@ async function setup(page: Page, options: SetupOptions = {}) {
     audit.blocked.push(description);
     return route.abort();
   });
-  // Deliberately invalid signature, usable only with intercepted synthetic APIs.
+  // 가로챈 합성 API에서만 쓰이도록 일부러 서명을 잘못 만든 토큰임.
   const accessToken = [
     Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url"),
     Buffer.from(
@@ -149,7 +150,7 @@ async function setup(page: Page, options: SetupOptions = {}) {
 
 async function openMenu(page: Page) {
   const menu = page.getByRole("button", { name: "Menu", exact: true });
-  // Explicit desktop keyboard open avoids hover/toggle timing between checks.
+  // 검사 사이 hover/토글 타이밍을 피하려고 데스크톱 키보드로 명시적으로 엶.
   if ((await menu.getAttribute("aria-expanded")) !== "true") {
     if ((page.viewportSize()?.width ?? 0) < 768) await menu.tap();
     else await menu.press("ArrowDown");
@@ -371,8 +372,8 @@ for (const [name, stored] of [
       })),
     ).toEqual({ session: SENTINEL, local: SENTINEL });
     await choose(page, ["데크", "April"]);
-    // Separate an input-event failure from persistence/hydration failure:
-    // the replacement selection must already be visible and stored exactly.
+    // 입력 이벤트 실패와 저장/하이드레이션 실패를 구분함:
+    // 교체된 선택이 이미 화면에 보이고 정확히 저장돼 있어야 함.
     await assertAprilDeck(page);
     await page.reload();
     await assertAprilDeck(page);

@@ -1,3 +1,4 @@
+// 역할: 관리자 데크 사이즈표의 저장·옵션별 차트·옵션명 변경·Esc 처리와 저장 실패·응답 유실·늦은 응답을 검증함.
 import { expect, test } from "@playwright/test";
 import {
   API,
@@ -38,7 +39,7 @@ test("admin saves the deck size spec from its own modal and the product form sav
   await expect(page.getByText('8.5" × 31.75" · WB 14.25"')).toBeVisible();
   await expect(page.getByRole("button", { name: "상세사이즈 수정" })).toBeVisible();
 
-  // Saving a public product asks for confirmation first.
+  // 공개 상품 저장은 먼저 확인을 요청함.
   page.once("dialog", (prompt) => void prompt.accept());
   await page.getByRole("button", { name: /수정 저장/ }).click();
   await expect(page.getByText("상품을 공개 상태로 저장했습니다")).toBeVisible();
@@ -67,14 +68,14 @@ test("admin edits per-option charts from the chips and the default button stays 
   const dialog = page.getByRole("dialog");
   const input = (field: string) => dialog.getByRole("textbox", { name: field });
 
-  // The default button opens the default chart only: no target picker, no name field.
+  // 기본 버튼은 기본 차트만 엶: 대상 선택기도 이름 입력란도 없음.
   await page.getByRole("button", { name: "상세사이즈 수정" }).click();
   await expect(dialog.getByRole("combobox")).toHaveCount(0);
   await expect(input("옵션 이름")).toHaveCount(0);
   await expect(input("wheelbase")).toHaveValue("14.25");
   await page.keyboard.press("Escape");
 
-  // A saved chip opens its own chart with its name.
+  // 저장된 칩은 자기 이름과 함께 자기 차트를 엶.
   await chip(page, "8.5").click();
   await expect(dialog.getByRole("heading")).toContainText("· 8.5");
   await expect(input("옵션 이름")).toHaveValue("8.5");
@@ -98,7 +99,7 @@ test("admin edits per-option charts from the chips and the default button stays 
   });
   expect(item.deckSpecsBySize).toEqual({ "8.25": option825 });
 
-  // Saving the default keeps the old default-only body.
+  // 기본값 저장은 기존 기본값 전용 본문을 유지함.
   await page.getByRole("button", { name: "상세사이즈 수정" }).click();
   await input("tail").fill("6.625");
   await dialog.getByRole("button", { name: "저장", exact: true }).click();
@@ -148,7 +149,7 @@ test("renaming an option moves its chart, renames the chip and the next product 
   await expect(chipNames(page)).toHaveText(["8.25", "8.5 wide"]);
   expect(item.deckSpecsBySize).toEqual({ "8.5 wide": option85 });
 
-  // A name-only rename with all five fields empty.
+  // 다섯 필드가 모두 빈 채 이름만 바꿈.
   await chip(page, "8.25").click();
   await name.fill("8.0");
   await dialog.getByRole("button", { name: "저장", exact: true }).click();
@@ -197,13 +198,13 @@ test("an unsaved chip asks to save the product first and a reserved rename expla
   await chip(page, "8.25").click();
   const dialog = page.getByRole("dialog");
   const save = dialog.getByRole("button", { name: "저장", exact: true });
-  // A chip added but not saved yet still counts as a taken name.
+  // 추가했지만 아직 저장하지 않은 칩도 이미 쓰인 이름으로 셈.
   await dialog.getByRole("textbox", { name: "옵션 이름" }).fill("8.75");
   await expect(dialog).toContainText("이미 있는 옵션 이름입니다.");
   await expect(save).toBeDisabled();
   await dialog.getByRole("textbox", { name: "옵션 이름" }).fill("8.0");
   await save.click();
-  // The reason is shown inside the open dialog, not behind it.
+  // 사유는 대화상자 뒤가 아니라 열린 대화상자 안에 표시됨.
   await expect(dialog.getByRole("alert")).toContainText(
     "결제 대기 중인 주문이 있어 지금은 옵션 이름을 바꿀 수 없습니다.",
   );
@@ -214,7 +215,7 @@ test("an unsaved chip asks to save the product first and a reserved rename expla
   );
   await expect(chipNames(page)).toHaveText(["8.25", "8.75"]);
 
-  // A later success leaves no refusal text anywhere on the page.
+  // 이후 성공하면 페이지 어디에도 거부 문구가 남지 않음.
   refusal = null;
   await save.click();
   await expect(dialog).toBeHidden();
@@ -240,7 +241,7 @@ test("a duplicated legacy option name opens its chart without a name field", asy
     .click();
   await expect(dialog.getByRole("heading")).toContainText("· M");
   await expect(dialog.getByRole("textbox", { name: "옵션 이름" })).toHaveCount(0);
-  // The reason is inside the open dialog.
+  // 사유는 열린 대화상자 안에 있음.
   await expect(dialog).toContainText(reason);
   for (const [field, value] of Object.entries(SPEC))
     await dialog.getByRole("textbox", { name: field }).fill(String(value));
@@ -249,7 +250,7 @@ test("a duplicated legacy option name opens its chart without a name field", asy
   expect(audit.patches).toEqual([{ version: 3, size: "M", sizeDeckSpec: SPEC }]);
   await expect(chipNames(page)).toHaveText(["M", "M", "L"]);
 
-  // Removing one M only in the draft still saves both, so the same reason shows with no name field.
+  // 초안에서만 M 하나를 지워도 둘 다 저장되므로 같은 사유가 이름 입력란 없이 표시됨.
   await page.getByRole("button", { name: "M 삭제", exact: true }).first().click();
   await expect(chipNames(page)).toHaveText(["M", "L"]);
   await page
@@ -272,7 +273,7 @@ test("Esc closes the help inside the size chart dialog first, then the dialog, a
     name: /^상세사이즈 · \[TEST\] Deck size A/,
   });
   await expect(chart).toBeVisible();
-  // The inch explanation is behind the help button.
+  // 인치 설명은 도움말 버튼 뒤에 있음.
   await expect(chart).not.toContainText("인치로 입력하면");
   const help = chart.getByRole("button", {
     name: "상세사이즈 입력 도움말",
@@ -291,7 +292,7 @@ test("Esc closes the help inside the size chart dialog first, then the dialog, a
   await expect(help).toBeFocused();
   expect(await inert(chart)).toBe(false);
 
-  // A wrong value brings the range back as an error tied to that field.
+  // 잘못된 값은 해당 필드에 연결된 오류로 범위를 다시 보여 줌.
   const nose = chart.getByRole("textbox", { name: "nose" });
   await nose.fill("0");
   await expect(chart).toContainText(
@@ -325,7 +326,7 @@ test("ESC during a pending save keeps the modal open, and a failed save keeps th
   const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
-  // Registered after setup, so it takes precedence for the deckSpec PATCH only.
+  // setup 뒤에 등록하므로 deckSpec PATCH에 대해서만 우선 적용됨.
   await page.route(`${API}admin/catalog/products/*`, async (route) => {
     if (route.request().method() !== "PATCH") return route.fallback();
     await gate;
@@ -362,7 +363,7 @@ test("after a lost save response, a retry stops on the conflict instead of overw
   await page.route(`${API}admin/catalog/products/*`, async (route) => {
     if (route.request().method() !== "PATCH" || lost) return route.fallback();
     lost = true;
-    // The server commits the write, but the browser never sees a valid response.
+    // 서버는 쓰기를 확정하지만 브라우저는 유효한 응답을 받지 못함.
     const item = audit.store.find((entry) => entry.productId === DECK.id)!;
     item.deckSpec = SPEC;
     item.version += 1;
@@ -405,7 +406,7 @@ test("a late save response for one product does not close another product's moda
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const second = await openDeckSpecModal(page, "[TEST] Deck size B");
   release();
-  // Assert only after the app has parsed and committed A's late success.
+  // 앱이 A의 늦은 성공을 해석·반영한 뒤에만 단언함.
   await page.waitForFunction(
     () => (window as unknown as { __patchSettled: number }).__patchSettled >= 1,
   );
@@ -439,7 +440,7 @@ test("a late save response does not close a new modal after returning to the sam
   const second = page.getByRole("dialog");
   await second.getByRole("textbox", { name: "nose" }).fill("7");
   release();
-  // The summary behind the modal changes only once the app has processed the late success.
+  // 모달 뒤 요약은 앱이 늦은 성공을 처리한 뒤에만 바뀜.
   await expect(page.getByText('8.5" × 31.75" · WB 14.25"')).toBeVisible();
   await page.waitForFunction(
     () => (window as unknown as { __patchSettled: number }).__patchSettled >= 1,
