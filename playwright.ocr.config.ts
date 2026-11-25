@@ -43,7 +43,14 @@ if (!process.env.PARADAYS_OCR_E2E_WORKSPACE) {
 
 export default defineConfig({
   testDir: join(root, "e2e"),
-  testMatch: "admin-ocr.spec.ts",
+  testMatch: [
+    "admin-ocr-redesign.spec.ts",
+    "admin-ocr-region.spec.ts",
+    "admin-ocr-remote-demo.spec.ts",
+    "admin-ocr-recognition.spec.ts",
+    "admin-ocr-inventory-plan.spec.ts",
+    "admin-ocr-inventory-writes.spec.ts",
+  ],
   outputDir: join(workspace, "test-results"),
   fullyParallel: false,
   workers: 1,
