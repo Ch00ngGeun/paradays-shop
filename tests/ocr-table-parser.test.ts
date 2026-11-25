@@ -1,4 +1,4 @@
-/** 표 구조화와 정보 유실 방지를 합성 좌표로 검증함. 실제 모델 정확도와 구분함. */
+// 역할: 공유 OCR 표 파서가 고정 기준 응답과 합성 좌표로 표를 구조화하고 정보를 잃지 않는지 검증함. 실제 모델 정확도 측정과는 구분함.
 import { describe, expect, it } from "vitest";
 import {
   parseOcrTableRows,
