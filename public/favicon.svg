@@ -1,4 +1,4 @@
-<!-- Role: Supplies a compact PARADAYS placeholder favicon for the app shell. -->
+<!-- 역할: 앱 공통 화면에 쓰는 PARADAYS 임시 파비콘(검은 바탕 빨간 사선 두 줄)임. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <rect width="32" height="32" fill="#111111"/>
   <path d="m7 23 8-14m2 14 8-14" stroke="#ff1b1b" stroke-width="3"/>
