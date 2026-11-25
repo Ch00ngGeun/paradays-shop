@@ -1,3 +1,4 @@
+// 역할: 관리자 재고 메뉴 화면. 상품 재고 목록을 검색·카테고리·브랜드·재고 상태로 거르고, 고른 상품의 재고 조정 패널(StockStepper)을 붙입니다.
 "use client";
 import adminSharedStyles from "./admin-shared.module.css";
 import adminProductSectionStyles from "./admin-product-section.module.css";

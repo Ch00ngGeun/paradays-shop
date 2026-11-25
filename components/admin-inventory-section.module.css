@@ -1,3 +1,4 @@
+/* 역할: 관리자 재고 메뉴의 재고 목록과 재고 조정 스테퍼(StockStepper) 스타일입니다. */
 .inventoryList {
   list-style: none;
   margin: 0;
