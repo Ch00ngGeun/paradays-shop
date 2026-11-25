@@ -1,3 +1,4 @@
+// 역할: 관리자 OCR 요청의 이미지 직렬화·입고 입력 검증과 OCR 작업 응답 파싱을 담당합니다.
 import type {
   AdminOcrBoundingBox,
   AdminOcrIntakeInput,
@@ -305,7 +306,7 @@ function readOcrResponseText(
   return isOcrEditableText(value, maximumLength) ? value : undefined;
 }
 
-/** Raw text is preserved without trimming, unlike editable row fields. */
+/** 편집 가능한 행 필드와 달리 원문 텍스트는 앞뒤 공백을 자르지 않고 그대로 보존합니다. */
 export function isOcrRawText(value: unknown): value is string {
   return (
     typeof value === "string" &&

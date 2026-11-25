@@ -1,3 +1,4 @@
+// 역할: 관리자 API 응답의 회원·카탈로그·사이즈표·데크 사양·개요 지표를 검증하고 안전한 UI 값으로 복사합니다.
 import type {
   AdminCatalogListItem,
   AdminMember,
@@ -128,7 +129,7 @@ function parseSizeCharts(value: Record<string, unknown>) {
     isSizeChartValues(chart.kind, chart.values)
       ? { kind: chart.kind, values: copySizeChartValues(chart.kind, chart.values) }
       : undefined;
-  // Like the server, a default value's drawing comes first.
+  // 서버와 같게 기본값에 저장된 도면 종류를 먼저 씁니다.
   const kind =
     sizeChart?.kind ??
     (isSizeChartKind(value.sizeChartKind) ? value.sizeChartKind : undefined);
@@ -199,7 +200,7 @@ function parseDeckSpecsBySize(value: unknown) {
 }
 
 const DECK_SPEC_FIELDS = ["nose", "tail", "width", "length", "wheelbase"] as const;
-// Same as the server: up to 4 decimals (1/16" = 0.0625).
+// 서버와 같게 소수 4자리까지 허용합니다(1/16" = 0.0625).
 const DECK_SPEC_INCHES_PATTERN = /^\d+(?:\.\d{1,4})?$/;
 
 /**

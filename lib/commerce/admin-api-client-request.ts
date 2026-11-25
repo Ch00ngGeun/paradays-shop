@@ -1,3 +1,4 @@
+// 역할: 관리자 API 공통 JSON 요청(인증 token·timeout·오류 코드 해석)과 fetch 구현 선택을 담당합니다.
 import { AdminApiRequestError } from "./admin-api-client";
 import {
   AdminApiResponseError,
@@ -121,7 +122,7 @@ async function readAllowlistedAdminErrorCode(
       return undefined;
     }
   }
-  // A single product PATCH tells a reserved or duplicate rename apart from a version conflict.
+  // 단일 상품 PATCH 응답에서는 예약·중복 이름 변경 거절을 버전 충돌과 구분합니다.
   if (/^admin\/catalog\/products\/[^/]+$/.test(endpoint)) {
     try {
       const body: unknown = await response.json();
