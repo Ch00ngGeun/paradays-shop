@@ -53,8 +53,8 @@ describe("validateOcrImageFile", () => {
   });
 });
 
-// These are signature fixtures, not decoded images. Pixel/header validation is
-// deliberately exercised at the Python provider boundary instead of in the UI.
+// 이것은 디코딩한 이미지가 아니라 시그니처 fixture임. 픽셀·헤더 검증은
+// UI가 아니라 Python 제공자 경계에서 일부러 검사함.
 const FORMATS = [
   { mime: "image/png", bytes: PNG_SIGNATURE, name: "입고 목록.png" },
   {

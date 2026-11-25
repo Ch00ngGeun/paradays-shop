@@ -1,3 +1,4 @@
+// 역할: OCR 입고 후보 매칭의 정규화·ID/SKU/이름 우선순위·모호한 후보 보존을 검증함.
 import { describe, expect, it } from "vitest";
 import {
   findOcrIntakeMatches,

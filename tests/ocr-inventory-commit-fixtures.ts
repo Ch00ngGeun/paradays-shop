@@ -1,3 +1,4 @@
+// 역할: OCR 재고 반영 단위 검사의 합성 상품·검토 행·작업·계획과 입고 응답 도우미를 제공함.
 import {
   buildOcrInventoryPlan,
   type OcrInventoryMode,
