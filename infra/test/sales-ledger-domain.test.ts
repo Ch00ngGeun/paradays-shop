@@ -1,3 +1,4 @@
+/** 역할: 매출 장부 도메인의 KST 영업일 경계·입력 검증·미매칭/환불 부호·계좌이체 합산 규칙을 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import {

@@ -1,3 +1,4 @@
+/** 역할: 결제 승인 handler의 예약 확인·정확히 한 번 차감·기존 PAID 재응답·만료/시간 초과·동시 승인·재시도 조회 동작을 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { handler } from "../lambda/payment-confirm-handler.js";

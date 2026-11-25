@@ -1,3 +1,4 @@
+/** 역할: 결제 webhook이 승인과 같은 차감 증빙을 쓰고 입력 상태를 무시하며, 저장소 오류·paymentKey 불일치·해제 뒤 늦은 결제를 안전하게 처리하는지 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { handler } from "../lambda/payment-webhook-handler.js";
