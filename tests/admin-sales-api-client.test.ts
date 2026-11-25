@@ -1,3 +1,4 @@
+// 역할: 관리자 매출 API 전송의 대기 시간·인증·명령 검증·스냅숏과 응답 합계 검증·정렬을 검증함.
 import { describe, expect, it, vi } from "vitest";
 import {
   AdminSalesError,
@@ -340,9 +341,9 @@ describe("administrator sales transport", () => {
       0, 0, 300,
     ]);
     for (const bad of [
-      // An older server that omits transfer cannot hide a posted transfer.
+      // transfer를 빠뜨리는 구버전 서버가 반영된 이체를 숨길 수는 없음.
       { ...report, entries: [transfer], totals, warnings: [] },
-      // A transfer counted as cash is rejected.
+      // 현금으로 계산된 이체는 거부됨.
       {
         ...report,
         entries: [transfer],

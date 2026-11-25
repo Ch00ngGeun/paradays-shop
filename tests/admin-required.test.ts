@@ -1,3 +1,4 @@
+// 역할: 공통 필수 입력 강조 CSS 규칙의 테마별 색상과 적용 대상 선택자를 검증함.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 

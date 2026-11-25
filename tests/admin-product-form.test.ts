@@ -1,3 +1,4 @@
+// 역할: 상품 양식의 관리 코드 생성·브랜드 선택지·쉼표 옵션 계약·데크/휠 선택지 형식·옵션 칩 처리를 검증함.
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -312,7 +313,7 @@ describe("option chips", () => {
   it("removes one chip and keeps the rest in order", () => {
     expect(removeProductOption(legacy, "SPECIAL / blue")).toBe("8.25\u2033, 8.5”");
     expect(removeProductOption("8.5”", "8.5”")).toBe("");
-    // An unknown chip leaves the entered text exactly as it was.
+    // 모르는 칩 이름이면 입력한 글자를 그대로 둠.
     expect(removeProductOption(legacy, "9.0")).toBe(legacy);
   });
 
