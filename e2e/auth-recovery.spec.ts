@@ -1,4 +1,4 @@
-// 역할: 로그인 복구가 무실발송·접근 가능한 이메일 전용 모달로 동작하는지 브라우저에서 확인합니다.
+// 역할: 로그인 비밀번호 복구가 외부 인증 요청 없이 접근 가능한 이메일 전용 대화상자로 동작하는지 브라우저에서 확인합니다.
 import { expect, test, type Page } from "@playwright/test";
 
 async function openRecovery(page: Page) {

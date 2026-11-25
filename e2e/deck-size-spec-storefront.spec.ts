@@ -1,3 +1,4 @@
+// 역할: 상점 사이즈표의 상품별 노출·인치/cm 표시·선택 사이즈 값과 기본값 대체, 두 줄 상품명과 레거시 중복 칩 처리를 검증함.
 import { expect, test } from "@playwright/test";
 import { DECK, PLAIN, SPEC, setup } from "./deck-size-spec-fixtures";
 
@@ -123,7 +124,7 @@ test("the storefront size chart follows the selected size and falls back to the 
     return svg;
   };
 
-  // The first size is selected and has its own values.
+  // 첫 사이즈가 선택돼 있고 자기 값을 가짐.
   await expect(page.getByRole("button", { name: "8.25", exact: true })).toHaveAttribute(
     "aria-pressed",
     "true",
