@@ -1,3 +1,4 @@
+// 역할: OCR 열·영역 매핑 템플릿을 검증해 브라우저 저장소에 저장·불러오기·삭제·초기화합니다.
 import {
   isOcrColumnMapping,
   isOcrRegionMapping,

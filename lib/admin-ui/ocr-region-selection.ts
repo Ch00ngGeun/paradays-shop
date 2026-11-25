@@ -1,3 +1,4 @@
+// 역할: OCR 이미지 위 포인터 좌표를 0~1 정규화 좌표로 바꾸고 선택 영역 계산·겹침 판정을 돕습니다.
 /** 렌더링 크기와 무관하게 서버에 전달할 0~1 범위의 좌표임. */
 export type OcrNormalizedPoint = Readonly<{ x: number; y: number }>;
 

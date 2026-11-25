@@ -1,3 +1,4 @@
+// 역할: 관리자 화면 진입·복귀 때 공개 스토어 복귀 경로와 관리자 메뉴 재개 위치를 주소 query로 주고받습니다.
 import { parseAdminSection, type AdminSection } from "./navigation";
 
 /** 관리자 진입마다 공개 스토어 복귀 위치를 URL에 명시하며 전역 저장소는 사용하지 않습니다. */
