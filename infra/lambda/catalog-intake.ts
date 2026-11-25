@@ -1,4 +1,4 @@
-/** Strict OCR intake inputs and conservative, exact catalog identity comparison. */
+/** 역할: OCR 입고 요청 입력을 엄격히 검증하고, 카탈로그 상품 동일성을 보수적·정확하게 비교함. */
 export const INTAKE_CATEGORIES = [
   "Deck",
   "Complete",
@@ -53,7 +53,7 @@ const OPERATION_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$/;
 const SOURCE_JOB_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$/;
 const SOURCE_ROW_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
-/** Only declared fields are accepted; audit values, absolute stock and publish flags are forbidden. */
+/** 선언된 필드만 받으며, 감사 값·절대 재고 수량·공개 플래그는 금지함. */
 export function parseCatalogIntakeRequest(value: unknown): CatalogIntakeRequest | null {
   if (
     !record(value) ||
@@ -146,17 +146,17 @@ export function parseCatalogIntakeRequest(value: unknown): CatalogIntakeRequest 
   };
 }
 
-/** NFC only: whitespace runs collapse, case folds, internal spaces and punctuation remain significant. */
+/** NFC 정규화 후 공백 연속을 하나로 줄이고 소문자로 바꾸며, 내부 공백·구두점은 구분 기준으로 남김. */
 export function normalizeCatalogIdentityText(value: string): string {
   return value.normalize("NFC").trim().replace(/\s+/gu, " ").toLowerCase();
 }
 
-/** SKU is an identifier: NFC and edge trimming only, with case-sensitive exact equality. */
+/** SKU는 식별자이므로 NFC와 앞뒤 공백 제거만 하고, 대소문자를 구분해 정확히 비교함. */
 export function normalizeCatalogSku(value: string): string {
   return value.normalize("NFC").trim();
 }
 
-/** Empty options are ambiguous, never evidence that a same-name/brand product is definitely new. */
+/** 빈 옵션은 모호하므로 같은 이름·브랜드 상품이 확실히 새 상품이라는 근거로 쓰지 않음. */
 export function findCatalogDuplicateIds(
   incoming: CatalogIdentity,
   products: readonly CatalogIdentity[],

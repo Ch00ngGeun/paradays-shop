@@ -1,4 +1,4 @@
-/** Admin-only manual sales and KST day close API. No PG or card data integration. */
+/** 역할: 관리자 전용 수동 매출 기록과 KST 영업일 마감 API이며, PG·카드 데이터와 연동하지 않음. */
 import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
@@ -18,7 +18,7 @@ export async function handler(
   context?: Pick<Context, "getRemainingTimeInMillis">,
 ): Promise<APIGatewayProxyResultV2> {
   try {
-    // Leave serialization/transport headroom before the 28-second Lambda timeout.
+    // Lambda 제한 시간 28초 전에 직렬화·전송 여유 시간을 남김.
     const budget = Math.min(
       SALES_REQUEST_BUDGET_MS,
       (context?.getRemainingTimeInMillis() ?? 28_000) - 3_000,

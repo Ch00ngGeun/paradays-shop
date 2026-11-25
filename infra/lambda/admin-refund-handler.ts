@@ -1,4 +1,4 @@
-/** Minimal admin order operations on the existing refund function; no browser or client payment proof. */
+/** 역할: 기존 환불 함수에서 관리자 주문 조회와 출고·반품·환불·정산 확인 운영만 처리하며, 브라우저·클라이언트의 결제 증빙은 쓰지 않음. */
 import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
@@ -94,7 +94,7 @@ export async function handler(
           orderId: order.orderId,
           status: order.status,
         });
-      // Preserve the former full-refund API for historic orders without manufacturing stock proof.
+      // 이전 전체 환불 API는 과거 주문용으로 유지하되, 재고 증빙을 임의로 만들지 않음.
       if (legacyFull && order.inventory && order.inventory.state !== "LEGACY")
         return jsonResponse(400, { code: "REFUND_PHYSICAL_DISPOSITION_REQUIRED" });
       order = await ensureLegacyFinancialLedger(order);
@@ -109,7 +109,7 @@ export async function handler(
           }
         : body;
       const intent = refundIntent(order, request);
-      // Completed replay does not need provider credentials or a second monetary request.
+      // 자격증명은 항상 먼저 읽지만, 이미 완료된 재실행이면 startRefund가 provider 호출 전에 반환해 두 번째 금전 요청을 보내지 않음.
       const credentials = await getTossPaymentsCredentials(
         getRequiredEnvironment("TOSS_PAYMENTS_SECRET_ARN"),
       );
