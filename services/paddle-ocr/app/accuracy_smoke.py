@@ -1,3 +1,4 @@
+# 역할: 생성 표본 이미지로 표 영역 셀별 OCR 정확도(일치 수·CER)를 확인하는 선택 실행 점검 도구임.
 """Opt-in exact cell accuracy check; never print OCR outside the table ROI.
 
 Run this file against the existing image's app package via PYTHONPATH=/app.
@@ -96,9 +97,9 @@ def compare(actual: list, spec: dict) -> dict:
             reference, strict_text = normalize(reference), normalize(text)
             errors = distance(reference, strict_text)
             exact = reference == strict_text
-            # The sole extra exception removes literal ASCII spaces before the
-            # existing normalization. It never deletes Unicode whitespace,
-            # changes case, or repairs characters. Keep actual and strict CER.
+            # 유일한 추가 예외로 기존 정규화 전에 ASCII 공백 문자만 제거함.
+            # Unicode 공백 삭제·대소문자 변경·문자 보정은 하지 않으며,
+            # 실제 CER과 엄격 CER을 모두 유지함.
             accepted = exact or (name == "status" and normalize(
                 raw_reference.replace(" ", "")) == normalize(text.replace(" ", "")))
             matched += int(exact)
@@ -162,12 +163,12 @@ def self_test(spec: dict) -> None:
     assert distance("abc", "ab") == 1
     assert distance("abc", "abcd") == 1
     assert distance("abc", "") == 3
-    # Swapped detections must stay in their geometric cells, not match by text.
+    # 뒤바뀐 인식 결과는 텍스트로 맞추지 않고 좌표상 셀에 그대로 남아야 함.
     texts[0], texts[4] = texts[4], spec["rows"][0][0]
     actual = assign_cells(response, spec["columns"], spec["row_boundaries"])
     assert compare(actual, spec)["matched_fields"] == 22
-    # The approved acceptance exception must never rewrite the raw results or
-    # inflate the strict score/CER, and applies only to ASCII status spaces.
+    # 승인된 인정 예외는 원본 결과를 고치거나 엄격 점수/CER을 부풀리지 않으며,
+    # 상태값의 ASCII 공백에만 적용함.
     observed = [list(row) for row in spec["rows"]]
     for row in observed:
         row[3] = row[3].replace(" ", "")

@@ -1,3 +1,4 @@
+# 역할: Dockerfile이 이미지에 넣은 OCR model manifest와 파일 hash·크기를 실행 시 fail-closed로 검증함.
 """Fail-closed verification of the model manifest baked by the Dockerfile.
 
 Local development also needs the baked cache and manifest; there is no bypass.
@@ -138,8 +139,8 @@ def _verify_directory(directory_fd, prefix, artifacts, found):
             finally:
                 os.close(fd)
         elif stat.S_ISREG(entry.st_mode):
-            # Docker excludes downloader metadata, but symlinks/special files in
-            # these directories are still rejected by this traversal.
+            # downloader metadata는 Docker 단계에서 빠지지만, 이 디렉터리 안의
+            # symlink·특수 파일은 이 순회에서 계속 거부함.
             if ".cache" in parts:
                 continue
             relative = "/".join(parts)
