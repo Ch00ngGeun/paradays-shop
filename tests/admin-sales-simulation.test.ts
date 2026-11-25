@@ -1,3 +1,4 @@
+// 역할: 매출 모드 선택·모의 매출 화면의 렌더링·영어 문구·권한과 입출력 분리를 검증함.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
