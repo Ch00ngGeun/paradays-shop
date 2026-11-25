@@ -1,5 +1,5 @@
 /**
- * 역할: API Gateway HTTP API용 Lambda placeholder의 공통 JSON 응답을 만듦.
+ * 역할: API Gateway HTTP API용 상거래 Lambda handler가 함께 쓰는 공통 JSON 응답을 만듦.
  * 기능: 민감한 내부 오류·PG payload를 노출하지 않는 일관된 응답 형식을 제공함.
  */
 

@@ -1,3 +1,5 @@
+<!-- 역할: infra/ AWS CDK 상거래 백엔드의 구현 범위·결제 흐름·API 경로·설치와 검증·배포 전 구성·운영 전 확인 목록을 설명하는 문서임. -->
+
 # PARADAYS AWS CDK 인프라
 
 `infra/`는 정적 Next.js 스토어프론트와 분리한 AWS 회원·주문·Toss Payments 백엔드임. `npm run synth`는 CloudFormation 템플릿만 만들며 AWS 리소스를 생성하지 않음. 아래 항목은 코드와 합성 결과의 구현 범위이며, 현재 AWS 계정에는 아직 배포하지 않았음.
