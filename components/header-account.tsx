@@ -1,3 +1,4 @@
+// 역할: 헤더 좌상단 계정 링크. 비로그인은 Sign / Login, 로그인은 마이페이지·사용자 이름과 admin 그룹이면 현재 위치를 기억하는 관리자 페이지 링크를 그립니다.
 "use client";
 
 import Link from "next/link";

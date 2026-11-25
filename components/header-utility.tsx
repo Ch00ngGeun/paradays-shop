@@ -1,3 +1,4 @@
+// 역할: 헤더 우상단 언어 전환(KOR/ENG)과 그 아래 라이트·다크 테마 토글을 그립니다.
 "use client";
 
 import type { useLocale } from "@/contexts/locale-context";

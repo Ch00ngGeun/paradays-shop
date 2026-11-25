@@ -1,3 +1,4 @@
+// 역할: 헤더 Menu 드롭다운 본문. 상단 All·Clothes·SkateBoard·SALE과 하단 Brand 필터 버튼을 그리고, 페이드아웃이 끝나면 드롭다운을 언마운트합니다.
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
