@@ -1,3 +1,4 @@
+// 역할: 관리자 API 클라이언트가 던지는 응답 계약 위반·OCR 데모 연결·상품 이미지 입력 오류 클래스를 정의합니다.
 /** 관리자 API 응답이 기대한 public contract를 만족하지 않을 때 안전하게 중단합니다. */
 export class AdminApiResponseError extends Error {
   readonly code = "ADMIN_API_RESPONSE_INVALID";

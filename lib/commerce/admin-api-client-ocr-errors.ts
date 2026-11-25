@@ -1,3 +1,4 @@
+// 역할: OCR 영역 매핑 실패 코드와 OCR 요청 오류를 한국어·영어 안내 문구로 바꿉니다.
 import type { Locale } from "@/types/store";
 import { AdminApiRequestError } from "./admin-api-client";
 import { AdminOcrDemoConnectionError } from "./admin-api-client-errors";
