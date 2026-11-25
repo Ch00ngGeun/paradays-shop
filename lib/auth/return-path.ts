@@ -56,7 +56,7 @@ export function consumeAuthReturnPath(fallback = "/") {
       return stored;
     }
   } catch {
-    // ignore
+    // 저장소 접근이 막히면 무시하고 fallback 경로를 돌려줌.
   }
 
   return fallback;

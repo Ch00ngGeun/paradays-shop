@@ -383,7 +383,7 @@ export function readPersistedAuthSession(
     try {
       storage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(fromLocal));
     } catch {
-      // ignore
+      // 저장소 쓰기가 막혀도 무시함.
     }
 
     return fromLocal;
@@ -412,7 +412,7 @@ export function persistAuthSession(
     try {
       local.setItem(AUTH_SESSION_STORAGE_KEY, payload);
     } catch {
-      // ignore
+      // 저장소 쓰기가 막혀도 무시함.
     }
   }
 }
@@ -424,7 +424,7 @@ export function clearPersistedAuthSession(storage: SessionStorageLike) {
   try {
     storage.removeItem(AUTH_SESSION_STORAGE_KEY);
   } catch {
-    // ignore
+    // 저장소 삭제가 막혀도 무시함.
   }
 
   const local = getLocalStorage();
@@ -433,7 +433,7 @@ export function clearPersistedAuthSession(storage: SessionStorageLike) {
     try {
       local.removeItem(AUTH_SESSION_STORAGE_KEY);
     } catch {
-      // ignore
+      // 저장소 삭제가 막혀도 무시함.
     }
   }
 }
