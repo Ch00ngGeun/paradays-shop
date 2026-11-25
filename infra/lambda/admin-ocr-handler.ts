@@ -110,14 +110,14 @@ function resolveOcrRoute(
 }
 
 /**
- * Conservative DynamoDB item estimate, not JSON wire size or exact billing.
+ * JSON 전송 크기나 정확한 과금이 아니라 DynamoDB item 크기를 보수적으로 추정함.
  * https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/CapacityUnitCalculations.html
- * Count UTF-8 names/strings, raw binary, map/list overhead (3 + 1 per entry),
- * and 21 bytes per number (above 38-digit numeric storage's approximate maximum).
- * Include another 100 storage bytes and top-level map overhead conservatively;
- * the 380KiB write cap leaves 20KiB below DynamoDB's 400KiB item limit.
- * Walk the entire final item, including preserved metadata/audit attributes.
- * Unsupported/cyclic/deep structures fail closed; GET shape checks stay intact.
+ * UTF-8 이름/문자열, 원본 binary, map/list overhead(3 + 항목당 1),
+ * 숫자당 21 byte(38자리 숫자 저장의 대략적 최대치보다 큼)를 셈.
+ * 저장 byte 100과 최상위 map overhead를 보수적으로 더하며,
+ * 380KiB 쓰기 상한은 DynamoDB item 한도 400KiB보다 20KiB 여유를 둠.
+ * 보존한 metadata/감사 속성을 포함해 최종 item 전체를 순회함.
+ * 지원하지 않거나 순환·과도하게 깊은 구조는 fail-closed로 처리하며, GET 형태 검사는 그대로 유지함.
  */
 export function estimateOcrJobStorageBytes(item: unknown): number {
   let bytes = 100;
@@ -130,7 +130,7 @@ export function estimateOcrJobStorageBytes(item: unknown): number {
     if (depth > 32 || visited > 100_000) {
       bytes = Infinity;
     } else if (value === undefined) {
-      // DocumentClient has removeUndefinedValues enabled.
+      // DocumentClient는 removeUndefinedValues가 켜져 있음.
     } else if (typeof value === "string") {
       bytes += Buffer.byteLength(value, "utf8");
     } else if (typeof value === "number" || typeof value === "bigint") {
@@ -150,7 +150,7 @@ export function estimateOcrJobStorageBytes(item: unknown): number {
       ancestors.add(value);
       bytes += 3;
       if (Array.isArray(value) || value instanceof Set) {
-        // Sets need less overhead; counting them like lists is conservative.
+        // Set은 overhead가 더 작으므로 list처럼 세면 보수적인 값이 됨.
         for (const element of value) {
           bytes += 1;
           walk(element, depth + 1);
