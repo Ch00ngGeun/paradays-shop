@@ -19,7 +19,7 @@ const LOW_STOCK_THRESHOLD = 5;
 /** 스캔 안전을 위한 페이지 상한 */
 const MAX_SCAN_PAGES = 20;
 
-/** GET /admin/overview */
+/** GET /admin/overview 요청을 처리함. */
 export async function handler(
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
 ): Promise<APIGatewayProxyResultV2> {
@@ -152,7 +152,7 @@ async function countTodayOrderMetrics(
       break;
     }
   }
-  // A capped scan with pages left is incomplete; never report it as a full count.
+  // 페이지 상한에 걸려 남은 페이지가 있으면 불완전한 scan이므로 전체 개수로 보고하지 않음.
   if (exclusiveStartKey) throw new Error("OVERVIEW_SCAN_INCOMPLETE");
 
   return { orderCount, paidRevenue, soldItemCount };
@@ -168,7 +168,7 @@ function readTodayPaidOrderMetrics(
     return null;
   }
 
-  // A PAID order without a payment time cannot be placed in a day; report unavailable instead of 0.
+  // 결제 시각이 없는 PAID 주문은 날짜를 정할 수 없으므로 0 대신 집계 불가로 보고함.
   if (typeof item.paidAt !== "string") {
     throw new Error("ORDER_PAID_AT_INVALID");
   }
@@ -259,7 +259,7 @@ async function countLowStockProducts(tableName: string) {
         isRecord(item) &&
         typeof item.inventoryQuantity === "number" &&
         Number.isSafeInteger(item.inventoryQuantity) &&
-        // Sold-out items (0) are not restocked, so only 1 to the threshold needs attention.
+        // 품절(0) 상품은 재입고 대상이 아니므로 1부터 기준값까지만 확인 대상으로 셈.
         item.inventoryQuantity >= 1 &&
         item.inventoryQuantity <= LOW_STOCK_THRESHOLD
       ) {
@@ -275,7 +275,7 @@ async function countLowStockProducts(tableName: string) {
       break;
     }
   }
-  // A capped scan with pages left is incomplete; never report it as a full count.
+  // 페이지 상한에 걸려 남은 페이지가 있으면 불완전한 scan이므로 전체 개수로 보고하지 않음.
   if (exclusiveStartKey) throw new Error("OVERVIEW_SCAN_INCOMPLETE");
 
   return count;
@@ -315,7 +315,7 @@ async function countActiveCoupons(tableName: string) {
       break;
     }
   }
-  // A capped scan with pages left is incomplete; never report it as a full count.
+  // 페이지 상한에 걸려 남은 페이지가 있으면 불완전한 scan이므로 전체 개수로 보고하지 않음.
   if (exclusiveStartKey) throw new Error("OVERVIEW_SCAN_INCOMPLETE");
 
   return count;
@@ -348,7 +348,7 @@ async function countMarketingConsent(tableName: string) {
       break;
     }
   }
-  // A capped scan with pages left is incomplete; never report it as a full count.
+  // 페이지 상한에 걸려 남은 페이지가 있으면 불완전한 scan이므로 전체 개수로 보고하지 않음.
   if (exclusiveStartKey) throw new Error("OVERVIEW_SCAN_INCOMPLETE");
 
   return count;
