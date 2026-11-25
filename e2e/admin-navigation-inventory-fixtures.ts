@@ -1,3 +1,4 @@
+// 역할: 재고 필터·편집 검사용 합성 상품과 재고 화면·행 선택 도우미를 제공함.
 import { expect, type Page } from "@playwright/test";
 import { products } from "./admin-navigation-base-fixtures";
 
