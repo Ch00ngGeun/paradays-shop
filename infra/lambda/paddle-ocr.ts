@@ -26,9 +26,9 @@ import {
 /** Lambda synchronous invoke payload 안에 안전하게 담을 수 있는 raw image 상한입니다. */
 export const MAX_INLINE_OCR_IMAGE_BYTES = 4 * 1024 * 1024;
 
-// 100k UTF-16 text units need at most 600k bytes when JSON-escaped; 500 rows
-// of scores/geometry and the envelope fit within the provider's 1.8MB canonical
-// limit. Keep 2MiB of transport headroom, enforced on streamed bytes, not headers.
+// UTF-16 텍스트 100k 단위는 JSON escape 시 최대 600k byte가 필요하고, 500행의
+// 점수·좌표와 외피는 provider의 정규 응답 한도 1.8MB 안에 들어감. 전송 여유로
+// 2MiB를 두며, header가 아니라 실제 stream으로 받은 byte에 적용함.
 export const MAX_PADDLE_OCR_RESPONSE_BYTES = 2 * 1024 * 1024;
 
 const OCR_REQUEST_DEADLINE_MS = 12_000;
@@ -171,8 +171,8 @@ export async function recognizePaddleOcr(
   let completed = false;
 
   const checkDeadline = () => {
-    // JSON decoding/parsing is synchronous, so the timer cannot interrupt it.
-    // Check elapsed time before and after it, as well as between stream reads.
+    // JSON 디코딩·파싱은 동기라서 timer가 끊을 수 없음.
+    // 그래서 stream 읽기 사이뿐 아니라 파싱 전후에도 경과 시간을 확인함.
     if (controller.signal.aborted || Date.now() >= deadlineAt) {
       controller.abort();
       throw new PaddleOcrProviderError("REQUEST");
@@ -211,14 +211,14 @@ export async function recognizePaddleOcr(
     }
 
     reader = response.body.getReader();
-    // A fixed buffer also bounds memory when a provider sends millions of tiny
-    // chunks; retaining every chunk would accumulate array/object overhead.
+    // provider가 아주 작은 chunk를 수백만 개 보내도 고정 buffer로 메모리를 제한함.
+    // chunk를 모두 보관하면 배열·객체 overhead가 계속 쌓임.
     const responseBytes = new Uint8Array(MAX_PADDLE_OCR_RESPONSE_BYTES);
     let bytes = 0;
     while (true) {
       checkDeadline();
-      // Race every read: an upstream stream that ignores AbortSignal must not
-      // keep this invocation waiting after the shared headers/body deadline.
+      // 모든 읽기를 기한과 경쟁시킴: AbortSignal을 무시하는 상류 stream이
+      // header/body 공용 기한 뒤까지 이 호출을 붙잡아 두면 안 됨.
       const chunk = await Promise.race([reader.read(), deadline]);
       checkDeadline();
       if (chunk.done) {
@@ -252,8 +252,8 @@ export async function recognizePaddleOcr(
     controller.signal.removeEventListener("abort", rejectDeadline);
     if (!completed) {
       controller.abort();
-      // Cancellation is best-effort and never awaited: a stalled cancel must
-      // not extend the deadline or hide the safe provider error.
+      // 취소는 최선 노력으로만 하고 await하지 않음: 멈춘 취소가 기한을 늘리거나
+      // 안전한 provider 오류를 가리면 안 됨.
       try {
         const cancellation = reader ? reader.cancel() : response?.body?.cancel();
         void cancellation?.catch(() => {});
