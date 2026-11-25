@@ -1,3 +1,4 @@
+// 역할: 카탈로그 필터 세션 저장소의 서버 비접근·복원·그룹 선택·초기화를 검증함.
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";

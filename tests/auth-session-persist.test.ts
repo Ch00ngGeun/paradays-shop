@@ -1,3 +1,4 @@
+// 역할: 인증 세션의 sessionStorage 복원과 로그아웃 시 저장값 삭제를 검증함.
 import { describe, expect, it } from "vitest";
 
 import {
