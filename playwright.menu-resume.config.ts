@@ -5,7 +5,8 @@ import isolated from "./playwright.sales.config";
 export default defineConfig({
   ...isolated,
   testMatch: [
-    "admin-menu-resume.spec.ts",
+    "admin-menu-resume-round-trips.spec.ts",
+    "admin-menu-resume-boundaries.spec.ts",
     "admin-storefront-return.spec.ts",
     "admin-navigation-history.spec.ts",
     "admin-navigation-product-history.spec.ts",
