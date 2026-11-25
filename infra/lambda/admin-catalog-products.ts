@@ -1,3 +1,4 @@
+/** 역할: 관리자 카탈로그 상품의 목록·생성·조회·수정·삭제를 DynamoDB transaction과 버전 조건으로 처리함. */
 import { randomUUID } from "node:crypto";
 import { GetCommand, ScanCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
@@ -109,8 +110,8 @@ export async function createProduct(
       ? commitCatalogIntake(catalogTableName, intake, userSub)
       : jsonResponse(400, { code: "OCR_INTAKE_INVALID" });
   }
-  // Option size charts are saved only through the dedicated sizeDeckSpec PATCH, and
-  // the clothing/wheel size chart only through a PATCH on a saved product.
+  // 옵션별 사이즈 표는 전용 sizeDeckSpec PATCH로만 저장하고,
+  // 의류/휠 사이즈 표는 저장된 상품에 대한 PATCH로만 저장함.
   const input = parseProductInput(
     isRecord(body)
       ? {
@@ -238,8 +239,8 @@ export async function updateProduct(
   }
 
   const merged = mergeProductPatch(existingProduct, body);
-  // A size chart sent for a kind the (new) category cannot use is refused, not silently dropped.
-  // The category is checked first: the patch value may be any JSON, not only a string.
+  // (새) 카테고리가 쓸 수 없는 종류의 사이즈 표는 조용히 버리지 않고 거부함.
+  // patch 값은 문자열이 아닌 임의 JSON일 수 있으므로 카테고리를 먼저 확인함.
   const patchedCategory = readCatalogCategory(merged.category);
   if (
     hasOwn(body, "sizeChart") &&
@@ -248,14 +249,14 @@ export async function updateProduct(
   )
     return jsonResponse(400, { code: "CATALOG_PRODUCT_INVALID" });
   const currentKind = currentSizeChartKind(existingProduct);
-  // Changing the drawing with a default value would orphan the option values; that is the kind PATCH's job.
+  // 기본값과 함께 도면을 바꾸면 옵션 값이 고아가 되므로, 도면 변경은 kind PATCH가 맡음.
   if (
     isCatalogSizeChart(body.sizeChart) &&
     body.sizeChart.kind !== currentKind &&
     sizeChartsBySizeFor(existingProduct, currentKind)
   )
     return jsonResponse(400, { code: "CATALOG_PRODUCT_INVALID" });
-  // PATCH { version, sizeChartKind }: a different drawing clears the default and every option value.
+  // PATCH { version, sizeChartKind }: 다른 도면을 고르면 기본값과 모든 옵션 값을 지움.
   if (hasOwn(body, "sizeChartKind")) {
     const kind = Object.keys(body).every((field) =>
       ["version", "sizeChartKind"].includes(field),
@@ -289,7 +290,7 @@ export async function updateProduct(
   }
 
   const reserved = existingProduct.inventoryReserved ?? 0;
-  // The admin form always resends these fields, so only an actual value change is blocked.
+  // 관리자 폼은 이 필드를 항상 다시 보내므로 실제 값이 바뀐 경우만 막음.
   const reservedIdentityChanged = (
     ["sizes", "price", "name", "brandName", "sku"] as const
   ).some(
@@ -298,12 +299,12 @@ export async function updateProduct(
   if (input.inventoryQuantity < reserved || (reserved > 0 && reservedIdentityChanged))
     return jsonResponse(409, { code: "CATALOG_PRODUCT_RESERVED" });
 
-  // Optional fields named in the patch come only from the parsed input, so null clears them.
+  // patch에 들어 있는 선택 필드는 파싱한 입력에서만 가져오므로 null이면 지워짐.
   const existingBase = { ...existingProduct };
   if (hasOwn(body, "compareAtPrice")) delete existingBase.compareAtPrice;
   if (hasOwn(body, "deckSpec")) delete existingBase.deckSpec;
-  // The parsed input already drops entries for options no longer in sizes,
-  // and a size chart whose kind the category no longer offers.
+  // 파싱한 입력은 sizes에 더 이상 없는 옵션 항목과, 카테고리가 더 이상
+  // 제공하지 않는 종류의 사이즈 표를 이미 뺀 상태임.
   delete existingBase.deckSpecsBySize;
   delete existingBase.sizeChart;
   delete existingBase.sizeChartKind;
@@ -318,7 +319,7 @@ export async function updateProduct(
 
   try {
     const revision = await readCatalogRevision(catalogTableName);
-    // A same-name option save does not change identity, so it skips the catalog scan.
+    // 같은 이름 옵션 저장은 식별 정보를 바꾸지 않으므로 카탈로그 scan을 건너뜀.
     const identityChanged =
       ["name", "brandName", "brand", "sku", "sizes"].some((field) =>
         hasOwn(body, field),

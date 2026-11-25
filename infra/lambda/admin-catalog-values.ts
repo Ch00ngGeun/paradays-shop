@@ -1,3 +1,4 @@
+/** 역할: 관리자 카탈로그 입력값(ID·slug·카테고리·금액·재고·이미지·다국어 문구·cursor)을 읽고 검증하는 공용 도우미임. */
 import { isRecord, readBoundedString } from "./request-helpers.js";
 import {
   type CatalogProductStatus,
