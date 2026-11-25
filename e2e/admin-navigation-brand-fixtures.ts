@@ -1,3 +1,4 @@
+// 역할: 브랜드 화면 검사용 합성 상품·저장 응답과 브랜드 입력·표·행 선택 도우미를 제공함.
 import { type Page, type Route } from "@playwright/test";
 import { DAY, products, respond } from "./admin-navigation-base-fixtures";
 

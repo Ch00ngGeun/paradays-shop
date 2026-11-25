@@ -1,3 +1,4 @@
+// 역할: 브랜드 화면의 검색·필터, 명시적 등록과 중복 제출·실패 처리, 빈/실패 카탈로그, 모바일·테마별 표시를 검증함.
 import { expect, test } from "@playwright/test";
 import { audits, respond, setup } from "./admin-navigation-base-fixtures";
 import {
@@ -50,7 +51,7 @@ test("brand redesign: only observed catalog brands are grouped searched and filt
   await panel.getByRole("button", { name: "전체 2", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(brandRow(page, "TEST")).toBeVisible();
-  // The list's limits now sit in the list title's '?'.
+  // 목록의 제한 설명은 목록 제목의 '?' 도움말에 있음.
   await panel.getByRole("button", { name: "브랜드 목록 도움말", exact: true }).click();
   const listHelp = page.getByRole("dialog", {
     name: "브랜드 목록 도움말",
