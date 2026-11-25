@@ -1,4 +1,4 @@
-/** Development-only loopback OCR bridge. Images and review jobs stay in memory. */
+// 역할: 개발 전용 loopback OCR 중계 서버로, Cognito token을 검증해 OCR provider로 전달하고 이미지·검토 작업은 메모리에만 둡니다.
 import { createPublicKey, randomUUID, verify, type JsonWebKey } from "node:crypto";
 import { createServer, type IncomingMessage } from "node:http";
 import { readFile } from "node:fs/promises";
@@ -26,14 +26,14 @@ import {
 
 export type RelayOptions = {
   origin: string;
-  /** Explicit opt-in adds only https://paradays.web.app; local origin remains required. */
+  /** 명시적으로 켜면 https://paradays.web.app만 추가 허용하며 로컬 origin은 계속 필요합니다. */
   demoEnabled?: boolean;
   port: number;
   issuer: string;
   clientId: string;
   providerUrl: string;
   sharedSecret: string;
-  /** Explicit local desktop profile only; the normal transport stays at 12 seconds. */
+  /** 명시한 로컬 데스크톱 프로필에서만 쓰며 일반 전송 제한은 12초로 유지됩니다. */
   providerTimeoutMs?: number;
   fetcher?: typeof fetch;
   now?: () => number;
@@ -89,8 +89,8 @@ export function createLocalOcrRelay(options: RelayOptions) {
   let demoActiveRequests = 0;
   let demoPendingBodies = 0;
 
-  // Public demo traffic shares a cheap pre-auth/health/preflight budget; signed requests
-  // have a separate lower budget. No decoded token data enters either rate key.
+  // 공개 데모 요청 중 인증 전·health·preflight 요청은 가벼운 예산을 함께 쓰고, 서명된 요청은
+  // 더 낮은 별도 예산을 씁니다. 해독한 token 정보는 어느 rate 키에도 넣지 않습니다.
   function checkDemoRate(cheap: boolean) {
     if (now() - demoRateWindow >= 60000) {
       demoRateWindow = now();
@@ -350,7 +350,7 @@ export function createLocalOcrRelay(options: RelayOptions) {
         }
         return;
       }
-      // Another same-owner PATCH can complete while this body is still arriving.
+      // 이 본문을 받는 동안 같은 소유자의 다른 PATCH가 끝날 수 있으므로 작업을 다시 확인합니다.
       const previous = jobs.get(jobId);
       if (!previous || previous.ownerSub !== subject || previous.expiresAt <= now())
         throw new Failure(404, "OCR_JOB_NOT_FOUND");
