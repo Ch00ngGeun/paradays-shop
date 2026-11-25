@@ -98,7 +98,7 @@ export function ActualSalesLedgerPanel({
       if (value) sessionStorage.setItem(storageKey, JSON.stringify(value));
       else sessionStorage.removeItem(storageKey);
     } catch {
-      /* The in-memory lock still protects this mounted panel. */
+      /* sessionStorage에 못 써도 메모리의 잠금이 마운트된 이 패널을 계속 보호합니다. */
     }
     for (const notify of pendingListeners) notify();
   }
