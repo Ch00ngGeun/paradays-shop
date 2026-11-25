@@ -209,7 +209,7 @@ async function requestTossPayment({
       )
         code = error.code;
     } catch {
-      /* no verified structured rejection */
+      /* 검증된 구조화 거절 응답이 아님 */
     }
     throw new TossPaymentsApiError(response.status, code);
   }
@@ -287,7 +287,7 @@ export function parseTossPayment(value: unknown): TossPayment | null {
   };
 }
 
-/** Monetary proof only: physical restocking additionally needs the order's debit/fulfillment ledger. */
+/** 금액 증빙만 확인함: 실물 재입고에는 주문의 차감·출고 ledger가 추가로 필요함. */
 export function paymentMatchesOrder(
   payment: TossPayment,
   order: { orderId: string; total: number },
@@ -301,7 +301,7 @@ export function paymentMatchesOrder(
     payment.currency === "KRW"
   );
 }
-/** Only explicit, documented non-processing rejections qualify. Never classify timeout/5xx/already-processing as failure. */
+/** 문서화된 명시적 미처리 거절만 해당함. 시간 초과·5xx·이미 처리 중은 실패로 분류하지 않음. */
 export function definitiveApprovalRejection(
   error: unknown,
 ): error is TossPaymentsApiError {
