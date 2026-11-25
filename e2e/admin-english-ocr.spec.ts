@@ -1,3 +1,4 @@
+// 역할: 관리자 영어 화면의 OCR 입고·영역 매핑·재고 입고 반영 화면에 한글이 없는지 검증함.
 import { expect, test, type Page } from "@playwright/test";
 import { PNG } from "./admin-english-data-fixtures";
 import {
@@ -82,7 +83,7 @@ test("OCR intake, area mapping and stock receipt show no Korean in English", asy
       exact: true,
     }),
   ).toHaveJSProperty("naturalWidth", 1600);
-  // The row spacing help shows only while there is no quantity area.
+  // 행 간격 도움말은 수량 영역이 없을 때만 표시됨.
   await page.getByRole("button", { name: "Quantity none", exact: true }).click();
   await scanHelp(page, "Row spacing", found);
   await dragArea(page, "Product name", [90, 190, 450, 240]);
@@ -121,7 +122,7 @@ test("OCR intake, area mapping and stock receipt show no Korean in English", asy
   await expect(panel).toBeVisible();
   await scanGuide(page, "OCR saved review", 5, found);
   await panel.getByRole("button", { name: "Load stock products", exact: true }).click();
-  // New product rows have their own help; switch row 1 there and back.
+  // 신규 상품 행에는 별도 도움말이 있으므로 1행을 그쪽으로 바꿨다가 되돌림.
   const method = panel.getByRole("combobox", {
     name: "Receiving method 1",
     exact: true,

@@ -1,3 +1,4 @@
+// 역할: 관리자 메뉴 복귀 검사의 모의 세션·API 응답, 상점 링크·왕복 이동과 메뉴 선택 도우미를 제공함.
 import { expect, type Page, type Route } from "@playwright/test";
 
 const ORIGIN = "http://127.0.0.1:3139";
@@ -170,8 +171,8 @@ async function select(page: Page, section: Section) {
     exact: true,
     includeHidden: true,
   });
-  // Entry navigation can still be hydrating; a transient hidden PC tab is not
-  // a mobile drawer. Wait for the selected responsive navigation contract.
+  // 진입 직후에는 아직 하이드레이션 중일 수 있어 잠시 숨겨진 PC 탭을 모바일 메뉴로 보지 않음.
+  // 선택된 반응형 탐색 상태가 갖춰질 때까지 기다림.
   await expect(tab).toBeAttached();
   if (await page.evaluate(() => matchMedia("(min-width: 1024px)").matches))
     await expect(tab).toBeVisible();
