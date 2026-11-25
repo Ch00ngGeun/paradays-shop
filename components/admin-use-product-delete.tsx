@@ -1,3 +1,4 @@
+// 역할: 상품 삭제 훅. 선택 상품 삭제를 확인받아 서버 상품은 API로 지우고 이 화면에만 있는 상품은 로컬 목록에서 빼며, 알림·운영 기록을 남깁니다.
 "use client";
 import { ProductEditorSessions } from "@/lib/admin-ui/navigation";
 import type { AdminCatalogListItem, AdminDashboardActions } from "@/lib/admin-ui/types";
