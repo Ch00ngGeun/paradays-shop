@@ -1,3 +1,4 @@
+/** 역할: 상거래 Lambda(NodejsFunction)를 공통 runtime·제한 시간·log group 설정으로 만드는 CDK 도우미임. */
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import * as ec2 from "aws-cdk-lib/aws-ec2";

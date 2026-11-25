@@ -220,7 +220,7 @@ export class CommerceStack extends Stack {
       deletionProtection: isProduction,
       removalPolicy: dataRemovalPolicy,
     });
-    /** Manual sales and immutable close snapshots never share order/catalog item namespaces. */
+    /** 수동 매출과 변경 불가 마감 snapshot은 주문·카탈로그 item namespace와 섞이지 않음. */
     const salesLedgerTable = new dynamodb.Table(this, "SalesLedgerTable", {
       tableName: `${namePrefix}-sales-ledger`,
       partitionKey: { name: "businessDay", type: dynamodb.AttributeType.STRING },
@@ -347,7 +347,7 @@ export class CommerceStack extends Stack {
       },
     });
     orderTable.grantReadWriteData(checkoutFunction);
-    // Checkout only reads product rows; inventory writes happen at payment confirmation.
+    // checkout은 상품 행만 읽고, 재고 쓰기는 결제 승인 단계에서 일어남.
     catalogTable.grant(checkoutFunction, "dynamodb:GetItem");
     tossPaymentsSecret.grantRead(checkoutFunction);
 
@@ -365,7 +365,7 @@ export class CommerceStack extends Stack {
       },
     );
     orderTable.grantReadWriteData(paymentConfirmFunction);
-    // Inventory transactions read the revision and Put/Update product rows only.
+    // 재고 transaction은 revision을 읽고 상품 행만 Put/Update함.
     catalogTable.grant(
       paymentConfirmFunction,
       "dynamodb:GetItem",
@@ -570,8 +570,8 @@ export class CommerceStack extends Stack {
     });
     ocrJobTable.grantReadWriteData(adminOcrFunction);
     activePaddleOcrSecret.grantRead(adminOcrFunction);
-    // shortcut: while operational OCR is on hold, this context key pins the already-deployed
-    // OCR bundle and its scope-free routes; delete the key from cdk.json when OCR ships.
+    // 임시 조치: 운영 OCR 보류 중에는 이 context key가 이미 배포된 OCR bundle과
+    // scope 없는 route를 고정함. OCR 출시 때 cdk.json에서 이 key를 지움.
     const pinnedOcrCodeS3Key = this.node.tryGetContext("adminOcrPinnedCodeS3Key") as
       | string
       | undefined;
@@ -736,13 +736,13 @@ export class CommerceStack extends Stack {
     });
     const [, adminRefundGetRoute] = commerceApi.addRoutes({
       path: "/admin/orders/{orderId}/refunds",
-      // POST binds the shared integration first, matching the deployed integration ID.
+      // 배포된 integration ID와 맞도록 POST가 공용 integration을 먼저 연결함.
       methods: [apigwv2.HttpMethod.POST, apigwv2.HttpMethod.GET],
       integration: adminRefundIntegration,
       authorizer: jwtAuthorizer,
     });
-    // The deployed stack carries this GET route under its H-012 logical IDs; keep them so a
-    // deploy updates in place instead of recreating the same route key (which would conflict).
+    // 배포된 stack은 이 GET route를 H-012 logical ID로 갖고 있음. 같은 route key를 다시 만들면
+    // 충돌하므로, 이 ID를 유지해 배포가 제자리 갱신되게 함.
     (adminRefundGetRoute!.node.defaultChild as apigwv2.CfnRoute).overrideLogicalId(
       "H012AdminOrderGetRoute",
     );
