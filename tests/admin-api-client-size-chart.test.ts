@@ -1,3 +1,4 @@
+// 역할: 관리자 API 클라이언트의 의류·휠 사이즈표 조회·저장·옵션명 변경·도면 변경과 응답 검증을 확인함.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminApiRequestError } from "@/lib/commerce/admin-api-client";
 import { AdminApiResponseError } from "@/lib/commerce/admin-api-client-errors";
@@ -60,7 +61,7 @@ describe("createAdminApiClient", () => {
                   L: { diameter: 54, width: 33, contactWidth: 20 },
                 },
               }),
-              // Options alone still name their drawing.
+              // 옵션만 있어도 자기 도면 이름을 가짐.
               top(4, {
                 productId: "prd_options",
                 sizeChartKind: "raglanLongSleeve",
@@ -101,7 +102,7 @@ describe("createAdminApiClient", () => {
       const reversed = Object.fromEntries(Object.entries(values).reverse());
       const { client, fetchImplementation } = respond(
         top(4, { sizeChart: { kind: "shortSleeve", values: reversed } }),
-        // An older server ignores the field and answers without it.
+        // 구버전 서버는 이 필드를 무시하고 없이 응답함.
         top(5),
         top(6, {
           sizeChart: { kind: "shortSleeve", values: { ...values, length: 73 } },
@@ -141,9 +142,9 @@ describe("createAdminApiClient", () => {
           sizeChartKind: "shortSleeve",
           sizeChartsBySize: { L: values },
         }),
-        // Old server: no option map and no kind.
+        // 구버전 서버: 옵션 맵도 kind도 없음.
         top(6),
-        // Rename ignored: the old name is still listed.
+        // 이름 변경 무시됨: 예전 이름이 여전히 목록에 있음.
         top(7, { sizeChartKind: "shortSleeve", sizeChartsBySize: { L: values } }),
         top(8, { sizeChartKind: "shortSleeve" }),
       );

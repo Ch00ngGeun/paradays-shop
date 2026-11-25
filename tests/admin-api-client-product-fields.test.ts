@@ -1,3 +1,4 @@
+// 역할: 관리자 API 클라이언트의 빈 사이즈 측정값(null) 처리와 비교 가격 직렬화를 검증함.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAdminApiClient } from "@/lib/commerce/admin-api-client";
 import { AdminApiResponseError } from "@/lib/commerce/admin-api-client-errors";
@@ -105,7 +106,7 @@ describe("createAdminApiClient", () => {
           sizeChartKind: "shortSleeve",
           sizeChartsBySize: { M: topValues },
         }),
-        // A server that turned a blank field into a number did not save what was sent.
+        // 빈 필드를 숫자로 바꾼 서버는 보낸 값을 저장하지 않은 것임.
         row("Deck", 9, { deckSpec: { ...deck, tail: 6.5 } }),
         row("Top", 10, {
           sizeChart: { kind: "shortSleeve", values: { ...topValues, armhole: 24 } },

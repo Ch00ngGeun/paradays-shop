@@ -1,3 +1,4 @@
+// 역할: 관리자 API 클라이언트의 OCR 파일 사전 검증·전송과 검토 저장·충돌 처리를 검증함.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminOcrInputError } from "@/lib/commerce/admin-api-client";
 import { OCR_INPUT_LIMITS } from "@/lib/admin-ui/ocr-input-validation";
