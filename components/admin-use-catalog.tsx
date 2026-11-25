@@ -1,3 +1,4 @@
+// 역할: 관리자 상품 목록을 API에서 불러오는 훅. 요청·변경 세대 번호로 늦게 도착한 응답을 버리고, 실패하면 불러오기 실패 상태와 알림을 남깁니다.
 "use client";
 import type { AdminCatalogListItem, AdminDashboardActions } from "@/lib/admin-ui/types";
 import { useEffect, type RefObject } from "react";
