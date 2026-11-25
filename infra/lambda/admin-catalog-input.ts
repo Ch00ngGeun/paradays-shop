@@ -1,3 +1,4 @@
+/** 역할: 관리자 상품 생성·수정 요청 body를 허용 필드만 읽어 검증하고, 기존 상품과 PATCH 값을 병합함. */
 import { isRecord, readBoundedString } from "./request-helpers.js";
 import { allowedSizeChartKind, defaultSizeChartKind } from "./size-chart-rules.js";
 import { type CatalogProductRecord } from "./admin-catalog-handler.js";
@@ -108,7 +109,7 @@ export function parseProductInput(body: unknown): ProductInput | null {
   const deckSpec = readDeckSpec(body.deckSpec);
   const deckSpecsBySize = sizes && readDeckSpecsBySize(body.deckSpecsBySize, sizes);
   const sizeChart = readSizeChart(body.sizeChart, category);
-  // A default value fixes the drawing; otherwise the one chosen by the kind PATCH or an option save.
+  // 기본값이 있으면 그 도면 종류로 고정하고, 없으면 kind PATCH나 옵션 저장에서 고른 종류를 씀.
   const sizeChartKind =
     sizeChart?.kind ?? allowedSizeChartKind(category, body.sizeChartKind);
   const sizeChartsBySize =

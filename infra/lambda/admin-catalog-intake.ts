@@ -1,3 +1,4 @@
+/** 역할: OCR 입고 요청을 receipt와 상품 변경으로 함께 commit하고, 카탈로그 revision·중복 상품을 조회함. */
 import { createHash, randomUUID } from "node:crypto";
 import {
   GetCommand,
@@ -55,7 +56,7 @@ type IntakeReceipt = Readonly<{
 
 type IntakeOutcome = Readonly<{ product: AdminCatalogProduct; receipt: IntakeReceipt }>;
 
-/** A durable receipt and the product mutation commit together. A replay never recomputes or adds stock. */
+/** 영속 receipt와 상품 변경을 함께 commit함. 재실행(replay)은 재고를 다시 계산하거나 더하지 않음. */
 export async function commitCatalogIntake(
   catalogTableName: string,
   input: CatalogIntakeRequest,
@@ -109,11 +110,11 @@ export async function commitCatalogIntake(
   try {
     const previous = await replay();
     if (previous) return previous;
-    // The same operation may commit after the receipt read above; recheck before any early failure.
-    // Callers `return await` so a failed recheck still reaches the 503 handler below.
+    // 위에서 receipt를 읽은 뒤 같은 작업이 commit될 수 있으므로, 이른 실패 응답 전에 다시 확인함.
+    // 호출부는 `return await`를 써서 재확인 실패도 아래 503 처리로 이어지게 함.
     const failUnlessReplayed = async (response: APIGatewayProxyResultV2) =>
       (await replay()) ?? response;
-    // Read the revision before identity scans. Every handler mutation changes it in its transaction.
+    // 식별 정보 scan 전에 revision을 읽음. handler의 모든 변경은 자기 transaction에서 revision을 바꿈.
     const revision = await readCatalogRevision(catalogTableName);
     const timestamp = new Date().toISOString();
     let product: CatalogProductRecord;
@@ -250,7 +251,7 @@ export async function commitCatalogIntake(
       try {
         const previous = await replay();
         if (previous) return previous;
-        // A row remains claimed even if the original group is split, merged, or retargeted.
+        // 원래 묶음이 나뉘거나 합쳐지거나 대상이 바뀌어도 행의 claim은 유지됨.
         for (const productId of claimKeys) {
           const claim = await documentClient.send(
             new GetCommand({
@@ -275,7 +276,7 @@ export async function commitCatalogIntake(
   }
 }
 
-/** Internal rows have no publication/slug/stock at the top level, and no TTL is assumed. */
+/** 내부 행은 최상위에 공개 상태·slug·재고가 없고, TTL도 가정하지 않음. */
 export async function readCatalogRevision(catalogTableName: string): Promise<number> {
   const response = await documentClient.send(
     new GetCommand({
@@ -318,7 +319,7 @@ export function revisionWrite(
   };
 }
 
-/** Strong reads plus a transaction revision check cover legacy rows without adding a table/index. */
+/** 강한 일관성 읽기와 transaction revision 확인으로 table/index 추가 없이 기존 행까지 중복을 확인함. */
 export async function readCatalogDuplicates(
   catalogTableName: string,
   incoming: CatalogProductRecord,
