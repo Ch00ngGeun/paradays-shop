@@ -1,3 +1,4 @@
+// 역할: 관리자 메뉴 목록과 section·editor 주소 query, 상품 편집 세션 한도를 정의합니다.
 import type { AdminProductDraft } from "./types";
 
 /** 관리자 메뉴 이동을 주소와 브라우저 이전/다음 기록에 연결합니다. */

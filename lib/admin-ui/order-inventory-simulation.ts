@@ -1,4 +1,5 @@
-/** Browser-memory teaching model only. No API, auth, payment, storage, or production-order adapter. */
+// 역할: 주문 승인·출고·취소·환불·보상·반품 입고에 따른 주문·재고 상태 변화를 브라우저 메모리에서만 연습하는 교육용 모델입니다.
+// API·인증·결제·저장소·실제 주문 어댑터를 연결하지 않습니다.
 import type { Locale } from "@/types/store";
 
 export type SimulationCommand =
