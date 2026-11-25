@@ -129,7 +129,7 @@ export function deckSpecFailureMessage(
   try {
     described = describeError?.(error);
   } catch {
-    // A failing description must not leave the form stuck in its saving state.
+    // 문구 변환이 실패해도 폼이 저장 중 상태에 멈추지 않게 일반 문구로 넘어갑니다.
     described = undefined;
   }
   return (
@@ -183,7 +183,7 @@ export function AdminDeckSpecForm({
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // The portal still bubbles React events into the product form, which must not save too.
+    // portal이어도 React 이벤트는 상품 폼까지 전파되므로, 상품 폼이 함께 저장되지 않게 막습니다.
     event.stopPropagation();
 
     if (canSave) {
@@ -256,7 +256,7 @@ export function AdminDeckSpecForm({
             </label>
           );
         })}
-        {/* The range shows again as an error only when a value is out of it. */}
+        {/* 범위 안내는 값이 범위를 벗어났을 때만 오류로 다시 보여 줍니다. */}
         {DECK_SPEC_FIELDS.some((field) => isInvalidInches(inputs[field])) ? (
           <p className={styles.error} id={rangeErrorId}>
             {isKorean

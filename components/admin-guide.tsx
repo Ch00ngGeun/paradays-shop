@@ -174,7 +174,7 @@ export function AdminGuideButton({
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
-  // Runs after the guide layer is gone, so the background is no longer inert when focus returns.
+  // 안내 layer가 사라진 뒤 실행되므로, 포커스가 돌아올 때 배경은 더 이상 inert가 아닙니다.
   useEffect(() => {
     if (wasOpen.current && !open) buttonRef.current?.focus();
     wasOpen.current = open;
@@ -219,7 +219,7 @@ function GuideOverlay({
   owner: RefObject<HTMLButtonElement | null>;
 }>) {
   const layer = useModalLayer(true);
-  // Esc is handled below so only the top layer closes; the trap still keeps Tab inside.
+  // Esc는 아래에서 처리해 맨 위 layer만 닫고, 포커스 트랩은 Tab만 안쪽에 가둡니다.
   const dialogRef = useFocusTrap(true, () => {});
   const titleId = useId();
   const onCloseRef = useRef(onClose);
@@ -249,11 +249,11 @@ function GuideOverlay({
   const position = step ? available.indexOf(step) + 1 : 0;
 
   const measure = useCallback(() => {
-    // The screen that opened the guide was hidden (another menu, browser Back): close with it.
+    // 안내를 연 화면이 숨겨지면(다른 메뉴·브라우저 뒤로 가기) 안내도 함께 닫습니다.
     if (owner.current?.getClientRects().length === 0) return onCloseRef.current();
     setViewport({ width: window.innerWidth, height: window.innerHeight });
     if (!step || !isOnScreen(step)) {
-      // The target went away mid-guide, or one appeared while empty: show a visible step, or the empty state.
+      // 안내 중 대상이 사라졌거나 빈 상태에서 대상이 나타나면, 보이는 단계나 빈 상태를 보여 줍니다.
       const next = recoverGuideStep(steps, index, isOnScreen);
       if (next !== index) setIndex(next);
       return setRect(null);
@@ -266,7 +266,7 @@ function GuideOverlay({
     if (box) setBubble({ width: box.width, height: box.height });
   }, [step, steps, index, dialogRef, owner]);
 
-  // Bring the target into view, then follow it through scrolling, resizing and layout changes.
+  // 대상을 화면 안으로 스크롤한 뒤, 스크롤·크기 변경·레이아웃 변화에 맞춰 위치를 따라갑니다.
   useEffect(() => {
     const element = step ? findTarget(step.target) : null;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -286,7 +286,7 @@ function GuideOverlay({
     const observer = new ResizeObserver(schedule);
     if (element) observer.observe(element);
     observer.observe(document.body);
-    // Menus switch by toggling `hidden`, which may not change any observed size.
+    // 메뉴 전환은 `hidden` 토글이라 관찰 중인 크기가 바뀌지 않을 수 있어 속성 변화도 지켜봅니다.
     const shown = new MutationObserver(schedule);
     shown.observe(document.body, { attributeFilter: ["hidden"], subtree: true });
     return () => {
@@ -393,7 +393,7 @@ function GuideOverlay({
         style={place ? { left: place.left, top: place.top } : undefined}
         tabIndex={-1}
       >
-        {/* Announces each new step to screen readers while focus stays on the buttons. */}
+        {/* 포커스는 버튼에 둔 채 새 단계를 화면 낭독기에 알립니다. */}
         <div aria-live="polite" className={styles.content}>
           {step ? (
             <>
