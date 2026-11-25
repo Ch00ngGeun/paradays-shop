@@ -1,3 +1,4 @@
+// 역할: 관리자 메뉴 복귀가 비공개 초안·권한 경계를 넘지 않고, 매출·홈/장바구니/계정 왕복·모바일 흐름에서 원래 메뉴로 돌아오는지 검증함.
 import { expect, test } from "@playwright/test";
 import {
   active,
