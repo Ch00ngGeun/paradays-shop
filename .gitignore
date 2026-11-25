@@ -1,4 +1,4 @@
-# Role: Excludes generated dependencies, builds, and test output from source control.
+# 역할: 설치 의존성·빌드 출력·테스트 결과·로컬 자격정보를 git 추적에서 제외함.
 node_modules/
 .next/
 out/
@@ -8,7 +8,7 @@ test-results/
 tsconfig.tsbuildinfo
 .env*
 
-# Local credentials, internal notes, and assistant history are never uploaded.
+# 로컬 자격정보·내부 메모·도구 작업 기록은 올리지 않음.
 *.pem
 *.key
 *.log
@@ -25,7 +25,7 @@ docs/
 _backup/
 .DS_Store
 
-# Generated infrastructure, OCR models, private fixtures, and Python caches.
+# 생성된 인프라 출력·OCR 모델·비공개 fixture·Python 캐시.
 dist/
 cdk.out*/
 .venv/
@@ -41,5 +41,5 @@ official_models/
 models/
 fixtures/
 
-# The user approved this submission guide and its designated test account.
+# 사용자가 승인한 제출용 사용 안내와 지정 테스트 계정 문서는 예외로 추적함.
 !/RUN_TEST_FLOW.md
