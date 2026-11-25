@@ -1,4 +1,4 @@
-/** Admin menu round-trips use isolated source and synthetic auth/API fixtures only. */
+// 역할: 관리자 메뉴 왕복·스토어 복귀·내비게이션 e2e spec을 매출 격리 설정(임시 소스·합성 인증/API fixture)으로 실행합니다.
 import { defineConfig } from "@playwright/test";
 import isolated from "./playwright.sales.config";
 
