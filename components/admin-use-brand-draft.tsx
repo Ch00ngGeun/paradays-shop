@@ -1,3 +1,4 @@
+// 역할: 브랜드 추가 폼 제출 훅. 이름·메모를 검증하고, 서버 저장 action이 있으면 등록하고 없으면 이 화면에만 임시 추가한 뒤 알림·운영 기록을 남깁니다.
 "use client";
 import type {
   AdminBrandDraft,
