@@ -1,3 +1,4 @@
+# 역할: PaddleOCR 요청 이미지(base64 PNG·JPEG·WebP)를 디코더 실행 전에 표준 라이브러리만으로 검증함.
 """Strict, stdlib-only validation for untrusted PaddleOCR request images."""
 
 from __future__ import annotations
@@ -11,10 +12,10 @@ from typing import Final, Literal
 
 MAX_IMAGE_BYTES: Final = 4 * 1024 * 1024
 MAX_BASE64_CHARACTERS: Final = ((MAX_IMAGE_BYTES + 2) // 3) * 4
-# A compressed 4 MiB image can otherwise expand to an unsafe amount of memory.
-# The limit is enforced before importing a decoder or invoking PaddleOCR.
+# 압축된 4 MiB 이미지도 풀면 위험한 크기의 메모리로 커질 수 있음.
+# 이 한도는 디코더 import나 PaddleOCR 호출 전에 적용함.
 MAX_IMAGE_PIXELS: Final = 40_000_000
-# The exact JSON envelope is small; this guards streamed request buffering too.
+# 정확한 JSON 외피는 작으므로 이 값으로 스트림 요청 버퍼링도 함께 제한함.
 MAX_OCR_REQUEST_BYTES: Final = MAX_BASE64_CHARACTERS + 1024
 EXPECTED_OCR_KEYS: Final = frozenset({"file", "fileType", "visualize"})
 _MAX_JPEG_SEGMENTS: Final = 1024
@@ -99,8 +100,8 @@ def validate_base64_image(encoded: str) -> ValidatedOcrImage:
     if not encoded or _looks_like_image_reference(encoded):
         raise InvalidOcrRequest
 
-    # Check encoded size first so a large request cannot allocate a much larger
-    # decoded buffer. The decoded length is checked again below for the boundary.
+    # 큰 요청이 훨씬 큰 디코딩 버퍼를 잡지 못하도록 인코딩 길이를 먼저 확인함.
+    # 경계값 판정을 위해 디코딩 길이도 아래에서 다시 확인함.
     if len(encoded) > MAX_BASE64_CHARACTERS:
         raise OcrImageTooLarge
 
@@ -112,8 +113,8 @@ def validate_base64_image(encoded: str) -> ValidatedOcrImage:
     except (binascii.Error, ValueError):
         raise InvalidOcrRequest from None
 
-    # validate=True permits a few non-canonical encodings; a round trip closes
-    # that gap and also rejects whitespace, URL-safe alphabet, and altered padding.
+    # validate=True도 일부 비정규 인코딩을 허용하므로 왕복 비교로 그 틈을 막고,
+    # 공백·URL-safe 문자·변형된 padding도 거부함.
     if not decoded or base64.b64encode(decoded).decode("ascii") != encoded:
         raise InvalidOcrRequest
 
@@ -168,15 +169,15 @@ def read_image_dimensions(value: bytes, mime_type: ImageMimeType) -> tuple[int, 
     if mime_type == "image/webp":
         return _read_webp_dimensions(value)
 
-    # ImageMimeType is closed, but keep this defensive branch if a future caller
-    # passes an invalid value at runtime.
+    # ImageMimeType은 닫힌 타입이지만, 이후 호출자가 런타임에 잘못된 값을
+    # 넘길 경우를 대비해 방어 분기를 남김.
     raise InvalidOcrRequest
 
 
 def _read_png_dimensions(value: bytes) -> tuple[int, int]:
     """Read a standards-conformant PNG IHDR chunk with checked bounds."""
 
-    # Signature + IHDR chunk length/type/data/CRC.
+    # 서명 + IHDR chunk의 길이/타입/데이터/CRC.
     if len(value) < 33:
         raise InvalidOcrRequest
 
@@ -223,9 +224,9 @@ def _read_jpeg_dimensions(value: bytes) -> tuple[int, int]:
     marker_count = 0
 
     while offset < len(value):
-        # Markers may be padded by one or more 0xFF bytes. Every branch advances
-        # offset, and the segment ceiling prevents adversarial tiny segments from
-        # consuming unbounded CPU time.
+        # marker 앞에는 0xFF byte가 하나 이상 채워질 수 있음. 모든 분기가 offset을
+        # 전진시키고, segment 상한이 악의적인 작은 segment로 CPU 시간을
+        # 무한히 쓰는 것을 막음.
         if value[offset] != 0xFF:
             raise InvalidOcrRequest
 
@@ -242,16 +243,16 @@ def _read_jpeg_dimensions(value: bytes) -> tuple[int, int]:
         if marker_count > _MAX_JPEG_SEGMENTS:
             raise InvalidOcrRequest
 
-        # Standalone markers do not have a length field.
+        # 단독 marker에는 길이 필드가 없음.
         if marker == 0xD8:
-            # The one permitted SOI marker was consumed before this loop.
+            # 허용되는 SOI marker 하나는 이 반복문 전에 이미 소비함.
             raise InvalidOcrRequest
 
         if marker == 0x01 or 0xD0 <= marker <= 0xD7:
             continue
 
-        # Entropy-coded data follows SOS. A valid JPEG must have supplied its SOF
-        # dimensions before then; EOI before a SOF is likewise malformed here.
+        # SOS 뒤에는 엔트로피 부호화 데이터가 옴. 유효한 JPEG는 그 전에 SOF 크기를
+        # 제공해야 하며, SOF보다 먼저 나온 EOI도 여기서는 잘못된 형식으로 봄.
         if marker in {0x00, 0xD9, 0xDA}:
             raise InvalidOcrRequest
 
@@ -264,8 +265,8 @@ def _read_jpeg_dimensions(value: bytes) -> tuple[int, int]:
             raise InvalidOcrRequest
 
         if marker in _JPEG_SOF_MARKERS:
-            # Length includes the two length bytes. The fixed SOF portion has
-            # precision, height, width, and component-count fields.
+            # 길이에는 길이 필드 2 byte가 포함됨. 고정 SOF 부분에는
+            # precision·height·width·component-count 필드가 있음.
             if segment_length < 8:
                 raise InvalidOcrRequest
 
@@ -291,8 +292,8 @@ def _read_webp_dimensions(value: bytes) -> tuple[int, int]:
 
     riff_size = int.from_bytes(value[4:8], byteorder="little")
 
-    # RIFF size counts bytes after its size field. Requiring the exact declared
-    # length rejects truncated headers and unexpected trailing data alike.
+    # RIFF 크기는 크기 필드 뒤의 byte 수임. 선언 길이와 정확히 같기를 요구해
+    # 잘린 header와 예상 밖의 뒤쪽 데이터를 모두 거부함.
     if riff_size < 4 or riff_size + 8 != len(value):
         raise InvalidOcrRequest
 
@@ -319,22 +320,22 @@ def _read_webp_dimensions(value: bytes) -> tuple[int, int]:
         if padded_end > riff_end:
             raise InvalidOcrRequest
 
-        # RIFF requires a zero padding byte for odd-sized chunks. Enforcing it
-        # prevents hidden non-image data from being accepted as a valid header.
+        # RIFF는 홀수 크기 chunk 뒤에 0 padding byte를 요구함. 이를 강제해
+        # 숨겨진 비이미지 데이터가 유효한 header로 받아들여지지 않게 함.
         if chunk_size & 1 and value[data_end] != 0:
             raise InvalidOcrRequest
 
         chunk_data = value[data_start:data_end]
 
         if chunk_type == b"VP8X":
-            # The extended header must be the first RIFF chunk and occur once.
+            # 확장 header는 첫 RIFF chunk여야 하고 한 번만 나와야 함.
             if chunk_count != 0 or canvas_dimensions is not None:
                 raise InvalidOcrRequest
             canvas_dimensions = _read_vp8x_dimensions(chunk_data)
         elif chunk_type in {b"ANIM", b"ANMF"}:
-            # Animated WebP can contain multiple nested frame bitstreams. This
-            # single-image provider does not parse every nested frame, so reject
-            # it rather than let a large frame bypass the canvas-only check.
+            # 애니메이션 WebP는 중첩 frame bitstream을 여러 개 담을 수 있음. 이 단일
+            # 이미지 provider는 모든 중첩 frame을 해석하지 않으므로, 큰 frame이
+            # canvas 크기 검사만 통과해 우회하지 않도록 거부함.
             raise InvalidOcrRequest
         elif chunk_type == b"VP8 ":
             if image_dimensions is not None:
@@ -355,9 +356,9 @@ def _read_webp_dimensions(value: bytes) -> tuple[int, int]:
         raise InvalidOcrRequest
 
     if canvas_dimensions is not None:
-        # A VP8X canvas can be smaller than its encoded frame. Check both before
-        # returning the canvas dimensions so a static extended WebP cannot evade
-        # the pixel limit through a small advertised canvas.
+        # VP8X canvas는 인코딩된 frame보다 작을 수 있음. canvas 크기를 돌려주기 전에
+        # 둘 다 확인해, 정적 확장 WebP가 작게 선언한 canvas로 픽셀 한도를
+        # 피하지 못하게 함.
         _validate_image_dimensions(*canvas_dimensions)
         _validate_image_dimensions(*image_dimensions)
         return canvas_dimensions
@@ -379,8 +380,8 @@ def _read_vp8x_dimensions(value: bytes) -> tuple[int, int]:
 def _read_vp8_dimensions(value: bytes) -> tuple[int, int]:
     """Read dimensions from a key-frame VP8 bitstream header."""
 
-    # Frame-tag bit 0 is zero for a key frame, whose start code and dimensions
-    # are present at the fixed offsets below.
+    # key frame이면 frame-tag bit 0이 0이고, 시작 코드와 크기가
+    # 아래 고정 offset에 있음.
     if (
         len(value) < 10
         or value[0] & 0x01
@@ -396,7 +397,7 @@ def _read_vp8_dimensions(value: bytes) -> tuple[int, int]:
 def _read_vp8l_dimensions(value: bytes) -> tuple[int, int]:
     """Read dimensions from the fixed VP8L image header."""
 
-    # The upper three bits of byte four encode the VP8L version and must be 0.
+    # 네 번째 byte의 상위 3 bit는 VP8L version이며 0이어야 함.
     if len(value) < 5 or value[0] != 0x2F or value[4] & 0xE0:
         raise InvalidOcrRequest
 
@@ -411,8 +412,8 @@ def _validate_image_dimensions(width: int, height: int) -> None:
     if width <= 0 or height <= 0:
         raise InvalidOcrRequest
 
-    # Positive dimensions make this multiplication unambiguous. Python integers
-    # do not overflow, and the explicit ceiling is enforced before pixel decode.
+    # 양수 크기만 오므로 이 곱셈은 모호하지 않음. Python 정수는 overflow가 없고,
+    # 명시 상한은 픽셀 디코딩 전에 적용함.
     if width > MAX_IMAGE_PIXELS or height > MAX_IMAGE_PIXELS:
         raise OcrImageTooLarge
 
@@ -450,8 +451,8 @@ def _looks_like_image_reference(value: str) -> bool:
     if "\\" in value:
         return True
 
-    # A supported JPEG's canonical base64 begins /9j/. Other leading-slash
-    # values are filesystem-like references, not raw payloads for this API.
+    # 지원하는 JPEG의 정규 base64는 /9j/로 시작함. 그 밖의 '/' 시작 값은
+    # 이 API의 원본 payload가 아니라 파일 시스템 경로 같은 참조로 봄.
     if value.startswith("/") and not value.startswith("/9j/"):
         return True
 

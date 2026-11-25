@@ -1,3 +1,4 @@
+# 역할: 인증된 제한 크기 이미지 요청만 받아 PaddleOCR를 실행하는 비공개 FastAPI 진입점임.
 """Private FastAPI entry point for the PaddleOCR provider service.
 
 The service accepts only authenticated, bounded in-memory image requests and
@@ -37,8 +38,8 @@ from .settings import Settings, get_settings
 
 logger = logging.getLogger(__name__)
 
-# Lambda aborts its provider request after 12 seconds. The provider returns
-# earlier, and admits only one CPU-bound native inference at a time.
+# Lambda는 provider 요청을 12초 뒤 중단함. provider는 그보다 먼저 응답하고,
+# CPU를 쓰는 native 추론은 한 번에 하나만 받음.
 OCR_RESPONSE_DEADLINE_SECONDS: Final = 9.0
 OCR_MAX_CONCURRENT_INFERENCES: Final = 1
 
@@ -72,23 +73,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             logger.warning("PaddleOCR model preload is disabled; service is not ready")
         else:
             try:
-                # Only the Korean models baked in the image are verified. Do not
-                # let another language/cache trigger unverified model downloads.
+                # 이미지에 포함된 한국어 model만 검증된 상태임. 다른 언어·cache 설정이
+                # 검증되지 않은 model 다운로드를 일으키지 않게 함.
                 if settings.model_language != "korean":
                     raise ArtifactIntegrityError
                 verify_baked_model_artifacts()
                 app.state.ocr_engine = preload_ocr_engine(settings.model_language)
                 logger.info("PaddleOCR model preload completed")
             except Exception:
-                # Readiness reports only a generic state; no exception trace, secret,
-                # or filesystem details are emitted by this service.
+                # readiness는 일반 상태만 알리며, 이 서비스는 예외 trace·비밀값·
+                # 파일 시스템 정보를 내보내지 않음.
                 app.state.ocr_preload_failed = True
                 logger.warning("PaddleOCR model preload failed; service remains live")
 
         yield
     finally:
-        # Do not assume a particular PaddleOCR teardown API. Releasing the
-        # process-held reference is safe across supported versions.
+        # 특정 PaddleOCR 종료 API를 가정하지 않음. 프로세스가 쥔 참조를 놓는 방식은
+        # 지원 버전 전반에서 안전함.
         app.state.ocr_engine = None
         executor = app.state.ocr_executor
         app.state.ocr_executor = None
@@ -169,9 +170,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except InvalidOcrRequest:
             return _invalid_request_response()
 
-        # An authenticated request must receive its input-validation result even
-        # while the OCR engine is unavailable. Only a valid request reaches the
-        # fail-closed service gate below.
+        # 인증된 요청은 OCR engine을 쓸 수 없는 동안에도 입력 검증 결과를 받아야 함.
+        # 유효한 요청만 아래의 fail-closed 서비스 gate에 도달함.
         engine = app.state.ocr_engine
 
         if engine is None:
@@ -192,7 +192,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except OcrInferenceError:
             return _ocr_unavailable_response()
         except Exception:
-            # Never expose OCR library errors, input details, or tracebacks.
+            # OCR 라이브러리 오류·입력 정보·traceback을 절대 노출하지 않음.
             return _ocr_unavailable_response()
 
         return JSONResponse(
@@ -248,7 +248,7 @@ async def _read_bounded_request_body(request: Request) -> bytes:
         if content_length is not None and int(content_length) > MAX_OCR_REQUEST_BYTES:
             raise OcrImageTooLarge
     except ValueError:
-        # The stream cap below remains authoritative for absent or malformed headers.
+        # header가 없거나 잘못된 경우에는 아래 stream 상한이 최종 기준임.
         pass
 
     chunks: list[bytes] = []
@@ -288,8 +288,8 @@ async def _run_bounded_inference(
     if executor is None or gate is None:
         raise OcrInferenceError
 
-    # This check happens before an await. With a one-worker executor and the
-    # permit retained for timed-out work, it prevents an unbounded CPU-job queue.
+    # 이 검사는 await 전에 일어남. worker 1개 executor와 시간 초과 작업이 쥔
+    # permit과 함께, CPU 작업 queue가 무한히 쌓이는 것을 막음.
     if gate.locked():
         raise _OcrInferenceBusy
 
@@ -313,13 +313,13 @@ async def _run_bounded_inference(
                 timeout=OCR_RESPONSE_DEADLINE_SECONDS,
             )
         except asyncio.TimeoutError:
-            # Shield keeps the native work alive. Its completion callback, not
-            # this response, releases the permit and allows a future request.
+            # shield가 native 작업을 계속 살려 둠. 이 응답이 아니라 그 작업의 완료
+            # callback이 permit을 풀어 다음 요청을 허용함.
             release_gate_here = False
             future.add_done_callback(lambda done: _finish_abandoned_inference(done, gate))
             raise _OcrInferenceDeadlineExceeded from None
         except asyncio.CancelledError:
-            # A client cancellation must obey the same no-overlap guarantee.
+            # client 취소도 같은 비중첩 보장을 따라야 함.
             release_gate_here = False
             future.add_done_callback(lambda done: _finish_abandoned_inference(done, gate))
             raise

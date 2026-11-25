@@ -1,3 +1,4 @@
+# 역할: 검증된 이미지를 메모리 안에서 PaddleOCR로 인식하고 Lambda가 기대하는 provider 응답으로 좁혀 변환함.
 """In-memory PaddleOCR execution and narrow provider-response adaptation.
 
 This module deliberately has no Paddle, NumPy, or OpenCV import at module load
@@ -23,10 +24,10 @@ from .ocr_engine_values import (
 
 
 MAX_OCR_ROWS: Final = 500
-# Lambda applies its per-text and combined raw-text limits with JavaScript
-# UTF-16 string lengths, not Python code-point counts.
+# Lambda는 텍스트별·전체 원문 길이 한도를 Python code point 수가 아니라
+# JavaScript UTF-16 문자열 길이로 적용함.
 MAX_RAW_TEXT_CHARACTERS: Final = 100_000
-# Leave margin below the Lambda provider-response ceiling of 2 MiB.
+# Lambda provider 응답 상한 2 MiB보다 여유를 두고 작게 잡음.
 MAX_CANONICAL_RESPONSE_BYTES: Final = 1_800_000
 
 
@@ -45,8 +46,8 @@ def preload_ocr_engine(model_language: str) -> Any:
         raise OcrInferenceError
 
     try:
-        # Use the validated conservative CPU pipeline. Product-list images do not
-        # need optional document transforms; requests never supply paths or URLs.
+        # 검증된 보수적 CPU pipeline을 씀. 상품 목록 이미지에는 선택적 문서 변환이
+        # 필요 없고, 요청은 경로나 URL을 절대 넘기지 않음.
         from paddleocr import PaddleOCR
 
         return PaddleOCR(
@@ -80,8 +81,8 @@ def run_ocr_in_memory(engine: Any, image: ValidatedOcrImage) -> dict[str, Any]:
     except OcrInferenceError:
         raise
     except Exception:
-        # Do not retain exception chains that can disclose model, file, or input
-        # details through an upstream logger or error handler.
+        # 상위 logger나 오류 처리기를 통해 model·파일·입력 정보가 드러날 수 있는
+        # 예외 chain을 남기지 않음.
         raise OcrInferenceError from None
 
 
@@ -109,8 +110,8 @@ def _decode_image_in_memory(image: ValidatedOcrImage) -> Any:
     except (TypeError, ValueError, OverflowError, IndexError):
         raise OcrInputDecodeError from None
 
-    # Header dimensions are checked before decoder allocation. Confirm the
-    # decoded raster agrees before it ever reaches the model.
+    # header 크기는 디코더 할당 전에 확인함. model에 넘기기 전에
+    # 디코딩된 raster 크기도 일치하는지 확인함.
     if (
         width <= 0
         or height <= 0
@@ -135,8 +136,8 @@ def _invoke_engine(engine: Any, image: Any) -> tuple[Any, int]:
         legacy_ocr = getattr(engine, "ocr", None)
 
         if callable(legacy_ocr):
-            # ``cls`` is supported by the established 2.x PaddleOCR surface and
-            # avoids accepting source paths or URLs as an input compatibility aid.
+            # ``cls``는 기존 2.x PaddleOCR 호출 형태가 지원하며, 입력 호환을 이유로
+            # 원본 경로나 URL을 받아들이지 않게 함.
             return legacy_ocr(image, cls=False), 2
     except Exception:
         raise OcrInferenceError from None
@@ -304,14 +305,14 @@ def _canonicalize_parallel_rows(
         text = _safe_text(texts[index])
         score = _safe_score(scores[index])
 
-        # A row missing text or a valid confidence is removed as a complete row;
-        # its box is never paired with a later source row.
+        # 텍스트나 유효한 신뢰도가 없는 행은 행 전체를 제거하며,
+        # 그 box를 뒤쪽 원본 행과 짝짓지 않음.
         if text is None or score is None:
             continue
 
-        # Mirror Lambda's `rec_texts.join("\n").length <= 100_000` guard. Stop
-        # at the first over-limit source row to keep the accepted row/box pairing
-        # deterministic instead of emitting a provider success Lambda will reject.
+        # Lambda의 `rec_texts.join("\n").length <= 100_000` 검사와 맞춤. Lambda가 거부할
+        # provider 성공 응답을 내보내는 대신, 한도를 넘는 첫 원본 행에서 멈춰
+        # 채택된 행/box 짝을 결정적으로 유지함.
         separator_length = 1 if canonical_texts else 0
         next_raw_text_length = raw_text_length + separator_length + _utf16_length(text)
 
@@ -324,8 +325,8 @@ def _canonicalize_parallel_rows(
         canonical_texts.append(text)
         canonical_scores.append(score)
         raw_text_length = next_raw_text_length
-        # This mirrors schemas.py: a usable box wins; only its same-index fallback
-        # polygon may replace a missing/malformed box, otherwise the slot is empty.
+        # schemas.py와 같은 규칙임: 쓸 수 있는 box를 우선하고, 없거나 잘못된 box만
+        # 같은 index의 대체 polygon으로 바꾸며, 그것도 없으면 빈 칸으로 둠.
         canonical_boxes.append(box or poly or [])
 
     return _build_canonical_response(canonical_texts, canonical_scores, canonical_boxes)
