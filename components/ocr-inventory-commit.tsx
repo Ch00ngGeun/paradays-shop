@@ -8,13 +8,13 @@ import type {
   AdminDashboardActions,
   AdminOcrRecognitionResult,
 } from "@/lib/admin-ui/types";
+import { OcrInventoryPlanError } from "@/lib/admin-ui/ocr-inventory-commit";
 import {
   buildOcrIntakePlan,
   executeOcrIntakePlan,
-  OcrInventoryPlanError,
   type OcrIntakePlan,
   type OcrIntakeSelection,
-} from "@/lib/admin-ui/ocr-inventory-commit";
+} from "@/lib/admin-ui/ocr-inventory-commit-intake";
 import styles from "./admin-dashboard.module.css";
 import inventoryStyles from "./ocr-inventory-commit.module.css";
 import { newProduct, OcrInventoryRow, type RowDraft } from "./ocr-inventory-commit-row";

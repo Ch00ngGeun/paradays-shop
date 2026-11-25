@@ -1,15 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   buildOcrInventoryPlan,
-  buildOcrIntakePlan,
-  executeOcrIntakePlan,
   executeOcrInventoryPlan,
   OcrInventoryPlanError,
   type OcrInventoryMode,
   type OcrInventoryPlan,
+} from "@/lib/admin-ui/ocr-inventory-commit";
+import {
+  buildOcrIntakePlan,
+  executeOcrIntakePlan,
   type OcrIntakePlan,
   type OcrIntakeSelection,
-} from "@/lib/admin-ui/ocr-inventory-commit";
+} from "@/lib/admin-ui/ocr-inventory-commit-intake";
 import type {
   AdminCatalogListItem,
   AdminOcrRecognitionResult,

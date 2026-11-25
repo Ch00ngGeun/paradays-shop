@@ -6,7 +6,7 @@ import type {
   AdminCatalogListItem,
   AdminOcrRecognitionResult,
 } from "@/lib/admin-ui/types";
-import type { OcrIntakePlan } from "@/lib/admin-ui/ocr-inventory-commit";
+import type { OcrIntakePlan } from "@/lib/admin-ui/ocr-inventory-commit-intake";
 import {
   findOcrIntakeMatches,
   getOcrIntakeNewProductValidationMessage,
