@@ -1,4 +1,4 @@
-/** Real handler with an atomic, conditional in-memory SDK transport. No credentials or network. */
+/** 역할: 실제 관리자 카탈로그 handler로 옵션별 사이즈 값 PATCH·도면 종류 전환·옵션 이름 변경·빈 사이즈 필드(null) 보존을 메모리 SDK 전송으로 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
@@ -39,7 +39,7 @@ test("sizeChartValues PATCH saves and clears one option under the product's draw
   const stored = () => db.records.get("prd_top") as Row;
   const patch = async (body: Record<string, unknown>) =>
     unpack(await handler(event("PATCH", body, "prd_top")));
-  // No default and no chosen drawing yet: the category's default drawing applies and is recorded.
+  // 기본값도 고른 도면도 아직 없으면 카테고리 기본 도면을 적용하고 기록함.
   const saved = await patch({
     version: 3,
     size: "M",
@@ -57,7 +57,7 @@ test("sizeChartValues PATCH saves and clears one option under the product's draw
 
   const writes = db.transactions.length;
   for (const invalid of [
-    // Other fields never ride along, so an older server cannot half-apply it.
+    // 다른 필드는 함께 실리지 않으므로 이전 서버가 절반만 적용할 수 없음.
     { version: 4, size: "M", sizeChartValues: shortSleeve.values, featured: true },
     { version: 4, size: "M", sizeChartValues: shortSleeve.values, sizeDeckSpec: null },
     { version: 4, size: "M", sizeChartValues: shortSleeve.values, sizeChart: null },
@@ -79,10 +79,10 @@ test("sizeChartValues PATCH saves and clears one option under the product's draw
   assert.equal(cleared.status, 200);
   assert.equal(cleared.body.product.sizeChartsBySize, undefined);
   assert.equal(Object.hasOwn(stored(), "sizeChartsBySize"), false);
-  // The chosen drawing stays after its last value is gone.
+  // 마지막 값이 지워져도 고른 도면은 남음.
   assert.equal(cleared.body.product.sizeChartKind, "shortSleeve");
 
-  // A deck has no clothing or wheel drawing to follow.
+  // 데크에는 따를 의류·휠 도면이 없음.
   const deck = fixture(t, [product()]);
   assert.equal(
     unpack(
@@ -135,7 +135,7 @@ test("the kind PATCH clears the default and every option value; a default cannot
     assert.equal((await patch(invalid)).status, 400, JSON.stringify(invalid));
   assert.equal(db.transactions.length, writes);
 
-  // Choosing the drawing already in use keeps every value.
+  // 이미 쓰는 도면을 다시 고르면 모든 값을 유지함.
   const same = await patch({ version: 4, sizeChartKind: "shortSleeve" });
   assert.equal(same.status, 200);
   assert.equal(stored().sizeChart?.values.length, 73);
@@ -148,7 +148,7 @@ test("the kind PATCH clears the default and every option value; a default cannot
   assert.equal(changed.body.product.sizeChartsBySize, undefined);
   for (const field of ["sizeChart", "sizeChartsBySize"])
     assert.equal(Object.hasOwn(stored(), field), false, field);
-  // New values now follow the new drawing.
+  // 새 값은 이제 새 도면을 따름.
   assert.equal(
     (await patch({ version: 6, size: "S", sizeChartValues: raglanValues })).status,
     200,
@@ -179,7 +179,7 @@ test("renaming an option moves both kinds of option value, and saves prune missi
   assert.equal(renamed.status, 200);
   assert.deepEqual(stored().sizes, ["S", "L"]);
   assert.deepEqual(stored().sizeChartsBySize, { S: shortSleeve.values, L: longer });
-  // A deck-value rename carries the size chart value along too.
+  // 데크 값 이름 변경은 사이즈 표 값도 함께 옮김.
   const deckRename = await patch({
     version: 4,
     size: "S",
@@ -190,11 +190,11 @@ test("renaming an option moves both kinds of option value, and saves prune missi
   assert.deepEqual(stored().sizeChartsBySize, { L: longer, XS: shortSleeve.values });
   assert.equal(Object.hasOwn(stored(), "deckSpecsBySize"), false);
 
-  // A product save that drops an option drops its value.
+  // 옵션을 뺀 상품 저장은 그 옵션 값도 뺌.
   assert.equal((await patch({ version: 5, sizes: ["XS"] })).status, 200);
   assert.deepEqual(stored().sizeChartsBySize, { XS: shortSleeve.values });
 
-  // DynamoDB keeps the nested values exactly.
+  // DynamoDB는 중첩 값을 정확히 유지함.
   const restored = unmarshall(
     marshall(stored(), { removeUndefinedValues: true }),
   ) as Row;
@@ -202,7 +202,7 @@ test("renaming an option moves both kinds of option value, and saves prune missi
   assert.equal(restored.sizeChartKind, "shortSleeve");
   assert.equal(isCatalogProductRecord(restored), true);
 
-  // Keys that are not options, or that name Object internals, never reach a response.
+  // 옵션이 아닌 key나 Object 내부 이름 key는 응답에 나오지 않음.
   const legacy = top({
     sizes: ["M", "__proto__", "constructor"],
     sizeChartKind: "shortSleeve",
@@ -271,7 +271,7 @@ const partialDeck = {
 };
 
 test("a deck row with blank size fields stays a valid product in the admin list and the store", async (t) => {
-  // The record check runs on every read; a blank field must never hide the product.
+  // 레코드 검사는 읽을 때마다 실행되며, 빈 필드 때문에 상품이 숨겨지면 안 됨.
   const row = product({
     status: "PUBLISHED",
     publicationStatus: "PUBLISHED",
@@ -286,7 +286,7 @@ test("a deck row with blank size fields stays a valid product in the admin list 
   assert.deepEqual(visible?.deckSpecsBySize, {
     "8.5": { ...partialDeck, nose: null, tail: 6.5 },
   });
-  // DynamoDB keeps the blank fields as null.
+  // DynamoDB는 빈 필드를 null로 유지함.
   const restored = unmarshall(marshall(row, { removeUndefinedValues: true }));
   assert.deepEqual(restored.deckSpec, partialDeck);
   assert.equal(isCatalogProductRecord(restored), true);
@@ -298,7 +298,7 @@ test("a deck row with blank size fields stays a valid product in the admin list 
   assert.deepEqual(list.body.products[0].deckSpec, partialDeck);
   const read = unpack(await handler(event("GET", undefined, "prd_deck")));
   assert.deepEqual(read.body.product.deckSpecsBySize["8.5"].nose, null);
-  // A broken value still makes the row invalid, as before.
+  // 깨진 값은 이전처럼 행을 무효로 만듦.
   assert.equal(
     isCatalogProductRecord(product({ deckSpec: { ...partialDeck, tail: 0 } })),
     false,
@@ -319,7 +319,7 @@ test("a deckSpec PATCH saves blank fields as null and needs at least one number"
   const writes = db.transactions.length;
   for (const invalid of [
     { nose: null, tail: null, width: null, length: null, wheelbase: null },
-    // Every field must still be present; a blank one is null, not missing.
+    // 모든 필드는 여전히 있어야 하며, 빈 필드는 누락이 아니라 null임.
     { nose: 6.875, tail: null, width: null, length: 31.75 },
     { ...partialDeck, tail: "null" },
     { ...partialDeck, tail: 0 },
@@ -332,7 +332,7 @@ test("a deckSpec PATCH saves blank fields as null and needs at least one number"
   }
   assert.equal(db.transactions.length, writes);
 
-  // One option with blank fields, then a rename that carries it.
+  // 빈 필드가 있는 옵션 하나를 만든 뒤, 그 값을 옮기는 이름 변경을 함.
   const option = { ...partialDeck, width: 8.5 };
   const optionSaved = await patch({ version: 4, size: "8.5", sizeDeckSpec: option });
   assert.equal(optionSaved.status, 200);
@@ -345,12 +345,12 @@ test("a deckSpec PATCH saves blank fields as null and needs at least one number"
   });
   assert.equal(renamed.status, 200);
   assert.deepEqual(stored().deckSpecsBySize, { "8.6": { ...option, tail: 6.5 } });
-  // An unrelated edit keeps the blank fields, and deleting still uses null.
+  // 무관한 편집은 빈 필드를 유지하고, 삭제는 여전히 null로 함.
   assert.equal((await patch({ version: 6, featured: true })).status, 200);
   assert.deepEqual(stored().deckSpec, partialDeck);
   assert.equal((await patch({ version: 7, deckSpec: null })).status, 200);
   assert.equal(Object.hasOwn(stored(), "deckSpec"), false);
-  // An older client's full spec still saves as before.
+  // 이전 client의 전체 사양도 예전처럼 저장됨.
   assert.equal(
     (
       await patch({
@@ -407,7 +407,7 @@ test("clothing and wheel size charts save blank fields as null on every path and
   }
   assert.equal(db.transactions.length, writes);
 
-  // A rename carries the blank fields, and both outputs keep them as null.
+  // 이름 변경은 빈 필드를 옮기고, 두 출력 모두 null로 유지함.
   assert.equal(
     (await patch({ version: 5, size: "M", sizeName: "L", sizeChartValues: option }))
       .status,
@@ -421,7 +421,7 @@ test("clothing and wheel size charts save blank fields as null on every path and
   assert.deepEqual(restored.sizeChartsBySize, { L: option });
   assert.equal(isCatalogProductRecord(restored), true);
 
-  // A product save keeps them; a drawing switch clears them like any other values.
+  // 상품 저장은 이를 유지하고, 도면 전환은 다른 값처럼 지움.
   assert.equal((await patch({ version: 6, sizes: ["S", "L"] })).status, 200);
   assert.deepEqual(stored().sizeChartsBySize, { L: option });
   assert.equal(
