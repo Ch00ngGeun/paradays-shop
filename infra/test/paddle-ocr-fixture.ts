@@ -1,4 +1,4 @@
-// 역할: OCR inline image parser가 대형 base64에서도 정규식 RangeError 없이 경계를 지키는지 확인합니다.
+// 역할: PaddleOCR 테스트용 PNG 서명 byte·업로드 body·정규 provider 응답·테스트 자격증명을 만드는 fixture임.
 
 export const PNG_SIGNATURE = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
@@ -31,5 +31,5 @@ export const TEST_CREDENTIALS = {
   sharedSecret: "test-only-secret",
 };
 
-// Lambda only checks the lightweight signature; Python performs bounded header
-// dimensions/pixel validation. Do not claim these fixtures decode as images.
+// Lambda는 가벼운 서명만 확인하고, header 크기·픽셀 검증은 Python이 맡음.
+// 이 fixture가 실제 이미지로 디코딩된다고 가정하지 말 것.
