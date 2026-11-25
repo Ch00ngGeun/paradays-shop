@@ -35,7 +35,7 @@ export type TossPayment = Readonly<{
   approvedAt?: string;
 }>;
 
-/** 외부 PG 통신 실패를 Lambda handler가 안전한 502로 바꾸기 위한 오류입니다. */
+/** PG 통신·응답 검증·자격증명 조회 실패를 내부 오류로 감싸며, 외부 응답 상태와 코드는 호출부가 정함. */
 export class TossPaymentsApiError extends Error {
   constructor(
     readonly status: number | null = null,

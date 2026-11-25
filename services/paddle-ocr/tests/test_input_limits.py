@@ -21,7 +21,7 @@ _SPEC = importlib.util.spec_from_file_location(
     "ocr_input_limits_validation", Path(__file__).parents[1] / "app/image_validation.py"
 )
 validation = importlib.util.module_from_spec(_SPEC)
-sys.modules[_SPEC.name] = validation  # dataclasses resolves its defining module.
+sys.modules[_SPEC.name] = validation  # dataclasses가 정의된 모듈을 찾을 수 있게 등록함.
 _SPEC.loader.exec_module(validation)
 
 
