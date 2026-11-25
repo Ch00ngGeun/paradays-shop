@@ -1,4 +1,4 @@
-/** Real admin UI/client with test-only session and intercepted provider API. */
+// 역할: OCR 입고 반영의 신규 상품 초안 생성·후보 선택·입력 검증·초안 저장·수동 입고 잠금을 실제 관리자 화면과 가로챈 API로 검증함.
 import { expect, test } from "@playwright/test";
 import {
   OCR_ROUTE,
@@ -44,7 +44,7 @@ test.describe("OCR inventory application", () => {
       await expect(dialog).toHaveCount(0);
       await expect(help).toBeFocused();
     };
-    // Stock and safety notices stay on screen.
+    // 재고·안전 안내는 화면에 남아 있음.
     await expect(
       page.getByText("빈 수량 제외 · 실제 재고와 무관", { exact: true }),
     ).toBeVisible();
@@ -62,7 +62,7 @@ test.describe("OCR inventory application", () => {
       .selectOption("new");
     await check("신규 옵션 1", "옵션이 없으면 빈칸. 옵션별 재고는 생성하지 않습니다.");
     await check("신규 가격 1", "필수 · 원 단위 정수, 0~100,000,000원");
-    // The price range comes back as the validation message when the price is wrong.
+    // 가격이 잘못되면 가격 범위가 검증 메시지로 다시 표시됨.
     await panel.getByLabel("신규 가격 1", { exact: true }).fill("100000001");
     await expect(panel).toContainText("0~100,000,000원 정수여야 합니다");
   });
@@ -101,7 +101,7 @@ test.describe("OCR inventory application", () => {
     await expect(panel).toContainText("신규 · 비공개 초안");
     await expect(panel).toContainText("89,000");
     expect(inventory.intakes).toHaveLength(0);
-    // Editing even a valid price invalidates both row confirmation and the preview.
+    // 유효한 가격이라도 수정하면 행 확인과 미리보기가 모두 무효가 됨.
     await panel.getByLabel("신규 가격 1", { exact: true }).fill("90000");
     await expect(rowConfirmation).not.toBeChecked();
     await expect(
