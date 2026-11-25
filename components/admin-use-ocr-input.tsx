@@ -1,3 +1,4 @@
+// 역할: 입고 OCR 입력 훅. 원본 이미지 선택·검증, OCR 작업 결과를 검토 행에 반영, 검토 초기화와 이전 요청 무효화, 새 검토 행 생성을 담당합니다.
 "use client";
 import { validateOcrImageFile } from "@/lib/admin-ui/ocr-input-validation";
 import type {
@@ -112,8 +113,8 @@ export function useAdminOcrInput({
         en: "Edited the stock-in review. Saving the draft and applying stock need separate confirmation.",
       },
     });
-    // Draft edits and file/job changes supersede every earlier response, including
-    // a PATCH conflict's subsequent GET. An old finally must not clear a new save.
+    // 초안 수정·파일/작업 변경은 PATCH 충돌 뒤 다시 읽는 GET까지 포함한 이전 응답을 모두 무효로 만듭니다.
+    // 이전 요청의 finally가 새 저장 상태를 지우지 않게 합니다.
     ocrRequestGenerationRef.current += 1;
     setIsSavingOcr(false);
     setOcrState((current) =>
