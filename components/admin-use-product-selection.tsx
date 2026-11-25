@@ -1,3 +1,4 @@
+// 역할: 상품 목록 선택·필터 훅. 검색어·공개 상태·재고 필터, 드래그 다중 선택과 삭제된 상품 선택 정리, 브랜드 선택지 목록을 관리합니다.
 "use client";
 import { mergeProductBrandNames } from "@/lib/admin-ui/product-form";
 import { type SizeChartKind, type SizeChartValues } from "@/lib/size-chart";

@@ -1,3 +1,4 @@
+// 역할: 상세사이즈 저장 훅. 데크·의류·휠 상세사이즈와 도면 종류·옵션 이름 변경을 상품 저장과 별도로 기준 버전과 함께 서버에 보내고, 성공 응답으로만 편집 초안 버전을 올립니다.
 "use client";
 import {
   getAdminProductEditorId,
@@ -58,10 +59,10 @@ export function useAdminProductSizeInfo({
     } catch (error) {
       const code =
         error instanceof AdminApiRequestError ? error.responseCode : undefined;
-      // A rename refused for reserved stock or a duplicate leaves the product unchanged; the modal explains it.
+      // 결제 대기 예약이나 중복 이름으로 거절된 이름 변경은 상품을 바꾸지 않으며, 이유는 모달이 설명합니다.
       if (code === "CATALOG_PRODUCT_RESERVED" || code === "CATALOG_PRODUCT_DUPLICATE")
         throw error;
-      // Success is never guessed from a re-read; a conflict only refreshes the list and asks to reopen.
+      // 다시 읽은 값으로 성공을 추정하지 않고, 409 충돌이면 목록만 새로 읽고 편집기를 다시 열도록 안내합니다.
       if (error instanceof AdminApiRequestError && error.status === 409) {
         void refreshCatalogProducts();
         if (getAdminProductEditorId() === editor.id)
@@ -82,7 +83,7 @@ export function useAdminProductSizeInfo({
       ),
     );
     // 버튼 옆 요약이 바뀌는 것으로 저장을 알립니다. 상품 저장 완료 알림(productSaved)과 섞지 않습니다.
-    // A rename also renames the chip, so the next product save sends the new name instead of undoing it.
+    // 이름 변경은 칩 이름도 바꾸므로, 다음 상품 저장이 이름을 되돌리지 않고 새 이름을 보냅니다.
     productEditors.updateDraft(editor.id, (current) =>
       current.productId === updated.id && current.version === version
         ? {

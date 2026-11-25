@@ -1,3 +1,4 @@
+// 역할: 상품 편집 폼의 상세사이즈 모달 상태 훅. 현재 상품의 데크·의류·휠 상세사이즈와 편집 가능 여부, 열린 모달(기본값·옵션별), 이름 변경 가능 여부·오류 문구·도움말을 계산합니다.
 "use client";
 import adminSharedStyles from "./admin-shared.module.css";
 import { listProductOptions } from "@/lib/admin-ui/product-form";
@@ -99,7 +100,7 @@ export function useAdminProductSizeModal({
     size?: string;
   } | null>(null);
   const modalSize = deckSpecModal?.size;
-  // The server renames every equal entry, so a duplicated legacy name only edits its chart.
+  // 서버는 같은 이름 항목을 모두 바꾸므로, 예전 중복 이름 옵션은 상세사이즈만 편집합니다.
   const modalNameEditable =
     modalSize !== undefined &&
     savedSizes.filter((size) => size === modalSize).length === 1;
@@ -111,7 +112,7 @@ export function useAdminProductSizeModal({
     setNameLineNotice(null);
   }
   const canEditDeckSpec = Boolean(onSaveDeckSpec && draft.productId && draft.version);
-  // Clothing and wheel size charts: the drawing follows the saved product, like the server.
+  // 의류·휠 상세사이즈: 서버처럼 저장된 상품의 도면 종류를 따릅니다.
   const sizeChartKinds = sizeChartKindsFor(draft.category);
   const sizeChart = currentProduct?.sizeChart;
   const sizeChartsBySize = currentProduct?.sizeChartsBySize;
@@ -120,7 +121,7 @@ export function useAdminProductSizeModal({
     currentProduct?.sizeChartKind ??
     defaultSizeChartKind(draft.category);
   const optionSizeChartCount = Object.keys(sizeChartsBySize ?? {}).length;
-  // The server checks the saved category, so a changed category is saved before its chart.
+  // 서버는 저장된 카테고리를 검사하므로, 카테고리를 바꿨으면 상품을 먼저 저장해야 상세사이즈를 편집합니다.
   const canEditSizeChart = Boolean(
     onSaveSizeChart &&
       draft.productId &&
@@ -148,7 +149,7 @@ export function useAdminProductSizeModal({
         : "Several saved options share this name, so only the size chart can be edited. Remove the duplicate chip and save the product to rename it."
       : undefined;
   const modalOtherOptions = modalNameEditable
-    ? // Draft chips count too, so a rename cannot collide with an option added but not saved.
+    ? // 저장 전 칩도 포함해, 추가만 하고 저장하지 않은 옵션과 이름이 겹치지 않게 합니다.
       [...new Set([...savedSizes, ...listProductOptions(draft.sizes)])].filter(
         (size) => size !== modalSize,
       )
