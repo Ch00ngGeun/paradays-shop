@@ -1,3 +1,4 @@
+/** 역할: 관리자 브랜드·쿠폰·캠페인 레코드의 목록·생성·조회·수정·삭제를 DynamoDB 조건식으로 처리함. */
 import { randomUUID } from "node:crypto";
 import {
   DeleteCommand,

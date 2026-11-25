@@ -1,3 +1,4 @@
+/** 역할: 관리자 OCR job의 저장 레코드·검토 행 형식을 정의하고 검증하며, 공개 응답 형태로 변환함. */
 import {
   isOcrMapping,
   parseOcrTableRows,
@@ -209,8 +210,8 @@ function isOcrJobRow(value: unknown): value is OcrJobRow {
   return (
     isRecord(value) &&
     readRowId(value.id) !== undefined &&
-    // Manual review rows have no provider source text. PATCH already accepts
-    // this empty string; persisted rows must accept the same shape on GET.
+    // 수동 검토 행에는 provider 원문이 없음. PATCH가 이미 이 빈 문자열을 받으므로
+    // 저장된 행도 GET에서 같은 형태를 받아들여야 함.
     isTextWithin(value.sourceText, MAX_SOURCE_TEXT_LENGTH, true) &&
     (value.confidence === undefined || isConfidence(value.confidence)) &&
     (value.box === undefined || isBoundingBox(value.box)) &&
