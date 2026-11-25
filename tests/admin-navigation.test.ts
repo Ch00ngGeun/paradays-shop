@@ -1,3 +1,4 @@
+// 역할: 관리자 메뉴 주소(section) 검증·갱신·방문 기록 구독과 작업 공간 전용 상품 편집기 기록을 검증함.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ADMIN_SECTIONS,
