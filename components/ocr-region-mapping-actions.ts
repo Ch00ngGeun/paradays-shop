@@ -1,3 +1,4 @@
+// 역할: OCR 영역 지정 패널의 동작 훅. 포인터·키보드 영역 선택과 표 끝·두 번째 상품 지정, 영역 미리보기·적용 요청(늦은 응답 무시), 영역 양식 저장·불러오기·재사용·삭제를 처리합니다.
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { isOcrRegionMapping } from "../infra/lambda/ocr-table-parser.js";
 import type { AdminOcrRemapPreview, OcrRegionMapping } from "@/lib/admin-ui/types";
