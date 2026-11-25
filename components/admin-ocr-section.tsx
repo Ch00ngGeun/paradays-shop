@@ -8,7 +8,7 @@ import type { AdminOcrReviewRow } from "@/lib/admin-ui/types";
 import {
   isLocalOcrDevelopmentMode,
   isRemoteOcrDemoMode,
-} from "@/lib/commerce/admin-api-client";
+} from "@/lib/commerce/admin-api-client-environment";
 import { useSyncExternalStore, type ChangeEvent, type ReactNode } from "react";
 import styles from "./admin-dashboard.module.css";
 import { AdminGuideButton } from "./admin-guide";

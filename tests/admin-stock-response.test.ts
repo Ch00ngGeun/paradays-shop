@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  AdminApiResponseError,
-  createAdminApiClient,
-} from "@/lib/commerce/admin-api-client";
+import { createAdminApiClient } from "@/lib/commerce/admin-api-client";
+import { AdminApiResponseError } from "@/lib/commerce/admin-api-client-errors";
 import { getCheckoutApiConfig } from "@/lib/commerce/checkout-api-client";
 
 afterEach(() => vi.unstubAllEnvs());
