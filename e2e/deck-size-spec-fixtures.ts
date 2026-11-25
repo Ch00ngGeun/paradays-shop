@@ -1,4 +1,4 @@
-/** deck-size-spec 분할 spec 공통 fixture: synthetic catalog API·관리자/스토어 조작 도우미. */
+// 역할: 사이즈표 spec 공통 fixture로, 합성 카탈로그 API와 관리자 편집·상점 조작 도우미를 제공함.
 import { expect, type Page, type Route } from "@playwright/test";
 
 export const ORIGIN = "http://127.0.0.1:3139";
@@ -29,7 +29,7 @@ export type Stored = {
   sizeChartKind?: string;
   sizeChartsBySize?: Record<string, Values>;
 };
-/** Clothing and wheel size chart fields, as the server returns them. */
+/** 서버가 돌려주는 형태의 의류·휠 사이즈표 필드임. */
 export function sizeChartShape(item: Stored) {
   return {
     ...(item.sizeChart ? { sizeChart: item.sizeChart } : {}),
@@ -150,7 +150,7 @@ export async function setup(
       if ("sizeDeckSpec" in body || "sizeChartValues" in body) {
         const size = body.size as string;
         const name = (body.sizeName as string | undefined) ?? size;
-        // Like the server, a rename moves both kinds of option value.
+        // 서버처럼 이름 변경은 두 종류의 옵션 값을 모두 옮김.
         const move = <T>(
           map: Record<string, T> | undefined,
           edited: boolean,
@@ -241,7 +241,7 @@ export async function setup(
     ).toString("base64url"),
     "test-only-signature",
   ].join(".");
-  // Counts PATCH responses the app has parsed, plus a task and two frames so React has committed the result.
+  // 앱이 해석한 PATCH 응답 수를 셈. React가 결과를 반영하도록 작업 하나와 두 프레임을 더 기다림.
   await page.addInitScript(() => {
     const state = window as unknown as { __patchSettled: number };
     state.__patchSettled = 0;

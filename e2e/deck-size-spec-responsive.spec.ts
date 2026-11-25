@@ -1,3 +1,4 @@
+// 역할: 사이즈표 도면이 휴대폰·데스크톱·테마별로 옆 스크롤 없이 읽히는지와 크기 변경 시 모달 포커스·Esc·스크롤 잠금 유지를 검증함.
 import { expect, test, type Page } from "@playwright/test";
 import {
   DECK,
@@ -8,7 +9,7 @@ import {
   storefrontChart,
 } from "./deck-size-spec-fixtures";
 
-/** Actual screen font sizes include SVG transforms and any height-based scaling. */
+/** 실제 화면 글자 크기는 SVG 변환과 높이 기준 축소까지 포함함. */
 async function renderedLabelSizes(svg: ReturnType<Page["locator"]>) {
   return svg.evaluate((element) => {
     const drawing = element as SVGSVGElement;
@@ -30,7 +31,7 @@ async function renderedLabelSizes(svg: ReturnType<Page["locator"]>) {
   });
 }
 
-/** A chart fits by sizing its SVG, rather than by clipping or scrolling its labels. */
+/** 차트는 라벨을 자르거나 스크롤하지 않고 SVG 크기를 조정해 맞춤. */
 async function expectChartFits(
   page: Page,
   svg: ReturnType<Page["locator"]>,
@@ -178,7 +179,7 @@ for (const fixture of responsiveCharts)
       }
       await page.keyboard.press("Escape");
     }
-    // Maximum-length and blank stored values still fit; no real catalog write occurs.
+    // 최대 길이 값과 빈 저장값도 맞게 표시됨. 실제 카탈로그 쓰기는 없음.
     const item = audit.store[0];
     if (fixture.spec)
       item.deckSpec = {

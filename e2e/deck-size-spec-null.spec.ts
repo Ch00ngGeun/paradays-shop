@@ -1,3 +1,4 @@
+// 역할: 사이즈표 빈 측정값의 null 저장·표시·빈 입력 재열기와 모두 비울 때 삭제를 데크·상의·상점에서 검증함.
 import { expect, test } from "@playwright/test";
 import {
   DECK,
@@ -20,11 +21,11 @@ test("a deck saves a partial size chart with null, shows null, reopens empty and
   const dialog = page.getByRole("dialog");
   const input = (field: string) => dialog.getByRole("textbox", { name: field });
   const save = dialog.getByRole("button", { name: "저장", exact: true });
-  // Nothing saved and nothing typed: nothing to save.
+  // 저장된 것도 입력한 것도 없으면 저장할 것이 없음.
   await expect(save).toBeDisabled();
   await input("width").fill("8.5");
   await input("length").fill("31.75");
-  // The preview shows at once, with null on the blank fields.
+  // 미리보기는 빈 필드를 null로 바로 보여 줌.
   await expect(dialog.locator("svg")).toHaveAttribute(
     "aria-label",
     /^nose null, tail null/,
@@ -43,11 +44,11 @@ test("a deck saves a partial size chart with null, shows null, reopens empty and
     page.getByText('8.5" × 31.75" · WB null', { exact: true }),
   ).toBeVisible();
 
-  // Reopened, blank fields are empty inputs, not the word null.
+  // 다시 열면 빈 필드는 null 글자가 아니라 빈 입력란임.
   await page.getByRole("button", { name: "상세사이즈 수정" }).click();
   await expect(input("nose")).toHaveValue("");
   await expect(input("width")).toHaveValue("8.5");
-  // Emptying every field is the same as deleting.
+  // 모든 필드를 비우는 것은 삭제와 같음.
   await input("width").fill("");
   await input("length").fill("");
   await expect(save).toBeEnabled();
@@ -79,13 +80,13 @@ test("a top saves partial default and option values with null, renames with ever
     version: 3,
     sizeChart: { kind: "shortSleeve", values: { ...blank, chest: 56 } },
   });
-  // The summary names the first measurement even when it is blank.
+  // 요약은 첫 측정값이 비어 있어도 그 항목 이름을 표시함.
   await expect(page.getByText("반팔 · 총장 null", { exact: true })).toBeVisible();
 
-  // An option with nothing saved and nothing typed has nothing to save.
+  // 저장된 것도 입력한 것도 없는 옵션은 저장할 것이 없음.
   await chip(page, "M").click();
   await expect(save).toBeDisabled();
-  // A new name with every field empty saves the name alone.
+  // 모든 필드가 빈 새 이름은 이름만 저장함.
   await dialog.getByRole("textbox", { name: "옵션 이름" }).fill("L");
   await expect(save).toBeEnabled();
   await save.click();
@@ -98,7 +99,7 @@ test("a top saves partial default and option values with null, renames with ever
   });
   await expect(chipNames(page)).toHaveText(["S", "L"]);
 
-  // A partial option value saves with null.
+  // 일부만 채운 옵션 값은 null과 함께 저장됨.
   await chip(page, "L").click();
   await dialog.getByRole("textbox", { name: "총장" }).fill("74");
   await save.click();
