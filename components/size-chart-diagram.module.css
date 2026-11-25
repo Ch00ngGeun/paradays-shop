@@ -1,4 +1,4 @@
-/* 의류·휠 상세사이즈 도면 공용 스타일. 데크 도면(deck-size-diagram)과 같은 선·글자 규칙입니다. */
+/* 역할: 의류·휠 상세사이즈 도면(상의·하의·휠) 공용 스타일. 데크 도면(deck-size-diagram)과 같은 선·글자 규칙입니다. */
 .diagram {
   display: block;
   width: 100%;
