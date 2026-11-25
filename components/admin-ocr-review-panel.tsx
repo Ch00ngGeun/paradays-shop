@@ -1,3 +1,4 @@
+// 역할: 입고 OCR 검토 행 목록. 인식된 행마다 원문·신뢰도·좌표와 상품명·브랜드·옵션·수량 입력칸을 보여 주고, 행 추가·삭제와 검토본 저장 버튼을 제공합니다.
 "use client";
 import adminOcrSectionStyles from "./admin-ocr-section.module.css";
 import { OCR_INPUT_LIMITS } from "@/lib/admin-ui/ocr-input-validation";

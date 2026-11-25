@@ -1,3 +1,4 @@
+/* 역할: 관리자 입고 OCR 메뉴의 머리말·원본 이미지 영역·검토 행 목록(AdminOcrReviewPanel) 스타일입니다. */
 .ocrHeader {
   align-items: start;
   display: flex;
