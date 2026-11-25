@@ -1,3 +1,4 @@
+/* 역할: 운영 홈의 모의 주문·재고 테스트 실행 버튼과 테스트 모달(점선 테두리로 실제 화면과 구분) 스타일입니다. */
 .panel {
   margin: 2rem 0;
   border: 2px dashed #6b4bb3;
@@ -123,7 +124,7 @@
   margin: 0.5rem 0;
   line-height: 1.5;
 }
-/* The home shows only this launcher; the mock test opens in the modal below. */
+/* 홈에는 이 실행 버튼만 보이고, 모의 테스트는 아래 모달에서 열립니다. */
 .launch {
   display: inline-flex;
   align-items: center;
