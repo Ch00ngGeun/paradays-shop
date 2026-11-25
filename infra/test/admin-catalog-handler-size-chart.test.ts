@@ -1,4 +1,4 @@
-/** Real handler with an atomic, conditional in-memory SDK transport. No credentials or network. */
+/** 역할: 실제 관리자 카탈로그 handler로 상세사이즈 표 PATCH·카테고리 변경 시 처리, 잘못된 저장값이 상품을 숨기지 않고 빠지는지와 서버·스토어프론트 규칙 일치를 메모리 SDK 전송으로 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -33,7 +33,7 @@ test("sizeChart PATCH saves a kind the category offers, publishes, survives othe
   assert.deepEqual(stored().sizeChart, shortSleeve);
   assert.deepEqual(toPublicCatalogProduct(stored())?.sizeChart, shortSleeve);
 
-  // Like deckSpec, other fields may come with it or without it.
+  // deckSpec처럼 다른 필드와 함께 오거나 단독으로 올 수 있음.
   const otherEdit = unpack(
     await handler(event("PATCH", { version: 4, featured: true }, "prd_top")),
   );
@@ -59,7 +59,7 @@ test("sizeChart PATCH saves a kind the category offers, publishes, survives othe
     { kind: "shortSleeve" },
     { ...shortSleeve, extra: 1 },
     { kind: "deck", values },
-    // Wheels and pants are real kinds, but not ones a top can use.
+    // 휠·바지는 실제 종류지만 상의가 쓸 수 있는 종류는 아님.
     { kind: "wheel", values: { diameter: 54, width: 33, contactWidth: 20 } },
     longPants,
     { kind: "shortSleeve", values: { ...values, armhole: undefined } },
@@ -90,20 +90,20 @@ test("a category change keeps a size chart the new category offers and drops one
     top({ sizeChart: shortSleeve as CatalogProductRecord["sizeChart"] }),
   ]);
   const stored = () => db.records.get("prd_top") as CatalogProductRecord;
-  // Top and Outerwear share both top drawings.
+  // Top과 Outerwear는 상의 도면 두 가지를 함께 씀.
   const outerwear = unpack(
     await handler(event("PATCH", { version: 3, category: "Outerwear" }, "prd_top")),
   );
   assert.equal(outerwear.status, 200);
   assert.deepEqual(stored().sizeChart, shortSleeve);
-  // A top drawing means nothing for bottoms, so it is removed rather than kept hidden.
+  // 상의 도면은 하의에 의미가 없으므로 숨겨 두지 않고 제거함.
   const bottom = unpack(
     await handler(event("PATCH", { version: 4, category: "Bottom" }, "prd_top")),
   );
   assert.equal(bottom.status, 200);
   assert.equal(bottom.body.product.sizeChart, undefined);
   assert.equal(Object.hasOwn(stored(), "sizeChart"), false);
-  // A chart sent with the category change is checked against the new category.
+  // 카테고리 변경과 함께 보낸 표는 새 카테고리 기준으로 검사함.
   assert.equal(
     unpack(
       await handler(
@@ -116,7 +116,7 @@ test("a category change keeps a size chart the new category offers and drops one
     ).status,
     400,
   );
-  // A category that is not even a string is a bad request, not a crash, and writes nothing.
+  // 문자열도 아닌 카테고리는 오류로 죽지 않고 잘못된 요청으로 처리되며 아무것도 쓰지 않음.
   const writes = db.transactions.length;
   for (const category of [{ toString: null }, ["Bottom"], 7, null])
     assert.equal(
@@ -140,7 +140,7 @@ test("a category change keeps a size chart the new category offers and drops one
   );
   assert.equal(both.status, 200);
   assert.deepEqual(stored().sizeChart, longPants);
-  // Deck keeps its own deckSpec; a deck cannot hold this chart.
+  // 데크는 자기 deckSpec을 유지하며 이 표는 가질 수 없음.
   assert.equal(
     unpack(await handler(event("PATCH", { version: 6, category: "Deck" }, "prd_top")))
       .status,
@@ -190,7 +190,7 @@ test("a malformed or mismatched stored size chart never hides the product and is
   const read = unpack(await handler(event("GET", undefined, "prd_top")));
   assert.equal(read.status, 200);
   assert.equal(read.body.product.sizeChart, undefined);
-  // An unrelated save still works and cleans the unusable value away.
+  // 무관한 저장도 계속 동작하고 쓸 수 없는 값을 정리함.
   const saved = unpack(
     await handler(event("PATCH", { version: 3, featured: true }, "prd_top")),
   );
@@ -199,7 +199,7 @@ test("a malformed or mismatched stored size chart never hides the product and is
 });
 
 test("server size chart rules match the storefront rules table", async () => {
-  // The root package is not an infra dependency, so it is loaded at run time only.
+  // 루트 패키지는 infra 의존성이 아니므로 실행 시점에만 불러옴.
   const client = (await import(
     new URL("../../lib/size-chart.ts", import.meta.url).href
   )) as {
@@ -218,7 +218,7 @@ test("server size chart rules match the storefront rules table", async () => {
       kind,
     );
   }
-  // Both sides judge the same values, including each unit's edges, the same way.
+  // 양쪽이 단위별 경계값을 포함한 같은 값을 똑같이 판정함.
   for (const kind of SIZE_CHART_KINDS) {
     const { unit, keys } = SIZE_CHART_KIND_RULES[kind];
     const max = unit === "mm" ? 100 : 300;
@@ -239,7 +239,7 @@ test("server size chart rules match the storefront rules table", async () => {
       [Object.fromEntries(keys.slice(1).map((key) => [key, 12])), false],
       [null, false],
       [[], false],
-      // Blank fields are null; at least one number has to remain.
+      // 빈 필드는 null이며 숫자가 적어도 하나는 남아야 함.
       [Object.fromEntries(keys.map((key, index) => [key, index ? null : 12])), true],
       [Object.fromEntries(keys.map((key, index) => [key, index ? 12.5 : null])), true],
       [filled(null), false],

@@ -1,4 +1,4 @@
-/** Real handler with an atomic, conditional in-memory SDK transport. No credentials or network. */
+/** 역할: 실제 관리자 카탈로그 handler로 옵션 이름 변경·남은 key 처리, 권한·설정 실패, 재실행 조정, 중복 scan 페이지 처리를 메모리 SDK 전송으로 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
@@ -28,7 +28,7 @@ test("sizeName renames one option in place and moves its size chart atomically",
       image: "/deck.webp",
       sizes: ["8.0", "8.25", "8.5"],
       deckSpec: base,
-      // "8.75" is a stale key from a removed option that must not come back.
+      // "8.75"는 삭제된 옵션이 남긴 낡은 key이며 다시 나타나면 안 됨.
       deckSpecsBySize: { "8.0": small, "8.5": large, "8.75": base },
     }),
   ]);
@@ -57,7 +57,7 @@ test("sizeName renames one option in place and moves its size chart atomically",
     "8.5",
   ]);
 
-  // A name-only rename with an empty chart moves nothing and drops the stale same-named key.
+  // 빈 표로 이름만 바꾸면 옮길 값이 없고, 같은 이름의 낡은 key는 버림.
   const nameOnly = await patch({
     version: 4,
     size: "8.5",
@@ -71,7 +71,7 @@ test("sizeName renames one option in place and moves its size chart atomically",
   });
   assert.equal(Object.hasOwn(stored().deckSpecsBySize!, "8.75"), false);
 
-  // Keeping the same name behaves exactly like the H-035 option save.
+  // 같은 이름을 유지하면 H-035 옵션 저장과 똑같이 동작함.
   const same = await patch({
     version: 5,
     size: "8.25",
@@ -124,7 +124,7 @@ test("sizeName renames one option in place and moves its size chart atomically",
   assert.equal(stale.status, 409);
   assert.deepEqual(stored().sizes, ["8.0 wide", "8.25", "8.75"]);
 
-  // The renamed row still survives the DynamoDB marshaller.
+  // 이름을 바꾼 행도 DynamoDB marshaller를 그대로 통과함.
   const restored = unmarshall(marshall(stored(), { removeUndefinedValues: true }));
   assert.deepEqual(restored.sizes, ["8.0 wide", "8.25", "8.75"]);
   assert.equal(isCatalogProductRecord(restored), true);
@@ -132,7 +132,7 @@ test("sizeName renames one option in place and moves its size chart atomically",
 
 test("a rename onto a stale key with an empty chart does not bring the stale chart back", async (t) => {
   const spec = { nose: 6.875, tail: 6.5, width: 8.25, length: 31.75, wheelbase: 14.25 };
-  // "8.75" is left by an older server for an option that no longer exists.
+  // "8.75"는 이전 서버가 이제 없는 옵션에 남긴 key임.
   const db = fixture(t, [
     product({ sizes: ["8.25", "8.5"], deckSpecsBySize: { "8.75": spec } }),
   ]);
@@ -153,7 +153,7 @@ test("a rename onto a stale key with an empty chart does not bring the stale cha
 
 test("an existing option the new-name rules would refuse still saves and deletes its chart", async (t) => {
   const spec = { nose: 6.875, tail: 6.5, width: 8.25, length: 31.75, wheelbase: 14.25 };
-  // An array-sent product body can store a comma inside one option, which a new name may not use.
+  // 배열로 보낸 상품 body는 옵션 하나에 쉼표를 저장할 수 있지만, 새 이름에는 쓸 수 없음.
   const legacy = "8.5, wide";
   const db = fixture(t, [product({ sizes: ["8.25", legacy] })]);
   for (const [version, body] of [
@@ -198,7 +198,7 @@ test("an option rename is refused while stock is reserved or when it duplicates 
   );
   assert.equal(reserved.status, 409);
   assert.equal(reserved.body.code, "CATALOG_PRODUCT_RESERVED");
-  // A chart-only save keeps working on a reserved product.
+  // 표만 저장하는 요청은 예약 재고가 있는 상품에서도 계속 동작함.
   const chartOnly = unpack(
     await handler(
       event(
