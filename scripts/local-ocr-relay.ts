@@ -1,4 +1,4 @@
-// 역할: 개발 전용 loopback OCR 중계 서버로, Cognito token을 검증해 OCR provider로 전달하고 이미지·검토 작업은 메모리에만 둡니다.
+// 역할: 개발 전용 loopback OCR 중계 서버로, Cognito token으로 요청을 인증한 뒤 이미지를 공유 비밀값으로 OCR provider에 전달하고 이미지·검토 작업은 메모리에만 둡니다.
 import { createPublicKey, randomUUID, verify, type JsonWebKey } from "node:crypto";
 import { createServer, type IncomingMessage } from "node:http";
 import { readFile } from "node:fs/promises";

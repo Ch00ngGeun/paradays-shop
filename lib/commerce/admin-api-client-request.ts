@@ -1,4 +1,4 @@
-// 역할: 관리자 API 공통 JSON 요청(인증 token·timeout·오류 코드 해석)과 fetch 구현 선택을 담당합니다.
+// 역할: 관리자 API 공통 JSON 요청(인증 token·원격 OCR 데모 120초 제한·오류 코드 해석)과 fetch 구현 선택을 담당합니다.
 import { AdminApiRequestError } from "./admin-api-client";
 import {
   AdminApiResponseError,
