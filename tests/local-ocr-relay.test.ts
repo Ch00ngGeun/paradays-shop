@@ -1,3 +1,4 @@
+// 역할: 로컬 OCR 중계의 Firebase Origin 허용·설정 보호·터널 Host 불신·관리자 인가 검증을 확인함.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createLocalOcrRelay } from "../scripts/local-ocr-relay";
 import {
