@@ -1,3 +1,4 @@
+// 역할: 프로세스를 실행하지 않고 데스크톱 로컬 OCR 실행 프로필의 활성화 조건과 시간 여유를 검증함.
 import { describe, expect, it } from "vitest";
 import { resolveLocalOcrProfile } from "../scripts/start-local-ocr.mjs";
 
