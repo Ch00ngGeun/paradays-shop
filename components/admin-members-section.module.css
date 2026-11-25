@@ -1,3 +1,4 @@
+/* 역할: 관리자 회원 메뉴의 머리말·조회 줄·회원 목록·회원 상세·권한 변경 영역 스타일입니다. */
 .memberHeader {
   align-items: start;
   display: flex;

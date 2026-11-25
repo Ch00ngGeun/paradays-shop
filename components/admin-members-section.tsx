@@ -1,3 +1,4 @@
+// 역할: 관리자 회원 메뉴 화면. 명시적 조회로 회원 목록을 불러와 검색·선택하고, 선택한 회원의 상세·권한 변경(MemberDetail)을 붙입니다.
 "use client";
 import adminMembersSectionStyles from "./admin-members-section.module.css";
 import adminSharedStyles from "./admin-shared.module.css";
