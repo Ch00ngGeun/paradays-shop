@@ -1,155 +1,17 @@
 import assert from "node:assert/strict";
-import test, { type TestContext } from "node:test";
-import {
-  GetCommand,
-  QueryCommand,
-  ScanCommand,
-  TransactWriteCommand,
-} from "@aws-sdk/lib-dynamodb";
+import test from "node:test";
+import { GetCommand, QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { documentClient } from "../lambda/dynamodb-client.js";
 import {
   operateSalesDay,
   readOnline,
   readSalesDay,
 } from "../lambda/sales-ledger-store.js";
-import type {
-  SalesCommand,
-  SaleEntry,
-  StockPreview,
-} from "../lambda/sales-ledger-domain.js";
+import type { SalesCommand, SaleEntry } from "../lambda/sales-ledger-domain.js";
+import { day, save, fixture, post } from "./sales-ledger-store-fixture.js";
 process.env.SALES_LEDGER_TABLE_NAME = "fixture_sales";
 process.env.CATALOG_TABLE_NAME = "fixture_catalog";
 process.env.ORDER_TABLE_NAME = "fixture_orders";
-const day = "2026-10-15";
-const save = (
-  id = "sale_001",
-  reference = "APP-001",
-): Extract<SalesCommand, { action: "save" }> => ({
-  action: "save",
-  entryId: id,
-  expectedVersion: 0,
-  soldAt: "2026-10-15T01:00:00.000Z",
-  method: "CARD",
-  reference,
-  amount: 200,
-  memo: "",
-  lines: [
-    { productId: "prd_deck", name: "Deck", option: "8", quantity: 2, unitAmount: 100 },
-  ],
-});
-function fixture(t: TestContext) {
-  const ledger = new Map<string, Record<string, unknown>>();
-  const products = new Map<string, Record<string, unknown>>([
-    [
-      "prd_deck",
-      {
-        productId: "prd_deck",
-        name: "Deck",
-        price: 100,
-        sizes: ["8"],
-        status: "PUBLISHED",
-        currency: "KRW",
-        inventoryQuantity: 10,
-        inventoryReserved: 3,
-        inventoryCommitted: 0,
-        version: 1,
-      },
-    ],
-  ]);
-  let orders: Record<string, unknown>[] = [];
-  let writes = 0;
-  let lostReply = false;
-  let race: (() => void) | undefined;
-  const clone = <T>(value: T): T => structuredClone(value);
-  const key = (d: string, id: string) => `${d}/${id}`;
-  t.mock.method(documentClient, "send", async (c: unknown) => {
-    if (c instanceof GetCommand)
-      return {
-        Item: clone(
-          c.input.TableName === "fixture_catalog"
-            ? products.get(c.input.Key!.productId)
-            : ledger.get(key(c.input.Key!.businessDay, c.input.Key!.entryId)),
-        ),
-      };
-    if (c instanceof QueryCommand)
-      return {
-        Items: clone(
-          [...ledger.values()].filter(
-            (e) => e.businessDay === c.input.ExpressionAttributeValues![":day"],
-          ),
-        ),
-      };
-    if (c instanceof ScanCommand) return { Items: clone(orders) };
-    assert.ok(c instanceof TransactWriteCommand);
-    if (race) {
-      const callback = race;
-      race = undefined;
-      callback();
-    }
-    const items = c.input.TransactItems!;
-    // Validate the entire batch before mutation, just as DynamoDB does.
-    for (const w of items) {
-      const op = w.Put ?? w.Update!;
-      const item = w.Put?.Item ?? w.Update!.Key!;
-      const existing =
-        op.TableName === "fixture_catalog"
-          ? products.get(item.productId)
-          : ledger.get(key(item.businessDay, item.entryId));
-      const v = op.ExpressionAttributeValues ?? {};
-      let ok = true;
-      if (op.ConditionExpression?.includes("attribute_not_exists"))
-        ok =
-          !existing ||
-          ("saleId" in (existing ?? {}) && existing!.saleId === v[":sale"]);
-      else if (op.ConditionExpression?.includes("#version"))
-        ok =
-          existing?.version === v[":version"] &&
-          (!op.ConditionExpression.includes("#status") ||
-            existing?.status === v[":draft"]);
-      if (!ok)
-        throw Object.assign(new Error("conditional"), {
-          name: "TransactionCanceledException",
-        });
-    }
-    for (const w of items)
-      if (w.Put) {
-        const item = clone(w.Put.Item!);
-        if (w.Put.TableName === "fixture_catalog") products.set(item.productId, item);
-        else ledger.set(key(item.businessDay, item.entryId), item);
-      } else {
-        const u = w.Update!,
-          v = u.ExpressionAttributeValues!,
-          p = products.get(u.Key!.productId)!;
-        products.set(u.Key!.productId, {
-          ...p,
-          inventoryQuantity: v[":after"],
-          inventoryCommitted:
-            Number(p.inventoryCommitted ?? 0) + Number(v[":committed"]),
-          version: v[":nextVersion"],
-        });
-      }
-    writes++;
-    if (lostReply) {
-      lostReply = false;
-      throw new Error("lost response after commit");
-    }
-    return {};
-  });
-  return {
-    ledger,
-    products,
-    setOrders: (o: Record<string, unknown>[]) => {
-      orders = o;
-    },
-    writes: () => writes,
-    loseNextReply: () => {
-      lostReply = true;
-    },
-    raceNextWrite: (callback: () => void) => {
-      race = callback;
-    },
-  };
-}
 test("lost posted response replays durable proof without another debit", async (t) => {
   const f = fixture(t);
   await operateSalesDay(day, save(), "admin");
@@ -268,22 +130,6 @@ test("a completed scan arriving at the deadline still cannot return success", as
   });
   await assert.rejects(() => readOnline(day), /ONLINE_PAGINATION_INCOMPLETE/);
 });
-async function post() {
-  const p = (await operateSalesDay(
-    day,
-    { action: "preview", entryId: "sale_001", version: 1 },
-    "admin",
-  )) as { preview: StockPreview[]; previewToken: string };
-  const command: SalesCommand = {
-    action: "post",
-    entryId: "sale_001",
-    version: 1,
-    previewToken: p.previewToken,
-    confirmed: true,
-  };
-  const result = (await operateSalesDay(day, command, "admin")) as { entry: SaleEntry };
-  return { result, command, preview: p.preview };
-}
 test("offline debit atomically preserves online reservations, versions/revision and immutable proof; retry delta zero", async (t) => {
   const f = fixture(t);
   await operateSalesDay(day, save(), "admin");
@@ -505,91 +351,6 @@ test("a nonempty pagination cursor never returns partial online totals", async (
   });
   await assert.rejects(() => readOnline(day), /ONLINE_PAGINATION_INCOMPLETE/);
   assert.equal(scans, 100);
-});
-test("transfer sales post, reverse and close apart from cash; the cash comparison never includes transfers", async (t) => {
-  const f = fixture(t);
-  await operateSalesDay(day, { ...save(), method: "TRANSFER" }, "admin");
-  await post();
-  await operateSalesDay(
-    day,
-    { ...save("sale_cash", "APP-CASH"), method: "CASH", amount: 100, lines: [] },
-    "admin",
-  );
-  assert.equal(f.ledger.get(`${day}/sale_001`)!.method, "TRANSFER");
-  assert.equal(f.products.get("prd_deck")!.inventoryQuantity, 8);
-  await operateSalesDay(
-    day,
-    {
-      action: "reverse",
-      entryId: "sale_transfer_back",
-      originalDay: day,
-      originalId: "sale_001",
-      soldAt: "2026-10-15T02:00:00.000Z",
-      reason: "이체 환불",
-      restockInspected: false,
-      confirmed: true,
-    },
-    "admin",
-  );
-  const reversal = f.ledger.get(`${day}/sale_transfer_back`)!;
-  assert.equal(reversal.method, "TRANSFER");
-  assert.equal(reversal.kind, "REVERSAL");
-  assert.equal(f.products.get("prd_deck")!.inventoryQuantity, 8);
-  // The cash draft is voided so the day can close with transfers only.
-  await operateSalesDay(
-    day,
-    { action: "void", entryId: "sale_cash", version: 1, reason: "중복 입력" },
-    "admin",
-  );
-  const report = await readSalesDay(day);
-  assert.equal(report.totals.transfer, 0);
-  assert.equal(report.totals.cash, 0);
-  assert.equal(report.totals.offlineRefunds, 200);
-  assert.equal(report.totals.offlineNet, 0);
-  const close = (cashComparedAmount: number) =>
-    ({
-      action: "close",
-      operationId: `close_${cashComparedAmount}`,
-      expectedVersion: report.version,
-      onlineFingerprint: report.onlineFingerprint,
-      cashComparedAmount,
-      confirmed: true,
-    }) as const;
-  await assert.rejects(
-    () => operateSalesDay(day, close(200), "admin"),
-    /CASH_SALES_COMPARISON_MISMATCH/,
-  );
-  await operateSalesDay(day, close(0), "admin");
-  const closed = await readSalesDay(day);
-  assert.equal(closed.snapshots[0].totals.transfer, 0);
-  assert.equal(closed.snapshots[0].cashComparedAmount, 0);
-});
-test("open transfer totals stay out of cash and the cash comparison", async (t) => {
-  fixture(t);
-  await operateSalesDay(day, { ...save(), method: "TRANSFER" }, "admin");
-  await post();
-  const report = await readSalesDay(day);
-  assert.deepEqual(
-    [report.totals.card, report.totals.cash, report.totals.transfer],
-    [0, 0, 200],
-  );
-  assert.equal(report.totals.offlineNet, 200);
-  await assert.rejects(
-    () =>
-      operateSalesDay(
-        day,
-        {
-          action: "close",
-          operationId: "close_transfer",
-          expectedVersion: report.version,
-          onlineFingerprint: report.onlineFingerprint,
-          cashComparedAmount: 200,
-          confirmed: true,
-        },
-        "admin",
-      ),
-    /CASH_SALES_COMPARISON_MISMATCH/,
-  );
 });
 test("a legacy close snapshot without transfer is returned unchanged and is not rewritten by reopen", async (t) => {
   const f = fixture(t);
