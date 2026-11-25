@@ -1,3 +1,4 @@
+// 역할: 관리자 작업 기록의 지표 아이콘·상태 색상·최대 개수·복귀 링크와 비공개 내용 미포함을 검증함.
 import { expect, test } from "@playwright/test";
 import {
   operationRows,
@@ -65,7 +66,7 @@ test("accessible operations: colored metric icons and an honest empty session hi
       .getAttribute("d"),
   ).toContain("M3 10 12 3");
   await expect(operationRows(page)).toHaveCount(0);
-  // The scope note now sits behind the heading's '?' help.
+  // 범위 안내는 제목의 '?' 도움말 안에 있음.
   await recentOperations(page)
     .getByRole("button", { name: "최근 운영 기록 도움말", exact: true })
     .click();
