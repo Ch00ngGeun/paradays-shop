@@ -1,3 +1,4 @@
+// 역할: 회원의 명시적 조회·읽기 전용 상세·권한 그룹 변경과 진행 중·불확실·실패 상태, 자기 권한 제거 차단, 모바일 배치를 검증함.
 import { expect, test } from "@playwright/test";
 import { audits } from "./admin-navigation-base-fixtures";
 import {

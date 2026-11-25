@@ -1,3 +1,4 @@
+// 역할: 회원 조회·권한 변경 검사용 모의 회원 응답과 회원 목록·상세·그룹 변경 준비 도우미를 제공함.
 import { expect, type Page } from "@playwright/test";
 import { respond, setup, SUBJECT } from "./admin-navigation-base-fixtures";
 

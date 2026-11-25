@@ -1,3 +1,4 @@
+// 역할: 캠페인 초안 저장 중 잠금·중복 제출 방지·불확실한 결과 보존과 모바일·테마별 표시를 검증함.
 import { expect, test } from "@playwright/test";
 import { audits, respond, setup } from "./admin-navigation-base-fixtures";
 import {
