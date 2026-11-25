@@ -1,4 +1,4 @@
-/** Real handler PATCH/GET cycles with in-memory SDK transport and no network. */
+/** 역할: 실제 관리자 OCR handler로 수동 행 보존, 표 영역 mapping 미리보기·적용, 표 header 누락 시 원본 보존과 충돌 처리를 메모리 SDK 전송으로 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { handler } from "../lambda/admin-ocr-handler.js";

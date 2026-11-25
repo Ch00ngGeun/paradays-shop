@@ -1,4 +1,4 @@
-/** Real handler PATCH/GET cycles with in-memory SDK transport and no network. */
+/** 역할: 실제 관리자 OCR handler의 POST/PATCH/GET으로 저장 크기 상한·검토 행 검증·rawText 편집·버전 충돌·관리자 권한을 메모리 SDK 전송으로 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -18,8 +18,8 @@ import {
 } from "./admin-ocr-handler-fixture.js";
 
 test("POST rejects multibyte OCR item before any DynamoDB write", async (t) => {
-  // 99,999 UTF-16 raw units fit provider limits, but duplicated Korean text in
-  // rawText plus row sources alone needs about 600k UTF-8 storage bytes.
+  // UTF-16 99,999 단위는 provider 한도 안이지만, rawText와 행 원문에 중복된
+  // 한국어 텍스트만으로도 UTF-8 저장 byte가 약 600k 필요함.
   const db = fixture(
     t,
     providerBody(Array.from({ length: 200 }, () => "가".repeat(499))),
@@ -123,7 +123,7 @@ test("existing oversized valid job remains readable and can be reduced by PATCH"
 });
 
 test("storage estimator counts UTF-8 names and container/numeric/binary overhead conservatively", () => {
-  // 100 storage + 3 root map + UTF-8 name/value bytes + map-entry byte.
+  // 저장 100 + 최상위 map 3 + UTF-8 이름/값 byte + map 항목 byte.
   assert.equal(estimateOcrJobStorageBytes({ 한: "가" }), 110);
   assert.equal(estimateOcrJobStorageBytes({ x: '"\\\n' }), 108);
   assert.equal(estimateOcrJobStorageBytes({ x: 1 }), 126);
