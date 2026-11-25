@@ -1,3 +1,4 @@
+// 역할: 관리자 주문 모의 실행의 재고·환불 계산, 메모리 폐기, 모달 열기/닫기, 권한·로그아웃·모바일 경계를 검증함.
 import { expect, test, type Page, type Locator } from "@playwright/test";
 const API = "https://api.ocr.test/prod/";
 const audits = new WeakMap<Page, { forbidden: string[]; unexpected: string[] }>();
@@ -92,7 +93,7 @@ async function setup(
   if (groups.includes("admin") && !anonymous) await openSimulation(page);
   return page.getByRole("region", { name: "모의 주문·재고 테스트", exact: true });
 }
-/** The home shows only a launcher; the test itself lives in a modal. */
+/** 홈에는 시작 버튼만 있고 테스트 자체는 모달 안에 있음. */
 async function openSimulation(page: Page) {
   await page
     .getByRole("button", { name: "모의 주문·재고 테스트", exact: true })
@@ -239,7 +240,7 @@ test("reset/end/refresh discard memory; no URL or storage persistence; TEST real
     ),
   ).toBe(false);
   expect(page.url()).not.toContain(old!);
-  // Closing the modal ends the test; the real order panel behind it is usable again.
+  // 모달을 닫으면 테스트가 끝나고 뒤쪽 실제 주문 패널을 다시 쓸 수 있음.
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const real = page.getByRole("region", {
@@ -294,7 +295,7 @@ test("the mock test opens in a modal with its warnings, closes with Esc or the b
     dialog.getByLabel("실제 주문·재고를 바꾸지 않는 모의 테스트임을 이해했습니다"),
   ).not.toBeChecked();
 
-  // While open, the real order panel behind the modal sits inside an inert ancestor.
+  // 열려 있는 동안 모달 뒤 실제 주문 패널은 inert 조상 안에 있음.
   const orderInput = page.getByRole("textbox", { name: "주문번호", exact: true });
   const isInert = () =>
     orderInput.evaluate((element) => element.closest("[inert]") !== null);
@@ -303,7 +304,7 @@ test("the mock test opens in a modal with its warnings, closes with Esc or the b
   await expect(dialog).toHaveCount(0);
   await expect(launcher).toBeFocused();
   expect(await isInert()).toBe(false);
-  // Closed, nothing of the test stays on the home screen and the background works again.
+  // 닫힌 뒤에는 홈 화면에 테스트 흔적이 남지 않고 배경이 다시 동작함.
   await expect(
     page.getByRole("heading", { name: "모의 주문·재고 테스트", exact: true }),
   ).toHaveCount(0);
