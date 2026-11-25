@@ -39,7 +39,9 @@ export default defineConfig({
     "deck-size-spec-apparel.spec.ts",
     "deck-size-spec-responsive.spec.ts",
     "deck-size-spec-null.spec.ts",
-    "admin-english.spec.ts",
+    "admin-english-menus.spec.ts",
+    "admin-english-ocr.spec.ts",
+    "admin-english-size-charts.spec.ts",
   ],
   projects: [{ name: "chromium-menu-resume", use: isolated.projects?.[0]?.use }],
 });
