@@ -1,3 +1,4 @@
+// 역할: 상품 편집 폼의 기본 정보 칸(최대 2줄 상품명, 브랜드 선택·직접 입력, 카테고리)을 그립니다.
 "use client";
 import type { AdminProductDraft } from "@/lib/admin-ui/types";
 import { type RefObject } from "react";
@@ -79,7 +80,7 @@ export function AdminProductBasicFields({
           className={styles.productNameInput}
           data-admin-guide="products.name"
           onChange={(event) => {
-            // While an IME is composing, the text is kept as typed and tidied when it ends.
+            // IME 조합 중에는 입력한 그대로 두고, 조합이 끝날 때 정리합니다.
             if ((event.nativeEvent as InputEvent).isComposing) {
               onTextChange("name", event.target.value);
               return;
@@ -91,7 +92,7 @@ export function AdminProductBasicFields({
             if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
             const input = event.currentTarget;
             const next = `${input.value.slice(0, input.selectionStart)}\n${input.value.slice(input.selectionEnd)}`;
-            // A third line, even an empty one, is never started, so nothing after the caret is lost.
+            // 빈 줄이라도 세 번째 줄은 시작하지 않아, 커서 뒤 내용이 사라지지 않게 합니다.
             const lines = next
               .replace(/\r\n?/g, "\n")
               .replace(/\n{2,}/g, "\n")

@@ -1,9 +1,10 @@
+// 역할: 관리자 화면의 상품 이미지 표시. 이미지가 없거나 불러오기에 실패하면 보드 예시 이미지와 '예시' 표시로 바꾸고, 예시 이미지도 실패하면 표시 문구만 남깁니다.
 "use client";
 import { useLocale } from "@/contexts/locale-context";
 import { useState } from "react";
 import styles from "./admin-dashboard.module.css";
 
-/** Display-only fallback: never write the example URL into an editor or API draft. */
+/** 표시 전용 대체 이미지입니다. 예시 URL을 편집기나 API 초안에 쓰지 않습니다. */
 export function AdminProductImage({
   alt,
   className = "",
