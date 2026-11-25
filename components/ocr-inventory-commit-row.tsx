@@ -1,3 +1,4 @@
+// 역할: 입고 반영 패널의 행 하나. 입고 방식(기존 상품 입고 추가·신규 등록), 상품 ID·SKU 또는 기존 상품 선택 입력을 그리고, 행 초안을 신규 상품 입력으로 바꾸는 함수를 제공합니다.
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
