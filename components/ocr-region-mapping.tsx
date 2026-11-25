@@ -1,3 +1,4 @@
+// 역할: 입고 OCR 영역 지정 패널 본체. 원본 이미지 위에서 첫 상품 필드 영역·표 끝·두 번째 상품을 지정하게 하고, 단계 조작부·이미지 표시·확인·미리보기·양식 영역을 묶습니다.
 "use client";
 
 import {
@@ -379,7 +380,7 @@ export function OcrRegionMappingPanel({
               onLostPointerCapture={cancelPointer}
               onKeyDown={keyboardSelection}
             >
-              {/* Object URLs preserve local image pixels and need the native image rectangle. */}
+              {/* object URL로 로컬 이미지 픽셀을 그대로 쓰고, 좌표 계산에 실제 img 요소의 사각형이 필요합니다. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 ref={imageRef}
