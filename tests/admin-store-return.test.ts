@@ -1,3 +1,4 @@
+// 역할: 상점 복귀 주소 계약과 상점 왕복 뒤 관리자 메뉴 복귀 처리를 검증함.
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
