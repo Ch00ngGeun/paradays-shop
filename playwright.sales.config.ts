@@ -45,7 +45,11 @@ if (!process.env.PARADAYS_SALES_E2E_WORKSPACE) {
 
 export default defineConfig({
   testDir: join(root, "e2e"),
-  testMatch: "admin-sales-ledger.spec.ts",
+  testMatch: [
+    "admin-sales-ledger-guide.spec.ts",
+    "admin-sales-ledger-entries.spec.ts",
+    "admin-sales-ledger-redesign.spec.ts",
+  ],
   outputDir: join(workspace, "test-results"),
   fullyParallel: false,
   workers: 1,
