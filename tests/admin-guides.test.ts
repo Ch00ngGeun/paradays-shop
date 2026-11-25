@@ -1,3 +1,4 @@
+// 역할: 관리자 9개 메뉴의 화면 안내 단계 수·대상 이름·문구 길이와 언어 규칙을 검증함.
 import { describe, expect, it } from "vitest";
 
 import {

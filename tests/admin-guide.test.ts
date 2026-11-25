@@ -1,3 +1,4 @@
+// 역할: 화면 안내 말풍선 위치·대상 표시·단계 순서·안내 버튼과 예외 상황 처리를 검증함.
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync } from "node:fs";
@@ -59,7 +60,7 @@ describe("guide bubble placement", () => {
 
     expect(left.left).toBe(12);
     expect(right.left).toBe(375 - 12 - 300);
-    // The arrow still starts on the bubble and ends at the target's centre.
+    // 화살표는 여전히 말풍선에서 시작해 대상 중심에서 끝남.
     expect(right.arrow.x2).toBe(355);
     expect(right.arrow.x1).toBeLessThanOrEqual(right.left + 300);
   });
@@ -142,7 +143,7 @@ describe("guide robustness", () => {
     expect(recoverGuideStep(steps, 1, (step) => step.target !== "b")).toBe(2);
     expect(recoverGuideStep(steps, 2, (step) => step.target === "a")).toBe(0);
     expect(recoverGuideStep(steps, 1, () => false)).toBe(-1);
-    // From the empty state, a target that shows up again brings the guide back to it.
+    // 빈 상태에서 대상이 다시 나타나면 안내가 그 대상으로 돌아감.
     expect(recoverGuideStep(steps, -1, (step) => step.target === "b")).toBe(1);
   });
 
@@ -153,14 +154,14 @@ describe("guide robustness", () => {
     const help = layer("help");
 
     expect(isTopModalLayer(guide, [app, guide])).toBe(true);
-    // Whichever opened later is on top; the one below ignores the key.
+    // 나중에 열린 것이 위에 있고 아래 것은 키를 무시함.
     expect(isTopModalLayer(guide, [app, guide, help])).toBe(false);
     expect(isTopModalLayer(help, [app, guide, help])).toBe(true);
     expect(isTopModalLayer(guide, [app])).toBe(false);
   });
 
   it("announces steps politely and respects reduced motion when scrolling", () => {
-    // The overlay only renders in a browser, so this checks its wiring in the source.
+    // 오버레이는 브라우저에서만 렌더링되므로 소스의 연결을 확인함.
     const source = readFileSync(
       new URL("../components/admin-guide.tsx", import.meta.url),
       "utf8",
@@ -168,7 +169,7 @@ describe("guide robustness", () => {
     expect(source).toContain('aria-live="polite"');
     expect(source).toContain('matchMedia("(prefers-reduced-motion: reduce)")');
     expect(source).toContain('behavior: reduceMotion ? "instant" : "smooth"');
-    // Leaving the screen hides its guide button, so the guide closes with it.
+    // 화면을 벗어나면 안내 버튼이 숨겨지므로 안내도 함께 닫힘.
     expect(source).toContain("owner.current?.getClientRects().length === 0");
     expect(source).toContain('attributeFilter: ["hidden"]');
   });

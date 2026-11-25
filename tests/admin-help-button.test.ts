@@ -1,3 +1,4 @@
+// 역할: 관리자 도움말 버튼의 이름·닫힌 상태 렌더링·영어 문구와 최상위 도움말만 닫는 Esc 처리를 검증함.
 import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -38,9 +39,9 @@ describe("admin help button", () => {
     expect(markup).toMatch(/^<button[^>]*type="button"/);
     expect(markup).toContain('aria-label="옵션 추가 도움말"');
     expect(markup).toContain('aria-haspopup="dialog"');
-    // The visible mark is decorative; the accessible name comes from aria-label.
+    // 보이는 표시는 장식이고 접근성 이름은 aria-label에서 옴.
     expect(markup).toMatch(/<span aria-hidden="true"[^>]*>\?<\/span>/);
-    // Help text stays out of the page until the button opens it.
+    // 도움말 글은 버튼으로 열기 전까지 페이지에 없음.
     expect(markup).not.toContain("BODY");
     expect(markup).not.toContain('role="dialog"');
   });
@@ -58,7 +59,7 @@ describe("admin help button", () => {
     const closeLower = vi.fn();
     const closeUpper = vi.fn();
 
-    // Window capture listeners run in the order they were added: lower first, then upper.
+    // window 캡처 리스너는 추가된 순서로 실행됨: 아래 것이 먼저, 그다음 위 것.
     handleHelpEscape(event, "lower", closeLower, stack);
     handleHelpEscape(event, "upper", closeUpper, stack);
 
@@ -80,7 +81,7 @@ describe("admin help button", () => {
   });
 
   it("each help button gets its own dialog title id", () => {
-    // Two closed buttons render no dialog, so this checks the source wiring instead of markup.
+    // 닫힌 버튼 두 개는 대화상자를 렌더링하지 않으므로 마크업 대신 소스 연결을 확인함.
     const source = readFileSync(
       new URL("../components/admin-help-button.tsx", import.meta.url),
       "utf8",
