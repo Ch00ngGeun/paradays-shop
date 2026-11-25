@@ -1,3 +1,4 @@
+// 역할: 재고 메뉴에서 고른 상품의 재고 조정 패널. 변경 수량을 입력·증감하고 변경 전후를 확인받은 뒤 기대 버전·수량과 함께 저장하며, 재고가 달라졌으면 최신 재고를 다시 읽게 합니다.
 "use client";
 import adminInventorySectionStyles from "./admin-inventory-section.module.css";
 import adminProductSectionStyles from "./admin-product-section.module.css";
@@ -215,7 +216,7 @@ export function StockStepper({
           ＋
         </button>
       </div>
-      {/* Still the input's description; seen on screen through the help button and the error. */}
+      {/* 화면에서는 도움말 버튼과 오류 문구로 보이지만, 입력칸의 설명으로 계속 연결해 둡니다. */}
       <p className="srOnly" id="inventory-input-hint">
         {isKorean
           ? "0~1,000,000개 · 확인 전에는 수량이 변경되지 않습니다."
