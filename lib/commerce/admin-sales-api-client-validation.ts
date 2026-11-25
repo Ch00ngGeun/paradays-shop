@@ -1,3 +1,4 @@
+// 역할: 관리자 매출 API 응답 값 검증 도우미와 전표 명령 요청 본문 생성을 담당합니다.
 import type {
   SaleEntry,
   SaleLine,
@@ -5,7 +6,7 @@ import type {
 } from "../../infra/lambda/sales-ledger-domain";
 import { AdminSalesError, validSalesDay } from "./admin-sales-api-client";
 
-/** Kept local: browser bundles and isolated test copies import only types from the domain. */
+/** 브라우저 번들과 격리 테스트 복사본이 도메인에서 타입만 가져오도록 이 값은 여기에 따로 둡니다. */
 export const SALE_METHODS = [
   "CARD",
   "CASH",

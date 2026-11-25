@@ -1,4 +1,5 @@
-/** Allowlisted administrator ledger transport. No payment/customer details enter this client. */
+// 역할: 허용된 관리자가 일자별 매출 장부를 조회하고 전표 명령을 보내는 관리자 매출 API 클라이언트입니다.
+// 결제·고객 상세 정보는 이 클라이언트로 들어오지 않습니다.
 import {
   getCheckoutApiConfig,
   type CheckoutApiConfig,
@@ -125,7 +126,7 @@ const totalKeys = [
   "onlineNet",
   "combinedNet",
 ] as const;
-/** Servers and snapshots from before transfers omit `transfer`; only absence reads as 0. */
+/** 계좌이체 도입 전 서버·스냅샷은 `transfer`를 생략하므로 필드가 없을 때만 0으로 읽습니다. */
 function parseTotals(v: unknown): DayTotals {
   if (!record(v)) return invalid();
   const transfer = "transfer" in v ? v.transfer : 0;
@@ -300,7 +301,7 @@ export function createAdminSalesApiClient({
     command?: SalesCommand,
   ): Promise<AdminSalesResult> {
     if (!validSalesDay(day)) throw new AdminSalesError("SALES_DAY_INVALID", 400);
-    // Snapshot before any asynchronous authentication; retries use exactly this command.
+    // 비동기 인증 전에 요청 본문을 고정하므로 재시도도 정확히 같은 명령을 보냅니다.
     const body = command ? commandBody(command, day) : undefined;
     const token = (await authorizationTokenProvider.getAccessToken())?.trim();
     if (!token) throw new AdminSalesError("ADMIN_LOGIN_REQUIRED", 401);
@@ -319,7 +320,7 @@ export function createAdminSalesApiClient({
           },
           ...(body ? { body } : {}),
           redirect: "error",
-          // Server work stops at 24s; leave transport time before the 28s Lambda cap.
+          // 서버 작업은 24초에 멈추므로 Lambda 28초 상한 전에 전송 시간을 남깁니다.
           signal: AbortSignal.timeout(27_000),
         },
       );
