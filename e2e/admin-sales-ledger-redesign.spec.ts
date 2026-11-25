@@ -1,3 +1,4 @@
+// 역할: 매출 장부의 모드 선택·순합계 카드·미확인 경고·0과 실패 구분·계좌이체 구분과 모바일 배치를 검증함.
 import { expect, test, type Page } from "@playwright/test";
 import {
   DAY,
@@ -401,7 +402,7 @@ test("transfer: saved, posted and shown in gray apart from card and cash; cash c
     "온라인·오프라인 매출과 경고를 모두 확인했습니다",
     { exact: true },
   );
-  // Cash plus transfer is not the cash amount; only cash compares.
+  // 현금과 이체의 합은 현금 금액이 아님. 현금만 비교함.
   await page.getByLabel("현금 순매출 수기 대조액", { exact: true }).fill("17000");
   await acknowledged.check();
   await expect(close).toBeDisabled();

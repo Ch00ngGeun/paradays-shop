@@ -1,3 +1,4 @@
+// 역할: 매출 화면 안내의 단계·방문 기록에 따른 닫힘·좁은 화면 배치와 도움말을 검증함.
 import { expect, test, type Page } from "@playwright/test";
 import { ACTUAL_MODE, audits, setup } from "./admin-sales-ledger-fixtures";
 
@@ -37,7 +38,7 @@ test("sales screen guide walks the day, a new sale and the daily close in the re
   const bubble = page.getByRole("dialog");
   await expect(bubble).toContainText("1/3단계");
   await expect(bubble.getByRole("heading")).toHaveText("날짜 고르기");
-  // The day input is underlined right below it.
+  // 날짜 입력란 바로 아래에 밑줄이 그어짐.
   const day = page.locator('[data-admin-guide="sales.day"]');
   await expect
     .poll(async () => {
@@ -64,7 +65,7 @@ test("sales screen guide closes when browser Back leaves the menu and reopens af
   await open.click();
   const bubble = page.getByRole("dialog");
   await expect(bubble).toContainText("1/3단계");
-  // Back hides the sales panel; a guide left behind would sit on an empty screen.
+  // 뒤로 가기는 매출 패널을 숨기므로 남은 안내는 빈 화면 위에 놓이게 됨.
   const ledger = page.getByRole("heading", { name: "매출·일마감 관리" });
   await page.goBack();
   await expect(ledger).toBeHidden();
@@ -83,9 +84,9 @@ test("sales guide button stays on one line at 375px and fits 320px in English", 
   await page.setViewportSize({ width: 375, height: 760 });
   await setup(page, { mode: "choose" });
   const korean = page.getByRole("button", { name: "화면 도움말", exact: true });
-  // One line: the button is no taller than its 44px target.
+  // 한 줄: 버튼 높이가 44px 대상 크기를 넘지 않음.
   expect((await korean.boundingBox())!.height).toBeLessThanOrEqual(46);
-  // Even squeezed like in a crowded narrow header, the label does not break onto a second line.
+  // 붐비는 좁은 머리말처럼 눌려도 라벨이 둘째 줄로 넘어가지 않음.
   await korean.evaluate((button) => {
     button.style.width = "70px";
   });
@@ -113,7 +114,7 @@ test("sales help opens on demand while the stock warnings stay visible", async (
   page,
 }) => {
   await setup(page, { mode: "choose" });
-  // The real-operations warning stays; only the pointer to earlier requests moved behind '?'.
+  // 실제 운영 경고는 남고, 이전 요청 안내만 '?' 뒤로 옮겨졌음.
   await expect(
     page.getByText("판매를 확정하면 실제 재고가 차감됩니다.", { exact: false }),
   ).toBeVisible();
@@ -127,7 +128,7 @@ test("sales help opens on demand while the stock warnings stay visible", async (
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(help).toBeFocused();
-  // Opening the real ledger still works afterwards.
+  // 그 뒤에도 실제 장부 열기는 계속 동작함.
   await page.getByRole("button", { name: ACTUAL_MODE, exact: true }).click();
   await expect(page.getByRole("heading", { name: "매출·일마감 관리" })).toBeVisible();
 });
