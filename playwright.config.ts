@@ -1,4 +1,4 @@
-// 역할: 스토어프론트 내비게이션과 모달 동작에 대한 브라우저 수준 회귀 테스트를 정의합니다.
+// 역할: 기본 Playwright 설정으로, e2e 폴더 spec을 Cognito·Firebase 공개 설정을 비운 새 개발 서버(포트 3010)에서 실행합니다.
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({

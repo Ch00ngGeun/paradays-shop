@@ -70,7 +70,7 @@ export type OcrIntakeCommitResult = Readonly<{
   }>[];
 }>;
 
-/** A saved review only becomes an additive intake after every row is explicitly confirmed. */
+/** 저장된 검토본은 모든 행을 명시적으로 확인한 뒤에만 가산 입고 계획이 됩니다. */
 export function buildOcrIntakePlan(
   input: Readonly<{
     job: AdminOcrRecognitionResult;
@@ -261,7 +261,7 @@ export function buildOcrIntakePlan(
   );
 }
 
-/** Hash all immutable row identities before any write. Retries never invent a new operation key. */
+/** 쓰기 전에 모든 불변 행 식별값을 hash로 고정하며, 재시도해도 새 작업 키를 만들지 않습니다. */
 export async function executeOcrIntakePlan(
   plan: OcrIntakePlan,
   dependencies: Readonly<{
@@ -366,7 +366,7 @@ export async function executeOcrIntakePlan(
       status: "applied",
       replayed: response.receipt.replayed,
     };
-    // A replay returns its original receipt, not necessarily the current product. Do not resurrect stale/deleted products.
+    // 재실행 응답은 원래 영수증을 돌려줄 뿐 현재 상품과 같다는 보장이 없으므로 낡거나 삭제된 상품을 되살리지 않습니다.
     if (!response.receipt.replayed) {
       try {
         await dependencies.onProductUpdated?.(response.product);

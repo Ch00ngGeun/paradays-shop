@@ -1,5 +1,5 @@
 // 역할: 데크 외 상세사이즈(의류·휠)의 도면 종류·측정 항목·단위·입력 범위와 파싱·검증 규칙입니다.
-// 서버(infra)는 별도 패키지라 D2에서 같은 규칙을 복제하고, 두 쪽을 같은 표로 테스트합니다.
+// 서버(infra)는 별도 패키지라 infra/lambda/size-chart-rules.ts에 같은 규칙을 복제하고, infra 테스트가 두 쪽을 같은 표로 비교합니다.
 import type { Locale } from "@/types/store";
 
 export const SIZE_CHART_KINDS = [

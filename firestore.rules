@@ -1,3 +1,4 @@
+// 역할: 클라이언트(브라우저) SDK의 모든 Firestore 문서 읽기·쓰기를 거부하는 보안 규칙임.
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {

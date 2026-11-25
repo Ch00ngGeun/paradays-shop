@@ -1,4 +1,5 @@
-/** Synthetic browser-memory teaching model. It has no production data adapters. */
+// 역할: 합성 테스트 상품으로 매출 전표 저장·재고 반영·마감·재개를 브라우저 메모리에서만 연습하는 교육용 모델입니다.
+// 실제 운영 데이터 어댑터는 없습니다.
 import type { Locale } from "@/types/store";
 
 export const TEST_SALES_PRODUCTS = [

@@ -107,12 +107,12 @@ export type AdminOcrRemapResult =
   | AdminOcrReviewSaveResult
   | Readonly<{ kind: "preview"; preview: AdminOcrRemapPreview }>;
 
-/** Omitted rawText preserves the stored text; empty text explicitly clears it. */
+/** rawText를 생략하면 저장된 원문을 유지하고, 빈 문자열이면 명시적으로 지웁니다. */
 export type AdminOcrReviewSaveInput = Readonly<{
   jobId: string;
   version: number;
   rows: readonly AdminOcrReviewRow[];
-  /** Exact text, including whitespace; at most 100,000 UTF-16 units, no NUL. */
+  /** 공백을 포함한 원문 그대로이며 UTF-16 기준 최대 100,000자, NUL 문자는 허용하지 않습니다. */
   rawText?: string;
 }>;
 

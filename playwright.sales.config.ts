@@ -1,4 +1,4 @@
-/** Credential-free sales browser tests run only against a temporary source copy. */
+// 역할: 관리자 매출 장부 e2e spec을 자격정보 없는 임시 소스 복사본과 개발 서버(포트 3139)에서 실행합니다.
 import { cpSync, existsSync, mkdirSync, mkdtempSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -10,8 +10,8 @@ const workspace =
   process.env.PARADAYS_SALES_E2E_WORKSPACE ??
   mkdtempSync(join(tmpdir(), "paradays-sales-e2e-"));
 if (!process.env.PARADAYS_SALES_E2E_WORKSPACE) {
-  // Deliberate allowlist excludes .env, credentials, infra configuration and builds.
-  // Next may generate config/types/AGENTS only inside this temporary copy.
+  // 명시한 허용 목록만 복사해 .env·자격정보·infra 설정·빌드 출력을 제외합니다.
+  // Next가 설정·타입·AGENTS 파일을 만들더라도 이 임시 복사본 안에서만 만듭니다.
   for (const name of [
     "app",
     "components",
@@ -58,7 +58,7 @@ export default defineConfig({
   reporter: "list",
   use: {
     baseURL: "http://127.0.0.1:3139",
-    // KST entry/display must not depend on the operator's browser time zone.
+    // KST 입력·표시가 운영자 브라우저 시간대에 의존하지 않는지 다른 시간대로 확인합니다.
     timezoneId: "America/Los_Angeles",
     screenshot: "only-on-failure",
     trace: "retain-on-failure",

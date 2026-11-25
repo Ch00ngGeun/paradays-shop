@@ -5,29 +5,29 @@ import type { Locale } from "@/types/store";
 export const productDescriptionTranslations: Record<Locale, Record<string, string>> = {
   en: {},
   ko: {
-    // Deck
+    // 데크
     "7-Ply Canadian Maple": "캐나다산 7겹 메이플",
     "Medium Concave": "미디엄 컨케이브",
     "8.25 inch Width": "8.25인치 너비",
     "8.375 inch Width": "8.375인치 너비",
     "8.5 inch Width": "8.5인치 너비",
     "Brian O'Dwyer Pro Model": "Brian O'Dwyer 프로 모델",
-    // Top — Plaid Overshirt
+    // 상의 — Plaid Overshirt
     "Heavy Flannel Weave": "헤비 플란넬 조직",
     "Dual Chest Pockets": "더블 체스트 포켓",
     "Button Front Closure": "버튼 프론트 여밈",
     "Relaxed Boxy Fit": "릴랙스드 박시 핏",
-    // Top — Triangle Sweater
+    // 상의 — Triangle Sweater
     "All-Over Triangle Knit": "올오버 트라이앵글 니트",
     "Ribbed Collar, Cuffs & Hem": "골지 카라·커프스·밑단",
     "Crewneck Fit": "크루넥 핏",
     "100% Cotton": "면 100%",
-    // Accessories — Hat
+    // 액세서리 — 모자
     "6-Panel Crown": "6패널 크라운",
     "Embroidered Front Mark": "전면 자수 마크",
     "Adjustable Back Strap": "길이 조절 백 스트랩",
     "One Size": "원사이즈",
-    // Wheels
+    // 휠
     "56mm Diameter": "56mm 직경",
     "82A Durometer": "82A 경도",
     "Conical Shape": "코니컬 쉐입",

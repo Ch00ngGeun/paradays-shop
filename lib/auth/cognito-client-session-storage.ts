@@ -58,7 +58,7 @@ export function parseStoredAuthSession(
         try {
           storage.removeItem(AUTH_SESSION_STORAGE_KEY);
         } catch {
-          // ignore
+          // 저장소 삭제가 막혀도 무시함.
         }
       }
 
@@ -81,7 +81,7 @@ export function parseStoredAuthSession(
       try {
         storage.removeItem(AUTH_SESSION_STORAGE_KEY);
       } catch {
-        // ignore
+        // 저장소 삭제가 막혀도 무시함.
       }
     }
 

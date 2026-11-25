@@ -1,7 +1,8 @@
+// 역할: OCR 검토 행을 기존 상품 후보(상품 ID·SKU·이름 조합)와 대조하고 신규 상품 입력을 검증합니다.
 import type { AdminCatalogListItem, AdminOcrReviewRow } from "@/lib/admin-ui/types";
 import type { Locale } from "@/types/store";
 
-/** Matches are suggestions only. Even a unique exact result requires explicit selection. */
+/** 대조 결과는 제안일 뿐이며, 정확히 하나만 맞아도 관리자가 명시적으로 선택해야 합니다. */
 export type OcrIntakeMatch = Readonly<{
   basis: "product-id" | "sku" | "composite" | "possible" | "none" | "unresolved-id";
   candidates: readonly AdminCatalogListItem[];
@@ -32,12 +33,12 @@ export const OCR_INTAKE_CATEGORIES = Object.freeze([
   "Other",
 ] as const);
 
-/** NFC and whitespace/case only: no punctuation removal, NFKC or fuzzy matching. */
+/** NFC·공백·대소문자만 정규화하며 문장부호 제거·NFKC·유사 일치는 하지 않습니다. */
 export function normalizeOcrIntakeText(value: string): string {
   return value.normalize("NFC").trim().replace(/\s+/gu, " ").toLowerCase();
 }
 
-/** SKU is deliberately case-sensitive; identifiers never lose punctuation. */
+/** SKU는 의도적으로 대소문자를 구분하며 식별자의 문장부호를 지우지 않습니다. */
 export function normalizeOcrIntakeSku(value: string): string {
   return value.normalize("NFC").trim();
 }

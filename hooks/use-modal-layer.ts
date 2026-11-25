@@ -23,7 +23,7 @@ export function createModalLayerStack<E extends LayerElement>(body: LayerBody<E>
   const apply = () => {
     const top = open.at(-1);
     for (const element of body.elements()) {
-      // Layers are created and removed here, so only the page's own elements need their state kept.
+      // 레이어는 여기서 만들고 지우므로 페이지 원래 요소의 inert 상태만 기억해 둠.
       if (original && !open.includes(element) && !original.inert.has(element))
         original.inert.set(element, element.inert);
       element.inert = element !== top;

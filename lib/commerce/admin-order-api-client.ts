@@ -1,4 +1,5 @@
-/** Authenticated, allowlisted order administration. No PG secret or provider response enters the UI. */
+// 역할: 인증된 허용 관리자가 주문을 조회하고 대사·출고·반품·환불 작업을 요청하는 관리자 주문 API 클라이언트입니다.
+// PG 비밀값이나 결제사 원본 응답은 UI로 들어오지 않습니다.
 import {
   getCheckoutApiConfig,
   type CheckoutAuthorizationTokenProvider,
@@ -198,7 +199,7 @@ export function createAdminOrderApiClient({
       throw new AdminOrderError("SIMULATION_ORDER_NOT_ALLOWED", 400);
     if (!/^[A-Za-z0-9_-]{6,64}$/.test(orderId))
       throw new AdminOrderError("ORDER_ID_INVALID");
-    // Snapshot before async token refresh. Retrying the same operation retains its original request identity.
+    // 비동기 token 갱신 전에 요청 본문을 고정하므로 같은 작업을 재시도해도 원래 요청 식별값이 유지됩니다.
     const body = operation ? JSON.stringify(operation) : undefined;
     const token = (await authorizationTokenProvider.getAccessToken())?.trim();
     if (!token) throw new AdminOrderError("ADMIN_LOGIN_REQUIRED", 401);

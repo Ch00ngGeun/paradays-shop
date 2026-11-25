@@ -1,4 +1,4 @@
-# Role: Excludes generated artifacts from formatting checks.
+# 역할: 의존성·빌드·테스트 결과 등 생성물을 Prettier 서식 검사에서 제외함.
 node_modules/
 .next/
 out/

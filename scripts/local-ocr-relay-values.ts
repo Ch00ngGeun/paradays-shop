@@ -1,3 +1,4 @@
+// 역할: 로컬 OCR 중계 서버의 요청 본문 제한 읽기·provider 응답 기한·작업 공개 형태 변환·검토 행 검증 도우미를 제공합니다.
 import { type IncomingMessage } from "node:http";
 import {
   parseOcrTableRows,
@@ -38,7 +39,7 @@ export class Failure extends Error {
   }
 }
 
-/** Streaming bytes and the entire upstream response share a hard deadline. */
+/** 스트리밍 바이트 읽기와 upstream 응답 전체가 하나의 고정 기한을 공유합니다. */
 async function boundedJson(response: Response, maximum: number): Promise<unknown> {
   if (!response.ok || !response.body)
     throw new Failure(502, "OCR_PROVIDER_REQUEST_FAILED");
@@ -172,7 +173,7 @@ export async function requestBody(request: IncomingMessage): Promise<unknown> {
   }
 }
 
-/** Demo uploads have a fixed read deadline and reserve a bounded slot before allocation. */
+/** 데모 업로드는 읽기 기한이 고정되며, 메모리를 할당하기 전에 제한된 처리 자리를 먼저 확보합니다. */
 export function demoRequestBody(request: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const bytes = Buffer.allocUnsafe(REQUEST_LIMIT);

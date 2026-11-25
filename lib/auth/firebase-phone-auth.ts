@@ -98,7 +98,7 @@ function ensureRecaptcha(containerId: string) {
     try {
       recaptchaVerifier.clear();
     } catch {
-      // ignore stale widget cleanup errors
+      // 이전 reCAPTCHA 위젯 정리 오류는 무시함.
     }
     recaptchaVerifier = null;
   }
@@ -182,7 +182,7 @@ export async function clearFirebaseAuthSession() {
   try {
     await signOut(getFirebaseAuth());
   } catch {
-    // ignore
+    // Firebase 로그아웃 실패는 무시함.
   }
 }
 
@@ -190,7 +190,7 @@ export function resetFirebaseRecaptcha() {
   try {
     recaptchaVerifier?.clear();
   } catch {
-    // ignore
+    // reCAPTCHA 위젯 정리 오류는 무시함.
   }
   recaptchaVerifier = null;
   confirmationResult = null;

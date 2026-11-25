@@ -1,3 +1,4 @@
+# 역할: CodeRabbit PR 자동 리뷰의 언어·요약 형식·검토 경로 범위를 설정함.
 language: "ko"
 reviews:
   profile: "chill"

@@ -1,4 +1,4 @@
-/** Filter persistence checks use a credential-free temporary source copy. */
+// 역할: 메뉴 필터 유지 e2e spec을 자격정보 없는 임시 소스 복사본과 개발 서버(포트 3139)에서 실행합니다.
 import { cpSync, existsSync, mkdirSync, mkdtempSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -10,7 +10,7 @@ const workspace =
   process.env.PARADAYS_FILTER_E2E_WORKSPACE ??
   mkdtempSync(join(tmpdir(), "paradays-filter-e2e-"));
 if (!process.env.PARADAYS_FILTER_E2E_WORKSPACE) {
-  // Explicit allowlist excludes .env, credentials, deployment files, and builds.
+  // 명시한 허용 목록만 복사해 .env·자격정보·배포 파일·빌드 출력을 제외합니다.
   for (const name of [
     "app",
     "components",
@@ -29,7 +29,7 @@ if (!process.env.PARADAYS_FILTER_E2E_WORKSPACE) {
   }
   symlinkSync(join(root, "node_modules"), join(workspace, "node_modules"), "dir");
   mkdirSync(join(workspace, "infra", "lambda"), { recursive: true });
-  // Optional compatibility with newer source; no dependency on another config.
+  // 새 소스와 호환되도록 있으면 복사하며, 다른 설정 파일에 의존하지 않습니다.
   for (const name of [
     "ocr-table-parser.js",
     "ocr-table-parser.d.ts",

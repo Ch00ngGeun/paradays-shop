@@ -243,7 +243,7 @@ export function createCheckoutApiClient(
 
   return {
     async createSession(input) {
-      // Freeze/validate the request before token refresh; TEST data can never be inserted during an await.
+      // token 갱신 전에 요청을 고정·검증하므로 await 중에 TEST 데이터가 끼어들 수 없습니다.
       const payload = createCheckoutSessionPayload(input);
       const accessToken = await getAccessToken(dependencies.authorizationTokenProvider);
       const idempotencyKey = getValidIdempotencyKey(idempotencyKeyFactory());

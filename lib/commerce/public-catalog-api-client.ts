@@ -219,7 +219,7 @@ function parseSizeCharts(
   return {
     ...(sizeChart ? { sizeChart } : {}),
     ...(kind ? { sizeChartKind: kind } : {}),
-    // fromEntries defines own keys, so no option name reaches Object.prototype.
+    // fromEntries는 자기 속성으로 키를 정의하므로 어떤 옵션 이름도 Object.prototype에 닿지 않습니다.
     ...(entries.length ? { sizeChartsBySize: Object.fromEntries(entries) } : {}),
   };
 }
@@ -258,7 +258,7 @@ function parseDeckSpec(value: unknown): DeckSpec | undefined {
   };
 }
 
-// Same names the server refuses, since they cannot be stored as plain map keys.
+// 일반 객체 map 키로 저장할 수 없어 서버도 거부하는 이름과 같은 목록입니다.
 const UNSAFE_DECK_SPEC_OPTIONS = ["__proto__", "constructor", "prototype"];
 
 /** 옵션별 상세사이즈는 sizes에 있는 옵션의 올바른 값만 남기고, 남은 값이 없으면 생략합니다. */
@@ -280,7 +280,7 @@ function parseDeckSpecsBySize(
   return entries.length ? Object.fromEntries(entries) : undefined;
 }
 
-// Same as the server: up to 4 decimals (1/16" = 0.0625).
+// 서버와 같게 소수 4자리까지 허용합니다(1/16" = 0.0625).
 const DECK_SPEC_INCHES_PATTERN = /^\d+(?:\.\d{1,4})?$/;
 
 function isSafeInches(value: unknown): value is number {
