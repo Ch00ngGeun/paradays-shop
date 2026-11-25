@@ -1,3 +1,4 @@
+// 역할: 관리자 워크스페이스 머리말. 현재 메뉴 위치(관리자 / 메뉴), 언어 전환, 좁은 화면용 스토어 복귀 링크와 관리자 이름 배지를 그립니다.
 "use client";
 import adminWorkspaceLayoutStyles from "./admin-workspace-layout.module.css";
 import adminSharedStyles from "./admin-shared.module.css";

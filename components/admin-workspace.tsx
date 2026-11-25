@@ -1,3 +1,4 @@
+// 역할: 관리자 워크스페이스 본체. 현재 메뉴·언어·운영 메뉴 열림 상태와 각 메뉴 상태 훅·처리 훅을 모아 워크스페이스 context로 묶고 틀(AdminWorkspaceLayout)에 넘깁니다.
 "use client";
 import { useAuth } from "@/contexts/auth-context";
 import { useLocale } from "@/contexts/locale-context";
@@ -305,7 +306,6 @@ export function AdminWorkspace({
         }
       }
     };
-
     window.addEventListener("keydown", onKeyDown);
     return () => {
       window.cancelAnimationFrame(focusFrame);

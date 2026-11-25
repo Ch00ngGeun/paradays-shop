@@ -1,3 +1,4 @@
+// 역할: 입고 OCR 메뉴 패널 연결. 워크스페이스 context의 OCR 상태·처리 함수를 OcrSection에 넘기고, 영역 지정 패널과 입고 반영 패널을 조건에 맞춰 붙입니다.
 "use client";
 import { OCR_INPUT_LIMITS } from "@/lib/admin-ui/ocr-input-validation";
 import styles from "./admin-dashboard.module.css";
