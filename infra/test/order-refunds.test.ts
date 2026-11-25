@@ -1,3 +1,4 @@
+/** 역할: 부분 취소·환불 한도·확정 거절·전액 보상·출고 후 환불·응답 유실 조정·검수 전 복원 금지 등 환불과 재고 복원 규칙을 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -94,7 +95,7 @@ test("a refund above the remaining paid balance is rejected before any PG call",
     ],
   }));
   order = await startRefund(order, first, { secretKey: "fake" });
-  // Within the order total, but above the 100 still paid after the first refund.
+  // 주문 합계 안이지만 첫 환불 뒤 남은 결제액 100보다 큼.
   const second = refundIntent(order, {
     operationId: "refund_operation_over_balance",
     disposition: "COMPENSATION",

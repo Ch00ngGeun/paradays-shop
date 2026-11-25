@@ -1,3 +1,4 @@
+/** 역할: 재무 증빙 event가 주문 transaction과 함께 기록되고, 환불 누적·provider 취소 시각이 재시도에도 중복되지 않는지 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { GetCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
@@ -100,7 +101,7 @@ test("verified provider cancellation times survive delayed observation and trans
       },
     ],
   };
-  // A refund cannot precede approval. Invalid chronological evidence uses observation time.
+  // 환불은 승인보다 앞설 수 없음. 시간 순서가 맞지 않는 증빙은 관측 시각을 씀.
   const invalid = await writeInventoryOrder(
     order,
     { ...order, financialRefundedAmount: 20 },
