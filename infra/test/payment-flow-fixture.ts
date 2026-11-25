@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- test double mirrors loose SDK command and Lambda shapes */
-/** In-memory atomic transport. Never opens a socket or reads real credentials. */
+/** 역할: 결제 흐름 테스트용 저장 주문·상품·event와 원자적 메모리 전송 fixture를 제공함. socket을 열거나 실제 자격증명을 읽지 않음. */
 import assert from "node:assert/strict";
 import type { TestContext } from "node:test";
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";

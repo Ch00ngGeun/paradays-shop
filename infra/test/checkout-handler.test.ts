@@ -1,3 +1,4 @@
+/** 역할: checkout handler가 서버 가격으로 주문을 만들고, 가격이 바뀐 재시도에 저장된 snapshot을 재응답하며 ID·재고·공개 상태를 fail-closed로 검사하는지 확인함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { GetCommand } from "@aws-sdk/lib-dynamodb";
@@ -33,7 +34,7 @@ test("a concurrent identical retry that read a newer price replays the saved ord
   const first = response(await handler(request));
   assert.equal(first.status, 201);
   db.records.set("catalog:prd_deck", { ...db.product(), price: 999 });
-  // The retry's first order read happened before the first request saved.
+  // 재시도의 첫 주문 읽기는 첫 요청이 저장하기 전에 일어났음.
   const send = documentClient.send.bind(documentClient);
   let hideSavedOrder = true;
   t.mock.method(
