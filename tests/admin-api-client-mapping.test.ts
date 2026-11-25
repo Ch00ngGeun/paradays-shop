@@ -1,3 +1,4 @@
+// 역할: 관리자 API 클라이언트의 OCR 열·영역 매핑 미리보기·적용·충돌 복구와 잘못된 설정 거부를 검증함.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminApiRequestError } from "@/lib/commerce/admin-api-client";
 import { AdminApiResponseError } from "@/lib/commerce/admin-api-client-errors";

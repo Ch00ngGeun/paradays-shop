@@ -1,3 +1,4 @@
+// 역할: 관리자 API 클라이언트 단위 검사의 API 설정·클라이언트 생성·OCR 검토 행 저장 도우미를 제공함.
 import { vi } from "vitest";
 import { createAdminApiClient } from "@/lib/commerce/admin-api-client";
 import { getCheckoutApiConfig } from "@/lib/commerce/checkout-api-client";

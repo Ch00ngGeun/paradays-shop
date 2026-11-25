@@ -1,3 +1,4 @@
+// 역할: 관리자 API 클라이언트의 OCR 카탈로그 입고 명령 전송·인증·정규화·스냅숏 처리를 검증함.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAdminApiClient } from "@/lib/commerce/admin-api-client";
 import { AdminApiResponseError } from "@/lib/commerce/admin-api-client-errors";
