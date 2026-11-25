@@ -1,8 +1,9 @@
+// 역할: 상품명 번역의 줄 단위 번역·줄 수 유지·빈 줄 처리를 모의 번역 서비스로 검증함.
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { buildProductI18nFields } from "@/lib/commerce/translate-text";
 
-/** MyMemory stand-in: answers each query with a tagged copy and records what was asked. */
+/** MyMemory 대역: 질의마다 표시를 붙인 사본으로 답하고 요청 내용을 기록함. */
 function stubTranslator() {
   const queries: string[] = [];
   vi.stubGlobal(

@@ -1,3 +1,4 @@
+// 역할: 줄바꿈 상품명의 공백 검색, 게시 확인 절차와 기존 게시 상태 보존을 검증함.
 import { expect, test } from "@playwright/test";
 import { audits, products, respond, setup } from "./admin-navigation-base-fixtures";
 import {
@@ -33,7 +34,7 @@ test("product form refinement: a spaced search finds a product whose name has a 
   await expect(list.getByRole("listitem")).toContainText("search deck");
   await search.fill("TWO   LINE\tSEARCH");
   await expect(list.getByRole("listitem")).toHaveCount(1);
-  // A brand stored with two spaces is found by the same text typed as is.
+  // 공백 두 칸으로 저장된 브랜드도 같은 글자를 그대로 입력하면 찾아짐.
   await search.fill("NEW  BALANCE");
   await expect(list.getByRole("listitem")).toHaveCount(1);
   await expect(list.getByRole("listitem")).toContainText("search deck");

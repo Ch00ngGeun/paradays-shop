@@ -1,3 +1,4 @@
+// 역할: 공유 OCR 표 파서의 명시적 열 매핑·복합 셀·헤더 인식과 매핑 설정 검증을 확인함.
 import { describe, expect, it } from "vitest";
 import {
   parseOcrTableRows,

@@ -1,3 +1,4 @@
+// 역할: 캠페인 초안 검사용 입력·채널·미리보기·저장 버튼 선택과 양식 채우기·저장 응답 도우미를 제공함.
 import { type Page, type Route } from "@playwright/test";
 import { DAY, respond } from "./admin-navigation-base-fixtures";
 

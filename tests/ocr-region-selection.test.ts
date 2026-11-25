@@ -1,3 +1,4 @@
+// 역할: OCR 포인터 좌표 정규화와 영역 선택·겹침 판정 규칙을 검증함.
 import { describe, expect, it } from "vitest";
 import {
   normalizeOcrPointer,

@@ -1,3 +1,4 @@
+// 역할: 로컬 OCR 중계의 제공자 대기·시간 초과·응답 정규화와 표 상품 묶기·메타데이터 보존을 검증함.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createLocalOcrRelay } from "../scripts/local-ocr-relay";
 import {

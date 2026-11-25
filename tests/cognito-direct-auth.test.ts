@@ -1,3 +1,4 @@
+// 역할: 한국 휴대전화 번호의 E.164 정규화와 Cognito 이메일 비밀번호 복구 요청을 검증함.
 import { describe, expect, it } from "vitest";
 
 import {

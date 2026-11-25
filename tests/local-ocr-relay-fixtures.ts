@@ -1,3 +1,4 @@
+// 역할: 로컬 OCR 중계 검사의 합성 서명 키·JWT·PNG·표 제공자 응답과 서버·미완료 업로드 도우미를 제공함.
 import { generateKeyPairSync, sign } from "node:crypto";
 import { createServer } from "node:net";
 import { request as httpRequest } from "node:http";
@@ -156,7 +157,7 @@ export async function fixture(
   return { request, image, calls, port, server };
 }
 
-/** Headers and one byte are sent, but the upload deliberately never completes. */
+/** 헤더와 1바이트는 보내지만 업로드는 일부러 끝내지 않음. */
 export function pendingUpload(
   port: number,
   path = "/admin/ocr/jobs",

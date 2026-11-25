@@ -1,3 +1,4 @@
+// 역할: 로컬 OCR 중계의 매핑 미리보기·재적용·잘못된 요청 거부와 서명·Origin·Host 검증, 검토 만료를 검증함.
 import { request as httpRequest } from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {

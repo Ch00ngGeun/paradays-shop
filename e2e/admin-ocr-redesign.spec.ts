@@ -1,4 +1,4 @@
-/** Real admin UI/client with test-only session and intercepted provider API. */
+// 역할: OCR 화면의 다섯 단계 구분·화면 안내·요약·검토 저장과 접힌 고급 매핑 설정을 실제 관리자 화면과 가로챈 API로 검증함.
 import { expect, test, type Page } from "@playwright/test";
 import {
   OCR_ROUTE,
@@ -94,7 +94,7 @@ test.describe("ocr redesign:", () => {
     );
     expect(inventory.intakes).toHaveLength(0);
     await page.getByRole("button", { name: "검토본 저장", exact: true }).click();
-    // Saved review completes step 4; stock application is the separate current step.
+    // 검토를 저장하면 4단계가 완료되고, 재고 반영은 별도의 현재 단계가 됨.
     await expect(stages.locator('[aria-current="step"]')).toContainText("입고 반영");
     await expect(stages.locator('[data-state="complete"]')).toHaveCount(4);
     await expect(
@@ -123,12 +123,12 @@ test.describe("ocr redesign:", () => {
     await setupInventoryCatalogApi(page);
     await setupInventoryReviewApi(page);
     const open = page.getByRole("button", { name: "화면 도움말", exact: true });
-    // The status badge and the sending notice stay beside the guide button, not behind it.
+    // 상태 배지와 전송 안내는 안내 버튼 뒤가 아니라 옆에 표시됨.
     await expect(page.locator("header").getByRole("status")).toBeVisible();
     await expect(page.getByText(/이미지는 관리자 API로 전송합니다/)).toBeVisible();
     await open.click();
     const bubble = page.getByRole("dialog");
-    // No rows and no saved review yet: only the photo, read and save steps are on screen.
+    // 행도 저장된 검토도 없으면 사진·읽기·저장 단계만 화면에 있음.
     await expect(bubble).toContainText("1/3단계");
     for (const title of ["사진 고르기", "글자 읽기", "확인한 내용 저장"]) {
       await expect(bubble.getByRole("heading")).toHaveText(title);

@@ -1,3 +1,4 @@
+// 역할: 의류·휠 사이즈표의 저장·도면 전환·모바일 배치와 상점의 사이즈별 값·기본값 대체·범주별 차트 선택을 검증함.
 import { expect, test } from "@playwright/test";
 import {
   API,
@@ -21,7 +22,7 @@ test("a top saves its default and option charts with their own bodies, renames a
   const item = audit.store.find((entry) => entry.productId === DECK.id)!;
   await editDeck(page);
   await expect(page.getByText("반팔 · 미등록")).toBeVisible();
-  // Clothing chips open their chart now, like deck chips.
+  // 의류 칩도 이제 데크 칩처럼 자기 차트를 엶.
   await expect(chip(page, "M")).toBeVisible();
 
   await page.getByRole("button", { name: "+ 상세사이즈 등록" }).click();
@@ -74,7 +75,7 @@ test("a top saves its default and option charts with their own bodies, renames a
   await expect(page.getByRole("list", { name: "추가된 옵션" })).toContainText("L상세");
   await expect(page.getByText(/기본 총장 72cm \(28\.3"\) · 옵션별 1개/)).toBeVisible();
 
-  // The next product save sends the renamed chip instead of undoing it.
+  // 다음 상품 저장은 바꾼 칩 이름을 되돌리지 않고 그대로 보냄.
   page.once("dialog", (prompt) => void prompt.accept());
   await page.getByRole("button", { name: /수정 저장/ }).click();
   await expect(page.getByText("상품을 공개 상태로 저장했습니다")).toBeVisible();
@@ -100,7 +101,7 @@ test("switching the drawing asks first, keeps focus through cancel, failure and 
   await page.getByRole("button", { name: "상세사이즈 수정" }).click();
   const dialog = page.getByRole("dialog");
   const kind = dialog.getByRole("combobox", { name: "도면 종류" });
-  // The submit button reads "저장 중…" while anything is being sent.
+  // 무엇이든 전송 중인 동안 제출 버튼은 "저장 중…"으로 표시됨.
   const save = dialog.locator('button[type="submit"]');
   const remove = dialog.getByRole("button", { name: "삭제", exact: true });
 
@@ -115,7 +116,7 @@ test("switching the drawing asks first, keeps focus through cancel, failure and 
   await expect(kind).toHaveValue("shortSleeve");
   await expect(dialog.getByRole("textbox", { name: "총장" })).toHaveValue("72");
 
-  // A held, then failed switch: Esc does not close it and nothing else can be sent meanwhile.
+  // 붙잡았다가 실패한 전환: Esc로 닫히지 않고 그동안 다른 것도 보낼 수 없음.
   let release = () => {};
   const gate = new Promise<void>((resolve) => {
     release = resolve;
@@ -141,7 +142,7 @@ test("switching the drawing asks first, keeps focus through cancel, failure and 
 
   fail = false;
   await change.click();
-  // The form starts over with the new drawing's fields, focused on the drawing.
+  // 양식은 새 도면의 필드로 다시 시작하고 포커스는 도면 선택에 있음.
   await expect(dialog.getByRole("textbox", { name: "화장" })).toHaveValue("");
   await expect(kind).toHaveValue("raglanLongSleeve");
   await expect(kind).toBeFocused();
@@ -153,13 +154,13 @@ test("switching the drawing asks first, keeps focus through cancel, failure and 
   expect(item.sizeChart).toBeUndefined();
   expect(item.sizeChartsBySize).toBeUndefined();
 
-  // Switching back to the drawing the modal opened with focuses the new form too.
+  // 모달을 연 때의 도면으로 되돌아가도 새 양식에 포커스가 감.
   await kind.selectOption("shortSleeve");
   await dialog.getByRole("button", { name: "바꾸고 지우기" }).click();
   await expect(dialog.getByRole("textbox", { name: "소매통" })).toHaveValue("");
   await expect(kind).toHaveValue("shortSleeve");
   await expect(kind).toBeFocused();
-  // And once more away from it.
+  // 한 번 더 다른 도면으로 바꿈.
   await kind.selectOption("raglanLongSleeve");
   await dialog.getByRole("button", { name: "바꾸고 지우기" }).click();
   await expect(dialog.getByRole("textbox", { name: "화장" })).toBeVisible();
@@ -211,7 +212,7 @@ test("a wheel has one drawing in mm, nested help closes first, unsaved chips ask
     await dialog.getByRole("textbox", { name: label }).fill(value);
   await expect(dialog.locator("svg")).toContainText("54mm");
   await expect(dialog).not.toContainText('"');
-  // The modal fits the phone width without a sideways scroll.
+  // 모달은 옆 스크롤 없이 휴대폰 폭에 맞음.
   const box = (await dialog.boundingBox())!;
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(375);
@@ -261,11 +262,11 @@ test("a top's storefront chart uses the selected size's values, then the default
   for (const text of ["74cm", '(29.1")', "50.5cm", '(19.9")'])
     await expect(svg).toContainText(text);
   await page.screenshot({ path: testInfo.outputPath("size-chart-desktop-light.png") });
-  // A wide screen shows the whole drawing, so there is no extra scroll stop.
+  // 넓은 화면은 도면 전체를 보여 주므로 추가 스크롤 정지점이 없음.
   await expect(page.getByRole("dialog").getByRole("region")).toHaveCount(0);
   await page.keyboard.press("Escape");
 
-  // M has no values of its own, so the default shows.
+  // M에는 자기 값이 없으므로 기본값이 표시됨.
   await page.getByRole("button", { name: "M", exact: true }).click();
   svg = await storefrontChart(page);
   await expect(svg).toContainText("72cm");
@@ -315,7 +316,7 @@ test("bottoms show only sizes with values when there is no default, and wheels s
 test("the product's category picks the chart when both a deck spec and a size chart remain", async ({
   page,
 }) => {
-  // A deck spec saved before the category changed stays on the record next to the new chart.
+  // 범주가 바뀌기 전에 저장된 데크 사이즈표는 새 차트와 함께 기록에 남음.
   const both = {
     sizes: ["S"],
     deckSpec: SPEC,
@@ -333,7 +334,7 @@ test("the product's category picks the chart when both a deck spec and a size ch
   await page.keyboard.press("Escape");
   expect(audit.blocked).toEqual([]);
 
-  // A deck keeps its deck drawing; the public parser already drops the top chart for it.
+  // 데크는 데크 도면을 유지함. 공개 파서가 이미 데크의 상의 차트를 버림.
   const deck = await setup(page, `/products/${DECK.slug}`, undefined, {
     ...both,
     category: "Deck",

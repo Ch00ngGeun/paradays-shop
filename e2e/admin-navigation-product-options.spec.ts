@@ -1,3 +1,4 @@
+// 역할: 상품 관리 코드·브랜드 선택·데크/휠 옵션의 명시적 추가와 옵션 개수·길이 한도, 편집기 전환 시 선택 폐기를 검증함.
 import { expect, test } from "@playwright/test";
 import {
   audits,
@@ -168,7 +169,7 @@ test("product form refinement: deck choices append only explicitly and category 
   const legacy = ["8.25\u2033", "SPECIAL / blue"];
   await addOptions(page, ...legacy);
   await expect(optionChips(page)).toHaveText(legacy);
-  // A chosen width is not an option until it is added explicitly.
+  // 고른 폭은 명시적으로 추가하기 전까지 옵션이 아님.
   await chooser.selectOption("8.125");
   await expect(optionChips(page)).toHaveText(legacy);
   await expect(productPreview(page)).not.toContainText("8.125”");
@@ -196,7 +197,7 @@ test("product form refinement: deck choices append only explicitly and category 
   await chooser.selectOption("manual");
   await expect(raw).toBeFocused();
   await expect(raw).toHaveValue("");
-  // Counts real form submissions, so a missing preventDefault fails even when validation would stop the save.
+  // 실제 양식 제출 횟수를 세므로 검증이 저장을 막더라도 preventDefault 누락은 실패함.
   await page.evaluate(() => {
     const state = window as unknown as { __submits: number };
     state.__submits = 0;
@@ -218,9 +219,9 @@ test("product form refinement: deck choices append only explicitly and category 
     .boundingBox())!;
   expect(removeBox.height).toBeGreaterThanOrEqual(44);
   expect(removeBox.width).toBeGreaterThanOrEqual(44);
-  // Enter only added the option; it never submitted the product form.
+  // Enter는 옵션만 추가했고 상품 양식을 제출하지 않았음.
   expect(await submits()).toBe(0);
-  // Control: the save button does submit, so the counter would have caught one.
+  // 대조군: 저장 버튼은 실제로 제출하므로 카운터가 제출을 잡아낼 수 있음.
   await page.getByRole("button", { name: "비공개로 저장", exact: true }).click();
   await expect.poll(submits).toBe(1);
   expect(audit.syntheticWrites).toEqual([]);
@@ -346,7 +347,7 @@ test("product form refinement: option count and length limits stop adding withou
   await expect(page.locator("#admin-panel-products").getByRole("alert")).toContainText(
     "50",
   );
-  // The width chosen before the refused add stays selected; clear it to check an empty input.
+  // 거부된 추가 전에 고른 폭이 선택된 채 남으므로 빈 입력 검사를 위해 해제함.
   await chooser.selectOption("");
   await raw.fill("8.75, 9.0");
   await page.getByRole("button", { name: "옵션 추가", exact: true }).click();

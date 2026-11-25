@@ -1,3 +1,4 @@
+// 역할: 데크 사이즈표 모달의 인치 값 검증·null 저장·새/기존 차트 표시·영어 렌더링·옵션 대상 표시를 검증함.
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -51,12 +52,12 @@ describe("admin deck spec modal", () => {
       wheelbase: "14.25",
     };
     expect(parseDeckSpecInputs(inputs)).toEqual(spec);
-    // A blank field is saved as null.
+    // 빈 필드는 null로 저장됨.
     expect(parseDeckSpecInputs({ ...inputs, tail: " " })).toEqual({
       ...spec,
       tail: null,
     });
-    // One wrong field still blocks the spec, and so does having no number at all.
+    // 잘못된 필드가 하나라도 있으면 막고, 숫자가 하나도 없어도 막음.
     expect(parseDeckSpecInputs({ ...inputs, width: "0" })).toBeNull();
     expect(parseDeckSpecInputs({ ...inputs, tail: "", width: "0" })).toBeNull();
     expect(
@@ -194,7 +195,7 @@ describe("admin deck spec modal", () => {
     expect(optionForm).toContain("옵션 이름");
     expect(optionForm).toMatch(/<input[^>]*name="optionName"[^>]*value="8.25"/);
     expect(optionForm.match(/<input/g)).toHaveLength(6);
-    // An unchanged name with empty fields cannot save, exactly like the H-035 option form.
+    // 바꾸지 않은 이름에 빈 필드면 H-035 옵션 양식과 똑같이 저장할 수 없음.
     expect(optionForm).toMatch(/<button[^>]*disabled=""[^>]*type="submit"/);
     expect(defaultForm).not.toContain("옵션 이름");
     expect(defaultForm.match(/<input/g)).toHaveLength(5);
@@ -207,7 +208,7 @@ describe("admin deck spec modal", () => {
       nameResult: null,
     });
     expect(getDeckSpecSaveState(empty, option(" 8.25 ")).ready).toBe(false);
-    // A legacy name the new-name rules refuse still saves its chart while unchanged.
+    // 새 이름 규칙이 거부하는 기존 이름도 바꾸지 않으면 차트를 저장함.
     expect(
       getDeckSpecSaveState(filled, {
         size: "8.5, wide",
@@ -229,14 +230,14 @@ describe("admin deck spec modal", () => {
       spec: null,
       sizeName: "8.25 wide",
     });
-    // A half-filled chart saves with the new name, its blank fields as null.
+    // 반만 채운 차트는 새 이름과 함께 저장되고 빈 필드는 null이 됨.
     expect(
       getDeckSpecSaveState({ ...empty, nose: "6.875" }, option("8.25 wide")),
     ).toMatchObject({
       ready: true,
       spec: { nose: 6.875, tail: null, width: null, length: null, wheelbase: null },
     });
-    // A wrong field still blocks it.
+    // 잘못된 필드는 여전히 막음.
     expect(
       getDeckSpecSaveState({ ...empty, nose: "0" }, option("8.25 wide")).ready,
     ).toBe(false);
@@ -248,13 +249,13 @@ describe("admin deck spec modal", () => {
       ready: true,
       spec: { nose: null, tail: null, width: 8.5, length: 31.75, wheelbase: null },
     });
-    // Emptying every field of a saved chart is the same as deleting it.
+    // 저장된 차트의 모든 필드를 비우는 것은 삭제와 같음.
     expect(getDeckSpecSaveState(empty, undefined, true)).toMatchObject({
       ready: true,
       spec: null,
     });
     expect(getDeckSpecSaveState(empty, option("8.25"), true).ready).toBe(true);
-    // With no saved chart and no new name, an empty form has nothing to save.
+    // 저장된 차트도 새 이름도 없으면 빈 양식에는 저장할 것이 없음.
     expect(getDeckSpecSaveState(empty).ready).toBe(false);
     expect(getDeckSpecSaveState(empty, option("8.25")).ready).toBe(false);
   });
@@ -274,16 +275,16 @@ describe("admin deck spec modal", () => {
         onSave: noop,
       }),
     );
-    // Blank fields come back empty, never as the word null.
+    // 빈 필드는 null 글자가 아니라 빈 입력란으로 돌아옴.
     expect(markup).not.toContain('value="null"');
     expect(markup.match(/value=""/g)).toHaveLength(3);
     expect(markup).toContain('value="6.5"');
-    // The preview shows at once, with null on the blank fields.
+    // 미리보기는 빈 필드를 null로 바로 보여 줌.
     expect(markup).toContain('role="img"');
     expect(markup).toContain("nose null");
     expect(markup).toMatch(/<button[^>]*type="submit"[^>]*>저장<\/button>/);
     expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*type="submit"/);
-    // Editing one field of what was reopened saves the rest unchanged.
+    // 다시 연 값에서 한 필드만 고치면 나머지는 그대로 저장됨.
     const reopened = { nose: "", tail: "6.5", width: "8.5", length: "", wheelbase: "" };
     expect(
       getDeckSpecSaveState({ ...reopened, length: "31.75" }, undefined, true).spec,
@@ -339,7 +340,7 @@ describe("admin deck spec modal", () => {
     expect(withUndefined).toBe(plain);
     expect(noticed).toContain("CALLER_NOTICE");
     expect(noticed.indexOf("CALLER_NOTICE")).toBeLessThan(noticed.indexOf("옵션 이름"));
-    // The default-mode form, which the modal opens without a size, shows a notice too.
+    // 사이즈 없이 여는 기본 모드 양식도 안내를 표시함.
     expect(
       renderToStaticMarkup(
         createElement(AdminDeckSpecForm, {
@@ -363,7 +364,7 @@ describe("admin deck spec modal", () => {
     expect(deckSpecFailureMessage(reserved, undefined, false)).toBe(
       "Could not save. Your input is kept, so save again.",
     );
-    // A throwing description falls back instead of escaping the save handler.
+    // 설명 생성이 예외를 던져도 저장 처리기 밖으로 새지 않고 대체 문구를 씀.
     const throwing = () => {
       throw new Error("describe failed");
     };
@@ -400,7 +401,7 @@ describe("admin deck spec modal", () => {
     expect(clean).not.toContain("인치로 입력하면");
     expect(clean).not.toContain("0 초과 100 이하");
     expect(wrong).toContain("0 초과 100 이하의 인치로, 소수 4자리까지 입력해 주세요.");
-    // The wrong field points at the range message.
+    // 잘못된 필드는 범위 메시지를 가리킴.
     const errorId = /<p[^>]*id="([^"]+)"[^>]*>0 초과 100 이하/.exec(wrong)?.[1];
     expect(errorId).toBeTruthy();
     expect(wrong).toMatch(

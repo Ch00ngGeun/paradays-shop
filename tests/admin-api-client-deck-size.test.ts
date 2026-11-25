@@ -1,3 +1,4 @@
+// 역할: 관리자 API 클라이언트의 데크 사이즈표·옵션별 차트 저장 요청과 응답 검증을 확인함.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminApiRequestError } from "@/lib/commerce/admin-api-client";
 import { AdminApiResponseError } from "@/lib/commerce/admin-api-client-errors";
@@ -150,7 +151,7 @@ describe("createAdminApiClient", () => {
     });
 
     it("rejects an option save answered by a server without option charts", async () => {
-      // An older server ignores size and sizeDeckSpec and only bumps the version.
+      // 구버전 서버는 size와 sizeDeckSpec을 무시하고 version만 올림.
       const fetchImplementation = vi
         .fn<typeof fetch>()
         .mockResolvedValue(respond(savedProduct(4, deckSpec)));
@@ -271,7 +272,7 @@ describe("createAdminApiClient", () => {
         sizeDeckSpec: null,
       });
 
-      // An unchanged name, even one the new-name rules would refuse, keeps the H-035 body.
+      // 새 이름 규칙이 거부할 이름이라도 바꾸지 않았다면 H-035 본문을 유지함.
       await client.updateProductDeckSpec({
         id: "prd_deck",
         version: 4,
@@ -287,7 +288,7 @@ describe("createAdminApiClient", () => {
     });
 
     it("rejects a rename answered with the old option name still listed", async () => {
-      // A server before H-035 ignores every option field and only bumps the version.
+      // H-035 이전 서버는 모든 옵션 필드를 무시하고 version만 올림.
       for (const sizes of [["8.25", "8.5"], ["8.25", "8.25 wide"], "8.25 wide"]) {
         const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
           respond({
@@ -385,7 +386,7 @@ describe("createAdminApiClient", () => {
           client.updateProductDeckSpec({ id: "prd_deck", version: 3, deckSpec }),
         ).rejects.toMatchObject({ status: 400, responseCode: undefined });
       }
-      // A non-JSON body is still a plain request error.
+      // JSON이 아닌 본문은 여전히 일반 요청 오류임.
       const { client } = createClient(
         vi.fn<typeof fetch>().mockResolvedValue(new Response("oops", { status: 409 })),
       );

@@ -1,3 +1,4 @@
+// 역할: 매출 조회 실패·입력 검증·초안 저장 결과에 맞는 알림 심각도(색상)와 알림 의미를 검증함.
 import { expect, test } from "@playwright/test";
 import { noticeColors, operationRows } from "./admin-navigation-accessibility-fixtures";
 import {

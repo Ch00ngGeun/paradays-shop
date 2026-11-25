@@ -1,3 +1,4 @@
+// 역할: OCR 열 매핑 템플릿의 저장·불러오기·교체·삭제와 버전·필드 검증을 확인함.
 import { describe, expect, it, vi } from "vitest";
 import {
   OCR_MAPPING_TEMPLATES_STORAGE_KEY,

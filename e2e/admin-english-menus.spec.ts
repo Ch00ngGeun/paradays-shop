@@ -1,3 +1,4 @@
+// 역할: 관리자 영어 화면의 9개 메뉴·상품 편집·실제/모의 매출·회원·쿠폰·캠페인 화면에 허용 목록 밖 한글이 없는지 검증함.
 import { expect, test } from "@playwright/test";
 import { DAY, CLOSED_DAY, order } from "./admin-english-data-fixtures";
 import {
@@ -36,7 +37,7 @@ test("all nine menus and the overview order panels show no Korean in English", a
   }, decomposed);
   expect(await hangul(page)).toContain(decomposed);
   await page.evaluate(() => document.getElementById("hangul-probe")?.remove());
-  // Guide steps each untouched menu shows; a missing target would lower the count.
+  // 편집 전 각 메뉴가 보여 주는 안내 단계 수임. 대상이 없으면 단계 수가 줄어듦.
   for (const [name, steps] of [
     ["Home (Operations Overview)", 4],
     ["Product registration", 1],
@@ -51,7 +52,7 @@ test("all nine menus and the overview order panels show no Korean in English", a
     await openSection(page, name);
     await page.waitForLoadState("networkidle");
     await scan(page, `menu ${name}`, found);
-    // Each menu's screen guide, as far as the untouched screen offers steps.
+    // 편집 전 화면이 제공하는 범위 안에서 각 메뉴의 화면 안내를 순회함.
     await scanGuide(page, name, steps, found);
   }
   await openSection(page, "Sales & daily close");
@@ -69,7 +70,7 @@ test("all nine menus and the overview order panels show no Korean in English", a
   await expect(page.getByRole("heading", { name: /pd_order_001/ })).toBeVisible();
   await scan(page, "order stock panel", found);
 
-  // The mock test opens from a launcher into a modal.
+  // 모의 테스트는 시작 버튼을 눌러 모달로 열림.
   await page
     .getByRole("button", { name: "Mock order and stock test", exact: true })
     .click();
@@ -91,7 +92,7 @@ test("all nine menus and the overview order panels show no Korean in English", a
     .click();
   await expect(page.getByRole("status", { name: "Mock result" })).toBeVisible();
   await scan(page, "mock order panel", found);
-  // This help opens on top of the mock test dialog.
+  // 이 도움말은 모의 테스트 대화상자 위에 열림.
   await scanHelp(page, "Mock partial actions", found);
   await expect(
     page.getByRole("dialog", { name: "Mock order and stock test", exact: true }),
@@ -120,11 +121,11 @@ test("product editor, size chart dialog and stock stepper show no Korean in Engl
   await page.getByRole("button", { name: "+ Add size chart" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await scan(page, "size chart dialog", found);
-  // This help opens on top of the size chart dialog; Esc closes only the help.
+  // 이 도움말은 사이즈표 대화상자 위에 열리며 Esc는 도움말만 닫음.
   await scanHelp(page, "Size chart input", found);
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
-  // A saved chip opens the option dialog; a rename shows the name check and the sales notice.
+  // 저장된 칩은 옵션 대화상자를 열고, 이름을 바꾸면 이름 검사와 매출 안내가 표시됨.
   const chips = page.getByRole("list", { name: "Added options", exact: true });
   await chips.getByRole("button").first().click();
   const dialog = page.getByRole("dialog");
@@ -137,7 +138,7 @@ test("product editor, size chart dialog and stock stepper show no Korean in Engl
   await expect(dialog).toContainText("Saving changes the option name");
   await scan(page, "option dialog rename notice", found);
   await page.keyboard.press("Escape");
-  // A chip added but not yet saved only asks to save the product first.
+  // 추가만 하고 아직 저장하지 않은 칩은 상품을 먼저 저장하라는 안내만 표시함.
   await page.getByRole("textbox", { name: "Size / options" }).fill("9.0");
   await page.getByRole("button", { name: "Add option", exact: true }).click();
   await chips.getByRole("button", { name: "9.0", exact: true }).click();

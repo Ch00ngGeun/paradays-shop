@@ -1,4 +1,4 @@
-/** admin-ocr 입고 반영 spec 공통 fixture: synthetic catalog·intake API 도우미. */
+// 역할: OCR 입고 반영 spec 공통 fixture로, 합성 카탈로그·입고 API와 검토·확정 조작 도우미를 제공함.
 import { expect, type Page } from "@playwright/test";
 import type { AdminOcrIntakeInput } from "../lib/admin-ui/types";
 import {
@@ -122,8 +122,8 @@ export async function setupInventoryCatalogApi(
       };
       state.products.push(product);
     }
-    // Model a committed write whose response was lost. It must not be retried
-    // with a rebased stock increment or followed by the next product's POST.
+    // 쓰기는 확정됐지만 응답이 사라진 상황을 흉내 냄. 재고 증가량을 다시 계산해
+    // 재시도하거나 다음 상품의 POST로 넘어가면 안 됨.
     if (failure?.id === id && failure.kind === "response-lost")
       return route.abort("connectionfailed");
     return json(route, intakeResponse(body, product, beforeStock));

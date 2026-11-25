@@ -1,3 +1,4 @@
+// 역할: 공개 카탈로그 응답의 데크 사이즈표·옵션별 차트, 의류·휠 사이즈표, 빈 측정값의 검증·제거 규칙을 확인함.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { getPublishedCatalogProduct } from "@/lib/commerce/public-catalog-api-client";
@@ -35,7 +36,7 @@ describe("public catalog deckSpec", () => {
   });
 
   afterEach(() => {
-    // process.env stores assigned undefined as the string "undefined".
+    // process.env는 undefined를 대입하면 문자열 "undefined"로 저장함.
     if (previousBaseUrl === undefined)
       delete process.env.NEXT_PUBLIC_COMMERCE_API_BASE_URL;
     else process.env.NEXT_PUBLIC_COMMERCE_API_BASE_URL = previousBaseUrl;
@@ -55,8 +56,8 @@ describe("public catalog deckSpec", () => {
       { ...deckSpec, tail: undefined },
       { ...deckSpec, width: 0 },
       { ...deckSpec, length: "31.75" },
-      // Infinity would arrive as JSON null, which is now a blank field, so a negative value
-      // keeps the "out-of-range number" case.
+      // Infinity는 JSON null로 도착하는데 이제 null은 빈 필드이므로, 음수 값으로
+      // "범위 밖 숫자" 경우를 유지함.
       { ...deckSpec, nose: -6.875 },
       "6.875",
     ]) {
@@ -195,7 +196,7 @@ describe("public catalog clothing and wheel size chart", () => {
     expect(product?.id).toBe(baseProduct.id);
     expect(product?.sizeChartsBySize).toEqual({ S: values });
     expect(Object.getPrototypeOf(product?.sizeChartsBySize)).toBe(Object.prototype);
-    // Option values of another drawing do not count for this one.
+    // 다른 도면의 옵션 값은 이 도면에 포함하지 않음.
     const raglan = await read({
       ...top,
       sizeChartKind: "raglanLongSleeve",
@@ -209,7 +210,7 @@ describe("public catalog clothing and wheel size chart", () => {
     for (const extra of [
       { sizeChart: { kind: "shortSleeve", values: { ...values, chest: 0 } } },
       { sizeChart: { kind: "deck", values }, sizeChartKind: "deck" },
-      // A wheel drawing on a top does not fit the category.
+      // 상의에 휠 도면은 범주에 맞지 않음.
       {
         sizeChart: {
           kind: "wheel",
@@ -217,7 +218,7 @@ describe("public catalog clothing and wheel size chart", () => {
         },
         sizeChartKind: "wheel",
       },
-      // Option values without any drawing to follow.
+      // 따라갈 도면이 전혀 없는 옵션 값임.
       { sizeChartsBySize: { S: values } },
       { sizeChart: "72", sizeChartsBySize: [values] },
     ]) {
@@ -319,7 +320,7 @@ describe("public catalog blank size fields", () => {
       },
     });
     expect(product?.sizeChart).toEqual({ kind: "shortSleeve", values: top });
-    // The all-blank option is the only entry left out.
+    // 모두 빈 옵션만 제외되는 항목임.
     expect(product?.sizeChartsBySize).toEqual({
       M: { ...top, length: null, armhole: 24 },
     });

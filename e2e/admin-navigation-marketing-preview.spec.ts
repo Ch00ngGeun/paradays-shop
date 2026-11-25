@@ -1,3 +1,4 @@
+// 역할: 캠페인 이메일 로고·채널별 미리보기·명시적 초안 저장·빈 입력·글자 수 제한과 화면 안내를 검증함.
 import { expect, test } from "@playwright/test";
 import { boxOf, guideLines } from "./admin-navigation-accessibility-fixtures";
 import { audits, setup } from "./admin-navigation-base-fixtures";
@@ -84,7 +85,7 @@ test("screen guide walks the campaign channels, title, message, preview and save
   await expect(bubble.getByRole("heading")).toHaveText("제목 쓰기");
   await page.keyboard.press("ArrowRight");
   await expect(bubble.getByRole("heading")).toHaveText("내용 쓰기");
-  // The message box is underlined right below it.
+  // 메시지 입력란 바로 아래에 밑줄이 그어짐.
   await expect
     .poll(async () => {
       const target = await boxOf(campaignBody(page));
@@ -137,12 +138,12 @@ test("marketing redesign: channel choices and live previews do not send messages
   await expect(
     panel.getByRole("button", { name: /지금 발송|예약하기|이미지 첨부|대상자 조회/ }),
   ).toHaveCount(0);
-  // The safety notice stays on screen without opening any help.
+  // 안전 안내는 도움말을 열지 않아도 화면에 남아 있음.
   await expect(
     panel.getByText(/수신자 조회·예약·발송·이미지 첨부는 지원하지 않습니다/),
   ).toBeVisible();
   await expect(panel.locator("summary", { hasText: /^도움말$/ })).toHaveCount(0);
-  // What the old header help said now sits in the channel '?'.
+  // 예전 머리말 도움말 내용은 채널 '?'에 있음.
   await panel.getByRole("button", { name: "채널 선택 도움말", exact: true }).click();
   const channelHelp = page.getByRole("dialog", {
     name: "채널 선택 도움말",

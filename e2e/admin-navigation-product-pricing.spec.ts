@@ -1,3 +1,4 @@
+// 역할: 상품 비교 가격·관리 코드 보존, 비교 가격 삭제 확인, 삭제 버튼의 테마별 가독성을 검증함.
 import { expect, test } from "@playwright/test";
 import { audits, products, respond, setup } from "./admin-navigation-base-fixtures";
 import {
@@ -142,7 +143,7 @@ for (const width of [1440, 375]) {
     await expect(image).toBeVisible();
     await expect(description).toBeVisible();
     await expect(publication).toBeVisible();
-    // Measure all three in one frame: separate boundingBox calls can straddle a smooth scroll.
+    // 세 요소를 한 프레임에서 잼. boundingBox를 따로 부르면 부드러운 스크롤 중간에 걸칠 수 있음.
     const [imageBox, descriptionBox, publicationBox] = await page.evaluate(
       (elements) =>
         elements.map((element) => {

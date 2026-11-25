@@ -1,3 +1,4 @@
+// 역할: 관리자 영어 화면 검사의 모의 API 설정과 허용 목록 밖 한글 수집·도움말·화면 안내 순회 도우미를 제공함.
 import { expect, type Page, type Route } from "@playwright/test";
 import {
   parseOcrTableRows,
@@ -49,7 +50,7 @@ function respond(route: Route, body: unknown, status = 200) {
 
 let ocrJob = initialOcrJob();
 
-/** Products a test adds next to the fixed catalog; setup resets it. */
+/** 테스트가 고정 카탈로그 옆에 추가하는 상품임. setup이 초기화함. */
 let extraCatalog: Record<string, unknown>[] = [];
 
 async function setup(
@@ -251,13 +252,13 @@ async function scan(page: Page, step: string, found: Map<string, string[]>) {
   if (left.length) found.set(step, left);
 }
 
-/** Opens one '?' help dialog, scans the whole page with it open, then closes it with Esc. */
+/** '?' 도움말 대화상자 하나를 열고, 열린 상태로 페이지 전체를 검사한 뒤 Esc로 닫음. */
 async function scanHelp(page: Page, target: string, found: Map<string, string[]>) {
   const name = `Help: ${target}`;
   await page.getByRole("button", { name, exact: true }).click();
   const dialog = page.getByRole("dialog", { name, exact: true });
   await expect(dialog).toBeVisible();
-  // The help body must really be there, in English, for the scan to mean anything.
+  // 검사가 의미 있도록 도움말 본문이 실제로 영어로 표시돼야 함.
   await expect(dialog.locator("p").first()).toHaveText(/[A-Za-z]{3}/);
   await scan(page, `help ${target}`, found);
   await page.keyboard.press("Escape");
@@ -265,8 +266,8 @@ async function scanHelp(page: Page, target: string, found: Map<string, string[]>
 }
 
 /**
- * Opens the '? Help' screen guide, scans the page at every step it offers (Next through to Done),
- * and checks it walked exactly `steps` steps, so neither the empty state nor a missing target passes.
+ * '? Help' 화면 안내를 열어 제공되는 모든 단계(다음부터 완료까지)에서 페이지를 검사하고,
+ * 정확히 `steps`단계를 거쳤는지 확인해 빈 상태나 대상 누락이 통과하지 못하게 함.
  */
 async function scanGuide(
   page: Page,

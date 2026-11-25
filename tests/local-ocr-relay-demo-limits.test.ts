@@ -1,3 +1,4 @@
+// 역할: 로컬 OCR 중계 시연 모드의 요청 수·본문·동시 처리·작업 수 제한을 검증함.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   demoOrigin,
@@ -62,7 +63,7 @@ describe("local OCR relay boundary and canonical reviews", () => {
     const first = pendingUpload(port);
     try {
       await started;
-      // The completed GET guarantees the first handler has passed its auth microtask.
+      // 완료된 GET은 첫 처리기가 인증 microtask를 지났음을 보장함.
       expect((await request("/admin/ocr/jobs/ocr_missing")).status).toBe(404);
       const overflow = pendingUpload(port);
       try {

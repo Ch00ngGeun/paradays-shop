@@ -1,3 +1,4 @@
+// 역할: 상품 목록·편집기의 비공개 초안·파일이 방문 기록으로 복원되고 저장 뒤 이전 항목이 무효화되는지 검증함.
 import { expect, test } from "@playwright/test";
 import {
   active,

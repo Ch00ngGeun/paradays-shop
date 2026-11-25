@@ -1,3 +1,4 @@
+// 역할: OCR 표 파서의 정규화 드래그 영역 처리와 헤더 없는 행·수량 헤더 선택을 검증함.
 import { describe, expect, it } from "vitest";
 import {
   parseOcrTableRows,

@@ -1,3 +1,4 @@
+// 역할: 필수 입력의 빈 값 파란 강조·빨간 별표의 접근성과 다크 테마 표시를 검증함.
 import { expect, type Locator, test } from "@playwright/test";
 import { REQUIRED, requiredLook } from "./admin-navigation-accessibility-fixtures";
 import { audits, select, setup } from "./admin-navigation-base-fixtures";
@@ -32,7 +33,7 @@ test("required fields: empty required inputs use the selected-box blue until fil
   expect(await requiredLook(name)).toEqual(REQUIRED);
   await name.fill("[TEST] Required deck");
   expect(await requiredLook(name)).not.toEqual(REQUIRED);
-  // Optional fields never turn blue.
+  // 선택 입력란은 파랗게 바뀌지 않음.
   const optional = page.getByRole("combobox", { name: "카테고리", exact: true });
   expect(await requiredLook(optional)).not.toEqual(REQUIRED);
 

@@ -1,3 +1,4 @@
+// 역할: 쿠폰 초안의 미리보기·저장·입력 제한·중복 제출·불확실한 저장과 모바일·테마·화면 안내를 검증함.
 import { expect, test } from "@playwright/test";
 import { boxOf, guideLines } from "./admin-navigation-accessibility-fixtures";
 import { audits, respond, setup } from "./admin-navigation-base-fixtures";
@@ -32,7 +33,7 @@ test("coupon redesign: editing the live ticket never issues a coupon or loads fa
   await expect(preview).toContainText("TEST-PREVIEW_10");
   await expect(preview).toContainText("2026-10-30 18:30 (한국 시간)");
   await expect(preview).toContainText("아직 발급되지 않았습니다");
-  // What the old header help said now sits in the '?' beside "혜택 설정".
+  // 예전 머리말 도움말 내용은 "혜택 설정" 옆 '?'에 있음.
   await expect(panel.locator("summary", { hasText: /^도움말$/ })).toHaveCount(0);
   await panel.getByRole("button", { name: "혜택 설정 도움말", exact: true }).click();
   const benefitHelp = page.getByRole("dialog", {
@@ -84,7 +85,7 @@ test("coupon redesign: Enter in the growing coupon name saves only when the save
   const panel = couponWorkspace(page);
   const name = couponField(page, "쿠폰명 (필수)");
   const save = panel.getByRole("button", { name: "쿠폰 초안 저장", exact: true });
-  // With only a name the form is incomplete, so Enter does what a one-line input would: nothing.
+  // 이름만 입력하면 양식이 미완성이므로 Enter는 한 줄 입력란처럼 아무 동작도 하지 않음.
   await name.fill("[TEST] Enter coupon");
   await expect(save).toBeDisabled();
   await name.press("Enter");
@@ -92,10 +93,10 @@ test("coupon redesign: Enter in the growing coupon name saves only when the save
   await page.waitForTimeout(300);
   expect(commands).toEqual([]);
   await expect(panel.getByText("아직 고객에게 발급되지 않았습니다")).toHaveCount(0);
-  // The submit handler never ran, so no error notice appeared either.
+  // 제출 처리기가 실행되지 않았으므로 오류 알림도 나타나지 않음.
   await expect(panel.getByRole("alert")).toHaveCount(0);
 
-  // Once the form is complete, Enter submits through the save button as before.
+  // 양식을 완성하면 Enter는 이전처럼 저장 버튼을 통해 제출함.
   await fillCoupon(page, { name: "[TEST] Enter coupon", code: "test_enter10" });
   await expect(save).toBeEnabled();
   await name.press("Enter");
@@ -412,7 +413,7 @@ test("screen guide walks the coupon name, discount, preview and save button", as
   const bubble = page.getByRole("dialog");
   await expect(bubble).toContainText("1/4단계");
   await expect(bubble.getByRole("heading")).toHaveText("쿠폰 이름 쓰기");
-  // The name box is underlined right below it.
+  // 이름 입력란 바로 아래에 밑줄이 그어짐.
   const name = page.locator('[data-admin-guide="coupons.name"]');
   await expect
     .poll(async () => {

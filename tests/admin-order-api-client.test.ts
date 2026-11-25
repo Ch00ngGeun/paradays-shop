@@ -1,3 +1,4 @@
+// 역할: 관리자 주문 작업 API 클라이언트의 TEST 주문 차단·요약 검증·인증·명령 스냅숏을 검증함.
 import { describe, it, expect, vi } from "vitest";
 import {
   createAdminOrderApiClient,

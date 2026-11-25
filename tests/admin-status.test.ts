@@ -1,3 +1,4 @@
+// 역할: 관리자 상태 배지·재고 상태 분류·알림 낭독 설정·영어 라벨과 공통 상태 CSS 접근성을 검증함.
 import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";

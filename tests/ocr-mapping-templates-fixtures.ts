@@ -1,3 +1,4 @@
+// 역할: OCR 매핑 템플릿 검사의 메모리 저장소와 열·영역 템플릿·저장 봉투 데이터를 제공함.
 import { vi } from "vitest";
 import {
   OCR_MAPPING_TEMPLATES_STORAGE_KEY,

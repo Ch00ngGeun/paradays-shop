@@ -1,3 +1,4 @@
+// 역할: 매출 전표 저장·재고 차감 확인·취소/재입고·일 마감·불확실한 명령 재시도와 작업 단계·필수 입력을 검증함.
 import { expect, test, type Page } from "@playwright/test";
 import {
   DAY,
@@ -77,7 +78,7 @@ test("unmatched draft saves the KST time without changing stock or guessing a pr
 test("a product name entered on two lines is saved as one line in the sale line", async ({
   page,
 }) => {
-  // The ledger server refuses control characters such as a line break in a line name.
+  // 장부 서버는 줄 이름의 줄바꿈 같은 제어 문자를 거부함.
   const state = await setup(page, { productName: "Synthetic\nDeck  \t8.25" });
   await page.getByRole("button", { name: NEW_ENTRY, exact: true }).click();
   await page.getByLabel("상품 이름 검색", { exact: true }).fill("Deck");
@@ -429,7 +430,7 @@ test("required fields: empty sales inputs that block a step use the selected-box
   expect(await look("현금 순매출 수기 대조액")).toEqual(required);
   await cash.fill("10000");
   expect(await look("현금 순매출 수기 대조액")).not.toEqual(required);
-  // Optional memo never turns blue.
+  // 선택 입력인 메모는 파랗게 바뀌지 않음.
   await page.getByRole("button", { name: NEW_ENTRY, exact: true }).click();
   expect(await look("메모")).not.toEqual(required);
   expect(await look("전표 참조번호")).toEqual(required);

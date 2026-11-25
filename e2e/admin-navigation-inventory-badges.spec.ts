@@ -1,3 +1,4 @@
+// 역할: 재고 편집 미리보기가 확정 저장 전까지 기존 재고 상태 배지를 유지하는지 검증함.
 import { expect, test } from "@playwright/test";
 import { audits, respond, select, setup } from "./admin-navigation-base-fixtures";
 import {

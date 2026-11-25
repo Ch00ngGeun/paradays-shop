@@ -1,3 +1,4 @@
+// 역할: 재고 수량 편집 미리보기·확정 저장, 잘못된 값, 버전 충돌, 불확실한 응답과 모바일 조작을 검증함.
 import { expect, test } from "@playwright/test";
 import { audits, products, respond, setup } from "./admin-navigation-base-fixtures";
 import {
@@ -241,7 +242,7 @@ test("inventory redesign: a stock conflict reloads canonical stock and cannot si
   });
   const catalogReads = () =>
     audit.reads.filter((path) => path === "/prod/admin/catalog/products").length;
-  // Initial loading may read the catalog more than once; the conflict must add exactly one reload.
+  // 초기 로딩은 카탈로그를 여러 번 읽을 수 있으므로 충돌은 재조회를 정확히 한 번만 더해야 함.
   const readsBeforeSave = catalogReads();
   await confirm.click();
   await expect.poll(catalogReads).toBe(readsBeforeSave + 1);
@@ -363,7 +364,7 @@ test("inventory redesign: mobile selection preview and controls reflow at 375 an
   const headingBounds = await heading.boundingBox();
   expect(headingBounds!.y).toBeGreaterThanOrEqual(0);
   expect(headingBounds!.y + headingBounds!.height).toBeLessThanOrEqual(844);
-  // The label's '?' help comes first, then the stepper.
+  // 라벨의 '?' 도움말이 먼저 오고 그다음 수량 조절기가 옴.
   await page.keyboard.press("Tab");
   await expect(
     page.getByRole("button", { name: "변경 후 재고 수량 도움말", exact: true }),

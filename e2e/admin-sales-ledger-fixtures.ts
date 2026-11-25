@@ -1,3 +1,4 @@
+// 역할: 매출 장부 검사의 합성 날짜·전표·명령 응답 설정과 매출 화면 열기·날짜 조회·새 전표 도우미를 제공함.
 import { expect, type Page, type Route } from "@playwright/test";
 import {
   calculateTotals,

@@ -1,3 +1,4 @@
+// 역할: 캠페인 이메일 본문 템플릿의 인라인 로고·이스케이프·빈 입력 거부와 채널별 지원 안내를 검증함.
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -28,7 +29,7 @@ describe("campaign email body template", () => {
       },
     ]);
     expect(existsSync(join(process.cwd(), "public", CAMPAIGN_LOGO.path))).toBe(true);
-    // No remote image: mail clients that block remote content still show the logo.
+    // 원격 이미지가 없으므로 원격 콘텐츠를 막는 메일 앱에서도 로고가 보임.
     expect(email.html).not.toMatch(/src="https?:/);
     expect(email.html.match(/<img/g)).toHaveLength(1);
   });

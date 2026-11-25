@@ -1,3 +1,4 @@
+// 역할: 공개 카탈로그 캐시의 세션 저장소 복원·손상값 제거·미설정 API 처리·내용 비교를 검증함.
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {

@@ -1,3 +1,4 @@
+// 역할: 격리된 모의 주문 계산기의 승인·취소·환불·검수 반품 계산과 멱등성을 검증함.
 import { describe, it, expect } from "vitest";
 import {
   applySimulation,

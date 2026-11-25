@@ -1,3 +1,4 @@
+// 역할: 매출 모의 실행이 권한 없는 세션에서 켜지지 않고, 실제 진행 중·미확정 작업과 로그아웃 처리를 보존하는지 검증함.
 import { expect, test } from "@playwright/test";
 import {
   ORIGIN,

@@ -1,3 +1,4 @@
+// 역할: 영어 화면에서 의류·휠 사이즈표와 빈 측정값(null) 표시가 편집기·대화상자·상점 모두 한글 없이 나오는지 검증함.
 import { expect, test } from "@playwright/test";
 import { catalog } from "./admin-english-data-fixtures";
 import {
@@ -43,7 +44,7 @@ const sizeChartProduct = (
 ) => ({
   ...catalog[0],
   productId: `prd_english_${id}`,
-  // Static export only builds known product paths, so the store reuses existing slugs.
+  // 정적 내보내기는 알려진 상품 경로만 만들므로 상점 검사는 기존 slug를 재사용함.
   slug: STORE_SLUGS[id],
   name,
   category,
@@ -146,7 +147,7 @@ test("clothing and wheel size charts show no Korean in English in the editor, di
   await scanHelp(page, "Size chart input", found);
   await page.keyboard.press("Escape");
 
-  // The store's size chart drawings name every measurement in English too.
+  // 상점 사이즈표 도면도 모든 측정 항목 이름을 영어로 표시해야 함.
   for (const [slug, size, label] of [
     [STORE_SLUGS.top, "M", /^Short sleeve: Length 74cm/],
     [STORE_SLUGS.bottom, "32", /^Long pants: Length 100cm/],
@@ -157,8 +158,8 @@ test("clothing and wheel size charts show no Korean in English in the editor, di
     await page.getByRole("button", { name: size, exact: true }).click();
     await page.getByRole("button", { name: "Size chart" }).click();
     await expect(dialog.locator("svg")).toHaveAttribute("aria-label", label);
-    // Only the size chart dialog is this check's scope; the page behind it has known Korean
-    // quantity labels (product-detail.tsx) that are reported separately.
+    // 이 검사는 사이즈표 대화상자만 대상으로 함. 뒤쪽 페이지에는 이미 알려진 한국어
+    // 수량 라벨(product-detail.tsx)이 있으며 이는 별도로 보고됨.
     const korean = await dialog.evaluate((root) => {
       const re = /\p{Script=Hangul}/u;
       const out: string[] = [];
@@ -219,7 +220,7 @@ test("blank size fields show null without Korean in English in the editor, dialo
       .click();
   };
 
-  // Each summary names its first measurement even when it is blank.
+  // 각 요약은 첫 측정값이 비어 있어도 그 항목 이름을 표시함.
   for (const [name, summary, label] of [
     [
       "[TEST] English partial deck",
@@ -241,14 +242,14 @@ test("blank size fields show null without Korean in English in the editor, dialo
     await expect(page.getByText(summary, { exact: true })).toBeVisible();
     await scan(page, `${name} editor`, found);
     await page.getByRole("button", { name: "Edit size chart" }).click();
-    // The preview draws blank fields as null; the inputs stay empty.
+    // 미리보기는 빈 필드를 null로 그리고 입력란은 비워 둠.
     await expect(dialog.locator("svg")).toHaveAttribute("aria-label", label);
     await expect(dialog.locator('input[value="null"]')).toHaveCount(0);
     await scan(page, `${name} dialog`, found);
     await page.keyboard.press("Escape");
   }
 
-  // A product with no size chart yet shows the new preview hint.
+  // 아직 사이즈표가 없는 상품은 새 미리보기 안내를 표시함.
   await edit("[TEST] English empty pants");
   await page.getByRole("button", { name: "+ Add size chart" }).click();
   await expect(dialog).toContainText(
@@ -271,7 +272,7 @@ test("blank size fields show null without Korean in English in the editor, dialo
     await page.getByRole("button", { name: "Size chart" }).click();
     await expect(dialog.locator("svg")).toHaveAttribute("aria-label", label);
     await expect(dialog.locator("svg")).toContainText("null");
-    // Only the size chart dialog is this check's scope (see the clothing test above).
+    // 이 검사도 사이즈표 대화상자만 대상으로 함(위 의류 검사 참고).
     const korean = await dialog.evaluate((root) => {
       const re = /\p{Script=Hangul}/u;
       const out: string[] = [];

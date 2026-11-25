@@ -1,3 +1,4 @@
+// 역할: 관리자 홈의 주요 지표 표시와 0·누락·실패·로딩 구분, 데스크톱 키보드·모바일 메뉴 탐색을 검증함.
 import { expect, test } from "@playwright/test";
 import {
   active,
@@ -371,7 +372,7 @@ for (const viewport of [
     const drawer = page.locator("#ops-menu-drawer");
     if (viewport.width < 1024) {
       await page.getByRole("button", { name: "운영 메뉴 열기", exact: true }).click();
-      // The drawer moves focus to the selected tab on the next frame; wait for it first.
+      // 모바일 메뉴는 다음 프레임에 선택된 탭으로 포커스를 옮기므로 먼저 기다림.
       await expect(drawer.getByRole("tab", { selected: true })).toBeFocused();
     }
     const lastTab = drawer.getByRole("tab", { name: "입고 OCR", exact: true });

@@ -1,3 +1,4 @@
+// 역할: 고정된 OCR 재고 계획의 가산·교체 모드와 수량·이름 한도, 상속 속성 거부를 검증함.
 import { describe, expect, it, vi } from "vitest";
 import {
   buildOcrInventoryPlan,

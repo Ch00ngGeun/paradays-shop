@@ -1,3 +1,4 @@
+// 역할: 재고 저장 API가 고정된 인증 Commerce 엔드포인트를 쓰고 범위 밖 재고를 요청 전에 거부하는지 검증함.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAdminApiClient } from "@/lib/commerce/admin-api-client";
 import { AdminApiResponseError } from "@/lib/commerce/admin-api-client-errors";

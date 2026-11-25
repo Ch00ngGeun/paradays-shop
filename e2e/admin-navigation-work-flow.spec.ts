@@ -1,3 +1,4 @@
+// 역할: 관리자 메뉴별 작업 단계 표시가 조회 결과·입력·선택 상태를 따르는지 검증함.
 import { expect, test } from "@playwright/test";
 import { flowStates } from "./admin-navigation-accessibility-fixtures";
 import { audits, respond, select, setup } from "./admin-navigation-base-fixtures";
@@ -99,7 +100,7 @@ test("work flow: coupon and campaign steps follow validity and never complete is
     page.getByRole("list", { name: "쿠폰 작업 흐름", exact: true }),
   ).toContainText("고객 발급 · 연결 필요");
   await select(page, "marketing");
-  // Email is selected by default.
+  // 이메일은 기본으로 선택돼 있음.
   await expect
     .poll(() => flowStates(page, "캠페인 작업 흐름"))
     .toEqual(["complete", "current", "upcoming", "unavailable"]);

@@ -1,3 +1,4 @@
+// 역할: 모의 매출·재고·마감 학습 흐름의 전표 반영·마감 스냅숏·미리보기 무효화·참조 중복 방지를 검증함.
 import { describe, expect, it } from "vitest";
 import {
   closeTestSales,
@@ -206,7 +207,7 @@ describe("synthetic sales, inventory and close teaching flow", () => {
     const closed = closeTestSales(both, 5_000, true);
     expect(closed.snapshots[0]!.totals.transfer).toBe(5_000);
     expect(closed.stock).toEqual(both.stock);
-    // Same reference under another method is a different payment, as for card/cash.
+    // 같은 참조라도 다른 결제 수단이면 카드/현금처럼 다른 결제임.
     expect(() =>
       saveTestSale(both, { ...transfer, time: "12:00", method: "TRANSFER" }),
     ).toThrow("같은 결제수단");

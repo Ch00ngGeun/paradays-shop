@@ -1,3 +1,4 @@
+// 역할: 관리자 단계 표시의 완료·현재·예정 계산과 접근성 마크업·테마 스타일을 검증함.
 import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -47,7 +48,7 @@ describe("admin stepper", () => {
     expect(html).toContain("(완료)");
     expect(html).toContain("(현재 단계)");
     expect(html).toContain("(예정)");
-    // Completed steps keep their number in the visible label, like the reference.
+    // 완료된 단계도 참고 디자인처럼 보이는 라벨에 번호를 유지함.
     expect(html).toMatch(/>1 <\/span>이미지/);
     expect(html).toMatch(/<svg[^>]*>/);
     expect(html).not.toMatch(/\srole=|aria-live/);

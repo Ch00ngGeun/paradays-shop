@@ -1,4 +1,4 @@
-/** Real admin UI/client with test-only session and intercepted provider API. */
+// 역할: OCR 입고 쓰기의 명시적 선택·버전 충돌·같은 상품 합산·부분 성공·응답 유실·늦은 응답 처리를 실제 관리자 화면과 가로챈 API로 검증함.
 import { expect, test } from "@playwright/test";
 import type { AdminOcrIntakeInput } from "../lib/admin-ui/types";
 import {
@@ -87,9 +87,9 @@ test.describe("OCR inventory application", () => {
       expectedExistingIntake("inventory-product-1", 3, 4),
     ]);
     await openInventorySection(page, "재고 수정");
-    // The shared beforeEach initially returned an empty catalog before this
-    // test's fixture was installed. A conflict has no successful product to
-    // merge, so explicitly reload the current inventory for operator review.
+    // 공통 beforeEach는 이 테스트 fixture를 설치하기 전에 빈 카탈로그를 먼저 돌려줌.
+    // 충돌에는 병합할 성공 상품이 없으므로 운영자 검토를 위해 현재 재고를
+    // 명시적으로 다시 불러옴.
     await page.getByRole("button", { name: "새로고침", exact: true }).click();
     await expectInventoryStock(page, 5);
     await openInventorySection(page, "입고 OCR");
@@ -312,8 +312,8 @@ test.describe("OCR inventory application", () => {
     await prepareInventoryApplication(page, ["inventory-product-1"]);
     await confirmInventoryApplication(page);
     await stock.started;
-    // This GET begins before the successful intake POST result is received, but its
-    // captured catalog snapshot is deliberately delivered after the stock write.
+    // 이 GET은 성공한 입고 POST 결과를 받기 전에 시작되지만, 붙잡아 둔
+    // 카탈로그 스냅숏은 의도적으로 재고 쓰기 뒤에 전달됨.
     const catalogUrl = new URL(`${API}admin/catalog/products`);
     await page.route(
       (url) => url.origin === catalogUrl.origin && url.pathname === catalogUrl.pathname,

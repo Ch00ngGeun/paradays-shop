@@ -1,3 +1,4 @@
+// 역할: 의류·휠 사이즈표 모달의 null 저장·삭제·재열기·범위 안내·도면 전환 경고와 기본/옵션 표시를 검증함.
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -34,7 +35,7 @@ const render = (props: Record<string, unknown>) =>
     }),
   );
 
-/** The disabled drawing select is described by the note that explains it. */
+/** 비활성 도면 선택은 그 이유를 설명하는 안내와 연결됨. */
 function expectNoteFor(markup: string, note: string) {
   const describedBy = /<select aria-describedby="([^"]+)"/.exec(markup)?.[1];
   expect(describedBy).toBeTruthy();
@@ -45,7 +46,7 @@ describe("admin size chart modal", () => {
   it("saves values with blank fields as null, refuses a wrong field, and renames with every field empty", () => {
     expect(getSizeChartSaveState("shortSleeve", inputs).values).toEqual(values);
     expect(getSizeChartSaveState("shortSleeve", inputs).ready).toBe(true);
-    // A blank field no longer blocks saving; it is saved as null.
+    // 빈 필드는 더 이상 저장을 막지 않고 null로 저장됨.
     expect(
       getSizeChartSaveState("shortSleeve", { ...inputs, armhole: "" }),
     ).toMatchObject({
@@ -57,13 +58,13 @@ describe("admin size chart modal", () => {
     ).toBe(false);
     const option = { size: "M", otherOptions: ["S", "L"] };
     const empty = Object.fromEntries(Object.keys(values).map((key) => [key, ""]));
-    // A rename with no values saves the name alone.
+    // 값 없는 이름 변경은 이름만 저장함.
     const renamed = getSizeChartSaveState("shortSleeve", empty, {
       ...option,
       name: "XL",
     });
     expect(renamed).toMatchObject({ values: null, sizeName: "XL", ready: true });
-    // The same name is not checked again and does not save on its own.
+    // 같은 이름은 다시 검사하지 않으며 그것만으로 저장되지 않음.
     expect(
       getSizeChartSaveState("shortSleeve", empty, { ...option, name: "M" }).ready,
     ).toBe(false);
@@ -82,7 +83,7 @@ describe("admin size chart modal", () => {
     const option = { size: "M", name: "M", otherOptions: ["S"] };
     expect(getSizeChartSaveState("shortSleeve", empty, option, true).ready).toBe(true);
     expect(getSizeChartSaveState("shortSleeve", empty, option).ready).toBe(false);
-    // A rename alone still saves, and a half-filled form saves with a new name.
+    // 이름 변경만으로도 저장되고, 반만 채운 양식은 새 이름과 함께 저장됨.
     expect(
       getSizeChartSaveState("shortSleeve", empty, { ...option, name: "L" }).ready,
     ).toBe(true);
@@ -143,7 +144,7 @@ describe("admin size chart modal", () => {
 
   it("a new default lists the category's drawings, the drawing's fields and no delete", () => {
     const markup = render({});
-    // A switchable drawing has no note and is not disabled.
+    // 바꿀 수 있는 도면에는 안내가 없고 비활성도 아님.
     expect(markup).toContain('<select name="sizeChartKind">');
     expect(markup).toContain('<option value="shortSleeve" selected="">반팔</option>');
     expect(markup).toContain('<option value="raglanLongSleeve">래글런 긴팔</option>');
@@ -198,7 +199,7 @@ describe("admin size chart modal", () => {
       locale: "en",
     });
     expect(markup).toMatch(/<select[^>]*disabled=""[^>]*name="sizeChartKind"/);
-    // The default screen says why there is nothing to switch to.
+    // 기본 화면은 바꿀 도면이 없는 이유를 알려 줌.
     expectNoteFor(markup, "This category has only one drawing.");
     expect(markup.match(/<input/g)).toHaveLength(3);
     expect(markup).toContain(">Diameter</span>");

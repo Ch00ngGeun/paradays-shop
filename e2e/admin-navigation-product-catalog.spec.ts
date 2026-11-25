@@ -1,3 +1,4 @@
+// 역할: 관리자 상품 목록의 필터·선택·삭제, 빈/실패 목록, 저장 거부, 이미지 업로드와 모바일 편집을 검증함.
 import { expect, test } from "@playwright/test";
 import { audits, products, respond, setup } from "./admin-navigation-base-fixtures";
 import {

@@ -1,6 +1,7 @@
+// 역할: 관리자 화면 안내 테두리·밑줄, 작업 단계 상태, 알림 색상, 작업 기록 행, 필수 입력 강조 검사 도우미를 제공함.
 import { expect, type Locator, type Page } from "@playwright/test";
 
-/** The guide's drawing: the ring around the target and the underline under an input. */
+/** 화면 안내가 그리는 표시: 대상 둘레의 테두리와 입력란 아래 밑줄. */
 const guideRing = (page: Page) => page.locator("[data-modal-layer] svg > rect[rx='8']");
 
 const guideLines = (page: Page) => page.locator("[data-modal-layer] svg > line");

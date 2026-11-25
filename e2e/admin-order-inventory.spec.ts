@@ -1,3 +1,4 @@
+// 역할: 주문 출고 확인·검수 반품과 금전 환불의 분리, 검증 거부·불확실한 재시도, 레거시 주문 제한을 검증함.
 import { expect, test, type Page } from "@playwright/test";
 const API = "https://api.ocr.test/prod/";
 const JWT = [

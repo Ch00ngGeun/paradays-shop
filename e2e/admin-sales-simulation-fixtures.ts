@@ -1,3 +1,4 @@
+// 역할: 매출 모의 실행 검사의 모의 API·저장소 쓰기 감시·재고 확인과 메뉴 이동·샘플 전표 도우미를 제공함.
 import { expect, type Page, type Route } from "@playwright/test";
 
 const ORIGIN = "http://127.0.0.1:3139";

@@ -1,4 +1,4 @@
-/** admin-ocr 분할 spec 공통 fixture: test-only session, intercepted provider API, synthetic image·region 도우미. */
+// 역할: admin-ocr 계열 spec 공통 fixture로, 테스트 전용 세션·가로챈 OCR API·합성 이미지와 영역 조작 도우미를 제공함.
 import { expect, type Page, type Route } from "@playwright/test";
 import type { OcrTableAnalysis } from "../lib/admin-ui/types";
 import { parseOcrTableRows } from "../infra/lambda/ocr-table-parser.js";
@@ -190,8 +190,8 @@ export async function selectAdminTab(page: Page, name: string | RegExp) {
 }
 
 export async function openRowDetails(page: Page) {
-  // Existing contract regressions explicitly reveal the editable source and
-  // immutable provider metadata. Redesign tests separately verify the default.
+  // 기존 계약 회귀 검사는 편집 가능한 원문과 바뀌지 않는 제공자 메타데이터를
+  // 명시적으로 펼쳐 확인함. 기본 상태는 redesign 검사가 따로 확인함.
   for (const details of await page
     .locator("article details")
     .filter({
@@ -420,8 +420,8 @@ export async function configureRegions(page: Page, missing = false) {
 }
 
 export async function adminOcrBeforeEach({ page }: { page: Page }) {
-  // All remote requests are intercepted or blocked. Fake JWT/session restore is
-  // confined to the test; the production AuthProvider and connector run intact.
+  // 모든 외부 요청은 가로채거나 차단함. 가짜 JWT·세션 복원은 테스트 안에만
+  // 한정되며 실제 AuthProvider와 연결 코드는 그대로 실행됨.
   unexpectedWrites.set(page, []);
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
@@ -471,7 +471,7 @@ export async function adminOcrBeforeEach({ page }: { page: Page }) {
 }
 
 export async function adminOcrAfterEach({ page }: { page: Page }) {
-  // Every intentional write must have an explicit synthetic fixture above this
-  // final deny rule. Even an aborted, unanticipated write fails the regression.
+  // 의도한 쓰기는 모두 이 마지막 거부 규칙보다 앞에 명시적인 합성 fixture가 있어야 함.
+  // 예상하지 못한 쓰기는 중단(abort)됐더라도 회귀 실패로 처리함.
   expect(unexpectedWrites.get(page) ?? []).toEqual([]);
 }

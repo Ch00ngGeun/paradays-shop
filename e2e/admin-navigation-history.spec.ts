@@ -1,3 +1,4 @@
+// 역할: 관리자 메뉴의 주소·새로고침·뒤로/앞으로 복원과 권한 차단, 모의 메모리·진행 중 실제 작업 보존을 검증함.
 import { expect, test } from "@playwright/test";
 import {
   active,

@@ -1,3 +1,4 @@
+// 역할: 상품 초안 미리보기·등록과 상품명 두 줄 제한·입력기(IME)·폭 변화에 따른 입력란 높이, 브랜드 입력을 검증함.
 import { expect, test } from "@playwright/test";
 import {
   audits,
@@ -132,7 +133,7 @@ test("product form refinement: a two-line product name grows the box, keeps one 
     .poll(async () => (await name.boundingBox())!.height)
     .toBeGreaterThan(oneLine * 1.4);
 
-  // Enter at the end of the first line collapses the blank line and keeps the caret in place.
+  // 첫 줄 끝의 Enter는 빈 줄을 합치고 커서를 제자리에 둠.
   const caretAt = (position: number) =>
     name.evaluate(
       (input: HTMLTextAreaElement, at) => input.setSelectionRange(at, at),
@@ -144,13 +145,13 @@ test("product form refinement: a two-line product name grows the box, keeps one 
   await name.pressSequentially("X");
   await expect(name).toHaveValue("FIRST\nXSECOND");
 
-  // Enter at the end of the second line does nothing but explain the two-line limit.
+  // 둘째 줄 끝의 Enter는 두 줄 제한을 안내할 뿐 다른 동작을 하지 않음.
   await caretAt("FIRST\nXSECOND".length);
   await name.press("Enter");
   await expect(name).toHaveValue("FIRST\nXSECOND");
   await expect(status).toContainText("최대 2줄까지 입력할 수 있습니다");
 
-  // Enter inside the second line cannot start a third line, so nothing after the caret is lost.
+  // 둘째 줄 안의 Enter도 셋째 줄을 만들 수 없으므로 커서 뒤 내용이 사라지지 않음.
   await caretAt("FIRST\nXSECO".length);
   await name.press("Enter");
   await expect(name).toHaveValue("FIRST\nXSECOND");
@@ -158,7 +159,7 @@ test("product form refinement: a two-line product name grows the box, keeps one 
   await name.pressSequentially("Y");
   await expect(name).toHaveValue("FIRST\nXSECOYND");
 
-  // A pasted third line and blank lines are joined to the second line instead of being dropped.
+  // 붙여넣은 셋째 줄과 빈 줄은 버리지 않고 둘째 줄에 이어 붙임.
   await name.fill("FIRST\n\n\nSECOND\nTHIRD");
   await expect(name).toHaveValue("FIRST\nSECOND THIRD");
   await expect(status).toContainText("2번째 줄 뒤에 이어 붙였습니다");
@@ -195,7 +196,7 @@ test("product form refinement: Enter that commits Korean IME input never starts 
 test("product form refinement: without field-sizing the product name box regrows when it gets narrower", async ({
   page,
 }) => {
-  // Forces the fallback path that Chromium would otherwise skip.
+  // Chromium이 평소 건너뛰는 대체 경로를 강제로 탐.
   await page.addInitScript(() => {
     const supports = CSS.supports.bind(CSS) as (...args: string[]) => boolean;
     CSS.supports = ((...args: string[]) =>
@@ -203,7 +204,7 @@ test("product form refinement: without field-sizing the product name box regrows
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await setup(page, { path: "/admin?section=products" });
-  // Chromium would still apply the stylesheet rule, so it is switched off to act like an older browser.
+  // Chromium은 여전히 스타일시트 규칙을 적용하므로 이를 꺼서 구형 브라우저처럼 동작시킴.
   await page.addStyleTag({ content: "textarea { field-sizing: fixed !important; }" });
   await newProduct(page);
   const name = page.getByRole("textbox", { name: "상품명", exact: false });
@@ -213,7 +214,7 @@ test("product form refinement: without field-sizing the product name box regrows
   await expect.poll(fits).toBe(true);
   const wide = (await name.boundingBox())!.height;
 
-  // Widening from 1023px to the 1024px desktop layout re-renders and narrows the box (about 305px to 238px).
+  // 1023px에서 1024px 데스크톱 배치로 넓히면 다시 렌더링되며 입력란이 좁아짐(약 305px에서 238px).
   await page.setViewportSize({ width: 1023, height: 1000 });
   await expect.poll(fits).toBe(true);
   await page.setViewportSize({ width: 1024, height: 1000 });
@@ -221,8 +222,8 @@ test("product form refinement: without field-sizing the product name box regrows
   await page.setViewportSize({ width: 1440, height: 1000 });
   await expect.poll(fits).toBe(true);
 
-  // A width change that lands together with a re-render (here a price edit in the same task)
-  // must still regrow the box; a reconnected observer would take the new width as its start.
+  // 폭 변경이 재렌더링(여기서는 같은 작업 안의 가격 편집)과 함께 일어나도
+  // 입력란은 다시 늘어나야 함. 관찰자를 다시 연결하면 새 폭을 시작값으로 삼아 버림.
   await name.evaluate((input) => {
     input.style.width = "120px";
     const price = document.querySelector<HTMLInputElement>(
@@ -240,7 +241,7 @@ test("product form refinement: without field-sizing the product name box regrows
     input.style.width = "";
   });
 
-  // Narrowing only the box (as a rotation or a narrower column would) must regrow it.
+  // 입력란만 좁아져도(회전이나 더 좁은 열처럼) 다시 늘어나야 함.
   await name.evaluate((input) => {
     input.style.width = "160px";
   });
@@ -267,7 +268,7 @@ test("product form refinement: a long brand grows its box while typing and stays
   expect(
     await brand.evaluate((input) => input.scrollHeight <= input.clientHeight + 1),
   ).toBe(true);
-  // A pasted line break becomes a space, and Enter never adds a line.
+  // 붙여넣은 줄바꿈은 공백이 되고 Enter는 줄을 추가하지 않음.
   await brand.fill("Synthetic\nBrand");
   await expect(brand).toHaveValue("Synthetic Brand");
   await brand.press("Enter");

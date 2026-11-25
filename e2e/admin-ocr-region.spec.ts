@@ -1,4 +1,4 @@
-/** Real admin UI/client with test-only session and intercepted provider API. */
+// 역할: OCR 영역 드래그 매핑의 미리보기·적용·템플릿·확대/스크롤·터치·키보드 선택과 오래된 응답 차단을 실제 관리자 화면과 가로챈 API로 검증함.
 import { expect, test } from "@playwright/test";
 import { parseRecognitionResponse } from "../infra/lambda/paddle-ocr.js";
 import { parseOcrTableRows } from "../infra/lambda/ocr-table-parser.js";
@@ -206,7 +206,7 @@ test("area mapping help opens on demand; keyboard steps stay the image's descrip
     await expect(dialog).toHaveCount(0);
     await expect(help).toBeFocused();
   };
-  // The keyboard steps are hidden from the screen but still describe the image area.
+  // 키보드 조작 단계는 화면에서 숨겨지지만 이미지 영역의 설명으로 남음.
   await expect(
     page.getByRole("group", { name: "이미지 영역 선택", exact: true }),
   ).toHaveAccessibleDescription(
@@ -216,7 +216,7 @@ test("area mapping help opens on demand; keyboard steps stay the image's descrip
     page.getByText("작은 글자는 확대해서 선택하세요", { exact: false }),
   ).toHaveCount(0);
   await check("이미지 영역 선택", "Space로 시작, Enter로 끝을 지정합니다");
-  // The saved-template sharing and privacy notice stays visible.
+  // 저장 템플릿 공유·개인정보 안내는 계속 보임.
   await expect(
     page.getByText("이 브라우저를 쓰는 계정들이 공유하는 설정입니다.", {
       exact: false,

@@ -1,3 +1,4 @@
+// 역할: 주문 모의 실행 화면의 경고·동의, 영어 렌더링, 권한별 표시와 외부 입출력 부재를 검증함.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -28,7 +29,7 @@ describe("simulation access and IO isolation", () => {
     expect(html).toContain("모의 주문·재고 테스트");
     expect(html).toContain("실제 결제나 재고 검증 결과가 아닙니다.");
     expect(html).toContain("브라우저 메모리");
-    // The start button itself is disabled until consent, and no simulated order exists yet.
+    // 동의 전에는 시작 버튼 자체가 비활성이고 모의 주문도 아직 없음.
     expect(html).toMatch(/<button[^>]*disabled[^>]*>\s*모의 테스트 시작\s*<\/button>/);
     expect(html).not.toContain("모의 주문번호");
     expect(html).not.toContain("TEST_PRODUCT_DECK");

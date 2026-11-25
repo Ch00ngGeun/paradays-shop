@@ -1,4 +1,4 @@
-/** Real admin UI/client with test-only session and intercepted provider API. */
+// 역할: OCR 인식 결과의 검토 행 채우기·원문 보존과 역순 응답·저장 충돌 등 오래된 비동기 응답 차단을 실제 관리자 화면과 가로챈 API로 검증함.
 import { expect, test } from "@playwright/test";
 import {
   OCR_ROUTE,

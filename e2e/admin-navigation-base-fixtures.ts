@@ -1,3 +1,4 @@
+// 역할: 관리자 탐색 검사의 모의 세션·API 응답·요청 감사 기록과 메뉴 선택·모의 매출 시작 도우미를 제공함.
 import { expect, type Page, type Route } from "@playwright/test";
 
 const ORIGIN = "http://127.0.0.1:3139";

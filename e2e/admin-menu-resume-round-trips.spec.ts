@@ -1,3 +1,4 @@
+// 역할: 상점 왕복·새 탭·새로고침·뒤로/앞으로 이동 뒤에도 명시한 관리자 메뉴와 상품이 복원되고 잘못된 표식 값은 개요로 가는지 검증함.
 import { expect, test } from "@playwright/test";
 import {
   active,

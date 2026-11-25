@@ -1,3 +1,4 @@
+// 역할: 기존·신규 상품이 섞인 명시적 OCR 입고 계획의 고정·묶기·확인 요구와 중복 차단을 검증함.
 import { describe, expect, it, vi } from "vitest";
 import { OcrInventoryPlanError } from "@/lib/admin-ui/ocr-inventory-commit";
 import {

@@ -1,3 +1,4 @@
+// 역할: OCR 영역 매핑 템플릿의 저장·복제·역할 일치·재사용 조건과 접근자 거부를 검증함.
 import { describe, expect, it, vi } from "vitest";
 import {
   OCR_MAPPING_TEMPLATES_STORAGE_KEY,

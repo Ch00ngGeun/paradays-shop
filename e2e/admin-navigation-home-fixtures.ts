@@ -1,3 +1,4 @@
+// 역할: 관리자 홈 지표 응답·지표 선택, 비공개 조회 없음 확인, 상품 생성 방문 기록 검사 도우미를 제공함.
 import { expect, type Page } from "@playwright/test";
 import { active, type Audit, DAY } from "./admin-navigation-base-fixtures";
 import { productPreview } from "./admin-navigation-product-fixtures";
@@ -45,7 +46,7 @@ async function checkHomePrivateCreateHistory(page: Page, audit: Audit) {
   await expect(
     page.getByRole("button", { name: "비공개로 저장", exact: true }),
   ).toBeVisible();
-  // The preview note now sits behind the preview's '?' help.
+  // 미리보기 안내는 미리보기의 '?' 도움말 안에 있음.
   await productPreview(page)
     .getByRole("button", { name: "고객 화면 미리보기 도움말", exact: true })
     .click();
@@ -56,8 +57,8 @@ async function checkHomePrivateCreateHistory(page: Page, audit: Audit) {
   expect(new URL(editorUrl).searchParams.get("editor")).toMatch(
     /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
   );
-  // A prior shortcut may leave a Forward entry that this new editor replaces.
-  // Back must still return directly to Home, not to a second editor entry.
+  // 앞선 바로가기가 남긴 앞으로 가기 항목은 이 새 편집기가 대체할 수 있음.
+  // 그래도 뒤로 가기는 두 번째 편집기 항목이 아니라 홈으로 바로 돌아가야 함.
   expect(await page.evaluate(() => history.length)).toBeLessThanOrEqual(
     initialLength + 1,
   );

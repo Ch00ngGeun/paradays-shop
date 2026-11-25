@@ -1,3 +1,4 @@
+// 역할: 휠 사이즈 도면의 mm 전용 표시·정밀도·언어별 이름과 빈 값 null 표시를 검증함.
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -64,7 +65,7 @@ describe("wheel size chart diagram", () => {
     const labels = [...markup.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(
       ([, text]) => text,
     );
-    // W shows twice, above and below.
+    // W는 위아래에 두 번 표시됨.
     expect(labels).toEqual(["null", "null", "null", "54mm"]);
     expect(markup).not.toContain("nullmm");
     expect(markup).toContain(

@@ -1,3 +1,4 @@
+// 역할: 재고 필터의 교집합·개별 초기화·새로고침 유지와 편집 대상 보존, 모바일 배치를 검증함.
 import { expect, test } from "@playwright/test";
 import { audits, respond, setup } from "./admin-navigation-base-fixtures";
 import {

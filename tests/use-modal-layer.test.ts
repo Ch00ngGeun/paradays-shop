@@ -1,3 +1,4 @@
+// 역할: 중첩 모달 레이어의 배경 비활성화(inert)와 닫는 순서별 원상 복원을 검증함.
 import { describe, expect, it } from "vitest";
 
 import { createModalLayerStack } from "@/hooks/use-modal-layer";
@@ -77,7 +78,7 @@ describe("modal layer stack", () => {
   });
 
   it("closing the parent before the help on top still leaves the page usable", () => {
-    // React runs the parent's cleanup first when both unmount together.
+    // 둘이 함께 언마운트되면 React는 부모의 정리 함수를 먼저 실행함.
     const page = fakeBody("app");
     const layers = createModalLayerStack(page.body);
     const parent = page.element("parent");

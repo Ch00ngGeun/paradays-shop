@@ -1,4 +1,4 @@
-/** Real admin UI/client with test-only session and intercepted provider API. */
+// 역할: 로컬 OCR 영어 화면의 안전 경계와 원격 PC OCR 시연의 활성화 조건·인증·입고 반영·오프라인 안내를 가로챈 요청으로 검증함.
 import { expect, test, type Page } from "@playwright/test";
 import {
   API,
@@ -33,8 +33,8 @@ test.afterEach(adminOcrAfterEach);
 test("local OCR English safety keeps local-only memory and retry boundaries without contacting a relay", async ({
   page,
 }) => {
-  // Executed only by the approved temporary local-mode wrapper config. The
-  // original OCR config remains pinned off; neither mode contacts port 8011.
+  // 승인된 임시 로컬 모드 래퍼 설정에서만 실행됨. 원래 OCR 설정은
+  // 계속 꺼 둔 상태이며 어느 모드도 8011 포트에 접속하지 않음.
   test.skip(
     !LOCAL_MODE_E2E,
     "Requires the temporary local-mode wrapper config; playwright.ocr.config.ts pins local OCR off.",
@@ -109,8 +109,8 @@ test.describe("remote PC OCR demo fixture", () => {
   );
 
   async function openRemoteFixture(page: Page) {
-    // The browser sees the real allowed HTTPS origin; every byte still comes
-    // from the fixed local test server. Never contact Firebase or a tunnel.
+    // 브라우저는 실제 허용된 HTTPS 출처를 보지만 모든 바이트는 고정된 로컬
+    // 테스트 서버에서 옴. Firebase나 터널에는 절대 접속하지 않음.
     await page.routeWebSocket("**/*", (socket) => {
       const url = new URL(socket.url());
       if (
@@ -120,8 +120,8 @@ test.describe("remote PC OCR demo fixture", () => {
         [...url.searchParams.keys()].some((key) => key !== "id")
       )
         return socket.close();
-      // Next 16 dev hydration needs its React debug stream over HMR. Bridge
-      // only this fixed loopback endpoint, never the requested external host.
+      // Next 16 개발 서버 하이드레이션은 HMR로 React 디버그 스트림을 받아야 함.
+      // 요청된 외부 호스트가 아니라 이 고정 루프백 엔드포인트만 연결함.
       const upstream = new WebSocket(`ws://127.0.0.1:3137/_next/hmr${url.search}`);
       upstream.binaryType = "arraybuffer";
       const pending: Array<string | Buffer> = [];
@@ -151,8 +151,8 @@ test.describe("remote PC OCR demo fixture", () => {
         { maxRedirects: 0 },
       );
       if (response.status() >= 300 && response.status() < 400) return route.abort();
-      // APIRequestContext decodes compressed bodies; transport headers must
-      // not describe the already-decoded bytes fulfilled to the browser.
+      // APIRequestContext는 압축 본문을 풀어 주므로, 브라우저에 넘기는 이미 풀린
+      // 바이트를 전송 헤더가 압축 상태로 설명하면 안 됨.
       const headers = Object.fromEntries(
         Object.entries(response.headers()).filter(
           ([name]) =>
@@ -171,7 +171,7 @@ test.describe("remote PC OCR demo fixture", () => {
       });
     });
     await page.goto(`${FIREBASE_ORIGIN}/admin`);
-    // The locale provider starts in English and restores the saved Korean choice after hydration.
+    // 언어 제공자는 영어로 시작해 하이드레이션 뒤 저장된 한국어 선택을 복원함.
     await expect(
       page.getByRole("button", { name: "한국어", exact: true }),
     ).toHaveAttribute("aria-pressed", "true");

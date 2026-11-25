@@ -1,3 +1,4 @@
+// 역할: OCR 표 파서 검사용 합성 토큰 생성기와 가상 입고표 토큰 묶음을 제공함.
 export function token(
   id: string,
   sourceText: string,
