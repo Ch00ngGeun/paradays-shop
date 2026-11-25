@@ -429,7 +429,7 @@ export function createAdminApiClient(
 
       const deckSpec = input.deckSpec && copyDeckSpec(input.deckSpec);
       const { size } = input;
-      // Only an actual rename sends sizeName, so a same-name save stays the H-035 body.
+      // 실제로 이름을 바꿀 때만 sizeName을 보내므로 같은 이름 저장은 H-035 요청 본문 그대로 유지됩니다.
       const sizeName =
         input.sizeName !== undefined && input.sizeName !== size
           ? input.sizeName
@@ -441,7 +441,7 @@ export function createAdminApiClient(
         fetchImplementation,
         endpoint: `admin/catalog/products/${encodeURIComponent(productId)}`,
         method: "PATCH",
-        // An option save uses its own field, so a server without it cannot overwrite the default.
+        // 옵션 저장은 별도 필드를 쓰므로 그 필드를 모르는 서버가 기본값을 덮어쓰지 못합니다.
         body:
           size === undefined
             ? { version: input.version, deckSpec }
@@ -458,9 +458,9 @@ export function createAdminApiClient(
       }
 
       const product = parseCatalogListItem(body.product);
-      // Compare the raw response: the list parser drops a malformed spec, which would look like a delete.
+      // 목록 파서는 형식이 틀린 사양을 버려 삭제처럼 보이므로 원본 응답으로 비교합니다.
       const raw = isRecord(body.product) ? body.product : {};
-      // shortcut: an older server never returns the option map, so an ignored option delete looks like success; add a handled marker to the server response to tell them apart.
+      // shortcut: 구형 서버는 옵션별 map을 돌려주지 않아 무시된 옵션 삭제도 성공처럼 보임. 구분하려면 서버 응답에 처리 표시를 추가해야 함.
       const savedDeckSpec =
         savedKey === undefined
           ? raw.deckSpec
@@ -468,7 +468,7 @@ export function createAdminApiClient(
               Object.hasOwn(raw.deckSpecsBySize, savedKey)
             ? raw.deckSpecsBySize[savedKey]
             : undefined;
-      // A server that ignored sizeName still lists the old name, so the rename is not taken as saved.
+      // sizeName을 무시한 서버는 옛 이름을 그대로 나열하므로 이름 변경이 저장된 것으로 보지 않습니다.
       const renamed =
         sizeName === undefined ||
         (Array.isArray(raw.sizes) &&
@@ -497,8 +497,8 @@ export function createAdminApiClient(
         values: copySizeChartValues(chart.kind, chart.values),
       };
       const raw = await patchProduct(productId, { version: input.version, sizeChart });
-      // An older server drops the unknown field, so a missing chart after a save is a failure.
-      // shortcut: the same server also answers a delete with no chart, so an ignored delete looks like success; add a handled marker to the server response to tell them apart.
+      // 구형 서버는 모르는 필드를 버리므로 저장 뒤 사이즈표가 없으면 실패로 봅니다.
+      // shortcut: 같은 구형 서버는 삭제 요청에도 사이즈표 없이 응답해 무시된 삭제도 성공처럼 보임. 구분하려면 서버 응답에 처리 표시를 추가해야 함.
       const saved = raw.sizeChart;
       if (
         sizeChart === null
@@ -521,12 +521,12 @@ export function createAdminApiClient(
         (input.sizeName !== undefined &&
           input.sizeName !== size &&
           !isNewOptionName(input.sizeName)) ||
-        // The drawing is the server's; the values must at least fit one of the drawings.
+        // 도면 종류는 서버가 정하므로 값은 적어도 한 도면 종류의 형식에는 맞아야 합니다.
         (values !== null &&
           !SIZE_CHART_KINDS.some((kind) => isSizeChartValues(kind, values)))
       )
         throw new AdminApiResponseError();
-      // Only an actual rename sends sizeName, like the deck option save.
+      // 데크 옵션 저장과 같이 실제로 이름을 바꿀 때만 sizeName을 보냅니다.
       const sizeName =
         input.sizeName !== undefined && input.sizeName !== size
           ? input.sizeName
@@ -538,7 +538,7 @@ export function createAdminApiClient(
         ...(sizeName === undefined ? {} : { sizeName }),
         sizeChartValues: values && { ...values },
       });
-      // shortcut: an older server never returns the option map, so an ignored option delete looks like success; add a handled marker to the server response to tell them apart.
+      // shortcut: 구형 서버는 옵션별 map을 돌려주지 않아 무시된 옵션 삭제도 성공처럼 보임. 구분하려면 서버 응답에 처리 표시를 추가해야 함.
       const saved =
         isRecord(raw.sizeChartsBySize) && Object.hasOwn(raw.sizeChartsBySize, savedKey)
           ? raw.sizeChartsBySize[savedKey]
@@ -566,7 +566,7 @@ export function createAdminApiClient(
         version: input.version,
         sizeChartKind: input.sizeChartKind,
       });
-      // An older server ignores the field and never names the kind, which fails here.
+      // 구형 서버는 이 필드를 무시해 도면 종류를 돌려주지 않으므로 여기서 실패합니다.
       if (raw.sizeChartKind !== input.sizeChartKind) throw new AdminApiResponseError();
       return checkedProduct(raw, productId, input.version);
     },

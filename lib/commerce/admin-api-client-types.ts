@@ -1,3 +1,4 @@
+// 역할: 관리자 API 클라이언트의 의존성(API 설정·token·fetch)과 공개 함수 집합 타입을 정의합니다.
 import type {
   AdminBrandDraft,
   AdminCampaignDraft,
