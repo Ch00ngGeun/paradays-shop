@@ -434,7 +434,7 @@ export function createAuthVerificationActions({
           return;
         }
 
-        // email signup confirm
+        // 이메일 가입 확인: 인증 코드로 가입을 확정한 뒤 바로 로그인합니다.
         const email = normalizeEmail(identifier);
         const confirmResult = await confirmSignUpDirect(email, input.code);
 

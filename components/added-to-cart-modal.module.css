@@ -41,7 +41,7 @@
   margin: 0;
 }
 
-/* .message — "was added to your cart" */
+/* .message — 담김 안내 문구(copy.wasAddedToCart, 영문 "was added to your cart") */
 .message {
   font-family: var(--font-display);
   font-size: clamp(1rem, 2.4vw, 1.25rem);
@@ -68,7 +68,7 @@
   width: 3.4rem;
 }
 
-/* .actions — Continue shopping · Checkout */
+/* .actions — 계속 쇼핑·결제 링크 줄(Continue shopping · Checkout) */
 .actions {
   align-items: center;
   display: flex;
