@@ -1,3 +1,4 @@
+// 역할: 운영 홈의 모의 주문·재고 테스트. 실제 API와 분리된 브라우저 메모리 모의 상태로 결제 승인·출고 확인·미출고 취소·출고 후 환불·보상·반품 입고를 모달 안에서 연습하게 합니다.
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -17,10 +18,8 @@ import {
 import { AdminHelpButton } from "./admin-help-button";
 import styles from "./admin-order-simulation.module.css";
 
-/**
- * Separate teaching panel, never an adapter for the real order/checkout APIs.
- * The home shows only a button; the test runs in a modal and closing it ends the test.
- */
+/** 실제 주문·결제 API 어댑터가 아닌 별도 교육용 패널입니다. 관리자에게만 보입니다.
+ * 홈에는 버튼만 두고, 테스트는 모달에서 실행하며 모달을 닫으면 테스트가 끝납니다. */
 export function AdminOrderSimulationPanel({ locale = "ko" }: { locale?: Locale }) {
   const { isAuthenticated, status, user } = useAuth();
   if (status !== "authenticated" || !isAuthenticated || !user?.groups.includes("admin"))
@@ -31,7 +30,7 @@ function SimulationLauncher({ locale }: { locale: Locale }) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
-  // Runs after the modal layer is gone, so the background is no longer inert when focus returns.
+  // 모달 layer가 사라진 뒤 실행되므로, 포커스가 돌아올 때 배경은 더 이상 inert가 아닙니다.
   useEffect(() => {
     if (wasOpen.current && !open) buttonRef.current?.focus();
     wasOpen.current = open;
@@ -73,7 +72,7 @@ function SimulationModal({ locale, onClose }: { locale: Locale; onClose: () => v
         >
           ×
         </button>
-        {/* Unmounting the session on close discards the whole mock state. */}
+        {/* 닫을 때 세션을 언마운트해 모의 상태 전체를 버립니다. */}
         <AdminOrderSimulationSession locale={locale} />
       </section>
     </div>,
@@ -81,7 +80,7 @@ function SimulationModal({ locale, onClose }: { locale: Locale; onClose: () => v
   );
 }
 type Notice = string | Readonly<Record<Locale, string>>;
-/** The mock test body. Exported so unit tests can render it without the panel's auth gate. */
+/** 모의 테스트 본문. 단위 테스트가 패널의 권한 확인 없이 렌더할 수 있도록 export합니다. */
 export function AdminOrderSimulationSession({ locale }: { locale: Locale }) {
   const isKorean = locale === "ko";
   const [state, setState] = useState<SimulationState | null>(null);
@@ -458,7 +457,7 @@ export function AdminOrderSimulationSession({ locale }: { locale: Locale }) {
           <div className={styles.help}>
             <AdminHelpButton
               locale={locale}
-              // Not named after the button, so a search for the button's own name finds only the button.
+              // 버튼 이름과 다르게 지어, 버튼 이름으로 찾으면 버튼만 찾히게 합니다.
               target={isKorean ? "모의 부분 처리" : "Mock partial actions"}
             >
               <p>

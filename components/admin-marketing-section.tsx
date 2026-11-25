@@ -1,3 +1,4 @@
+// 역할: 관리자 마케팅 메뉴 화면. 캠페인 제목·메시지·채널(이메일·SMS·푸시) 초안을 작성·저장하고 채널별 미리보기를 보여 줍니다(고객 발송은 미연결).
 "use client";
 import adminMarketingSectionStyles from "./admin-marketing-section.module.css";
 import { useLocale } from "@/contexts/locale-context";
@@ -84,7 +85,7 @@ export function MarketingSection({
           steps={adminGuideSteps("marketing", locale)}
         />
       </header>
-      {/* A safety notice, so it stays on screen instead of inside the help. */}
+      {/* 안전 안내라서 도움말 안이 아니라 화면에 계속 보여 줍니다. */}
       <p className={adminMarketingSectionStyles.campaignSaveNote}>
         {isKorean
           ? "이 화면은 제목·메시지·채널을 초안으로만 저장합니다. 수신자 조회·예약·발송·이미지 첨부는 지원하지 않습니다."

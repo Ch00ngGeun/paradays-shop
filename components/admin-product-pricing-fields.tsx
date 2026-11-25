@@ -1,3 +1,4 @@
+// 역할: 상품 편집 폼의 판매 정보 칸(판매가·옵션·기존 정가)과 데크/의류·휠 상세사이즈 요약·편집 모달을 그립니다.
 "use client";
 import type { AdminProductDraft } from "@/lib/admin-ui/types";
 import {
@@ -336,7 +337,7 @@ export function AdminProductPricingFields({
               {optionSizeChartCount ? (isKorean ? "기본 " : "Default ") : ""}
               {sizeChart
                 ? (() => {
-                    // The first measurement stands for the default, like a deck's width.
+                    // 데크의 폭처럼 첫 측정 항목을 기본값 요약으로 씁니다.
                     const [first] = SIZE_CHART_KIND_INFO[sizeChart.kind].fields;
                     return `${first.label[locale]} ${formatSizeChartValue(sizeChart.kind, sizeChart.values[first.key])}`;
                   })()

@@ -1,3 +1,4 @@
+// 역할: 입고 OCR 인식 훅. 선택한 이미지로 OCR 인식을 요청해 결과를 반영하고(연결 없으면 연결 필요 상태), 검토 행 수정·추가·삭제를 처리합니다.
 "use client";
 import { OCR_INPUT_LIMITS } from "@/lib/admin-ui/ocr-input-validation";
 import type {

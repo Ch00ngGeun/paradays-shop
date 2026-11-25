@@ -1,5 +1,5 @@
-/* The screen-help button: '? Help' with a 44px target, kept on one line.
-   Repeated classes outrank a host screen's generic "panel button" rules (sales uses one). */
+/* 역할: 화면 안내(AdminGuideButton)의 '? 도움말' 버튼과 대상 표시·말풍선·단계 이동 버튼을 그립니다.
+   버튼은 44px 터치 영역으로 한 줄을 유지하고, 클래스를 반복해 화면의 일반 "panel button" 규칙(매출 화면에 있음)보다 우선합니다. */
 .button.button {
   align-items: center;
   background: transparent;
@@ -85,7 +85,7 @@
   width: max-content;
 }
 
-/* With no target on screen the bubble sits in the middle of the viewport. */
+/* 화면에 대상이 없으면 말풍선을 화면 가운데에 둡니다. */
 .bubble[data-centered="true"] {
   left: 50%;
   top: 50%;

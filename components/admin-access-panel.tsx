@@ -1,3 +1,4 @@
+// 역할: 관리자 화면의 인증 설정 필요·권한 확인 중·로그인 필요·권한 없음 안내 패널과 스토어 복귀 링크를 그립니다.
 "use client";
 import adminAccessPanelStyles from "./admin-access-panel.module.css";
 import { useLocale } from "@/contexts/locale-context";

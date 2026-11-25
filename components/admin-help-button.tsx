@@ -42,7 +42,7 @@ type AdminHelpButtonProps = Readonly<{
   /** 도움말이 설명하는 컨트롤 이름. 예: "옵션 추가" */
   target: string;
   locale: Locale;
-  /** 도움말 본문(화면 언어로 된 문단). Optional only so createElement can pass it as an argument. */
+  /** 도움말 본문(화면 언어로 된 문단). createElement의 인자로 넘길 수 있도록 선택 속성으로만 둡니다. */
   children?: ReactNode;
 }>;
 
@@ -52,7 +52,7 @@ export function AdminHelpButton({ target, locale, children }: AdminHelpButtonPro
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
-  // Runs after the modal layer is gone, so the background is no longer inert when focus returns.
+  // 모달 layer가 사라진 뒤 실행되므로, 포커스가 돌아올 때 배경은 더 이상 inert가 아닙니다.
   useEffect(() => {
     if (wasOpen.current && !open) buttonRef.current?.focus();
     wasOpen.current = open;
@@ -97,7 +97,7 @@ function HelpDialog({
   children: ReactNode;
 }>) {
   const layer = useModalLayer(true);
-  // Esc is handled below, so the trap's own Escape callback does nothing.
+  // Esc는 아래에서 처리하므로 포커스 트랩의 Escape 콜백은 아무것도 하지 않습니다.
   const dialogRef = useFocusTrap(true, () => {});
   const titleId = useId();
   const onCloseRef = useRef(onClose);

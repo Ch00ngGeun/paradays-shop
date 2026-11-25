@@ -1,3 +1,4 @@
+// 역할: 관리자 매출·일마감 메뉴의 진입 화면. 관리자에게만 연습하기(모의)와 실제 운영 중 하나를 고르게 하고, 실제 원장 머리말(SalesLedgerHeader)을 제공합니다.
 "use client";
 import { useState, type RefObject } from "react";
 import { useAuth } from "@/contexts/auth-context";
@@ -12,7 +13,7 @@ import { AdminNotice } from "./admin-status";
 import { ActualSalesLedgerPanel } from "./admin-sales-ledger-actual";
 import type { Attempt } from "./admin-sales-ledger-model";
 
-/** Kept mounted by the dashboard so unresolved commands survive menu changes. */
+/** 대시보드가 메뉴를 바꿔도 숨김 상태로 마운트를 유지해, 결과 미확인 요청이 사라지지 않게 합니다. */
 export function AdminSalesLedgerPanel({
   products,
   locale = "ko",
@@ -183,7 +184,7 @@ export function SalesLedgerHeader({
             : "Reconcile card, cash and transfer slips with the day's sales. Dates and times are in Korea time."}
         </p>
       </div>
-      {/* A span, not a div, so the header's grid rule for its text block does not apply. */}
+      {/* div가 아니라 span이라서 머리말의 글 영역용 grid 규칙(.header > div)이 적용되지 않습니다. */}
       <span>
         <AdminGuideButton locale={locale} steps={adminGuideSteps("sales", locale)} />{" "}
         <button

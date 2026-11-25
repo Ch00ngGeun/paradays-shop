@@ -1,3 +1,4 @@
+/* 역할: 관리자 마케팅 메뉴의 머리말·캠페인 초안 폼·채널 선택·채널별 메시지 미리보기 스타일입니다. */
 .campaignHeader {
   align-items: start;
   display: flex;
@@ -112,7 +113,7 @@
   grid-column: 1 / -1;
 }
 
-/* Channel image support: email inline logo is neutral info; image-less channels stay gray. */
+/* 채널별 이미지 지원 안내 배지. 이메일(인라인 로고)과 이미지 없는 채널 모두 같은 회색 중립 표시로 둡니다. */
 .campaignChannelSupport {
   background: var(--admin-wash);
   border: 1px solid var(--color-rule);

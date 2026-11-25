@@ -1,3 +1,4 @@
+// 역할: 관리자 입고 OCR 메뉴 화면. 원본 이미지 선택·OCR 인식·검토 행 편집·검토본 저장 단계를 그리고, 영역 지정 패널과 입고 반영 패널을 주입받아 붙입니다.
 "use client";
 import adminOcrSectionStyles from "./admin-ocr-section.module.css";
 import adminProductSectionStyles from "./admin-product-section.module.css";

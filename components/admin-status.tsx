@@ -1,3 +1,4 @@
+// 역할: 관리자 공통 상태 표시. 상태 배지·재고 상태 배지·안내 상자와 재고 수량의 상태 판정을 한·영 이름과 함께 제공합니다.
 import type { ReactNode } from "react";
 
 import type { Locale } from "@/types/store";
@@ -17,7 +18,7 @@ export type StockStatus = "normal" | "low" | "outOfStock" | "unknown";
 
 export interface AdminStatusBadgeProps {
   status: AdminStatus;
-  /** Additional context; the visible status name is always retained. */
+  /** 추가 설명입니다. 화면에 보이는 상태 이름은 항상 그대로 둡니다. */
   label?: string;
   children?: ReactNode;
   className?: string;
@@ -28,7 +29,7 @@ export interface AdminNoticeProps {
   status: AdminStatus;
   title?: string;
   children?: ReactNode;
-  /** Opt in only for a notice that changes while the user is on the page. */
+  /** 사용자가 화면에 있는 동안 바뀌는 안내에만 켭니다. */
   announce?: "off" | "polite" | "assertive";
   className?: string;
   locale?: Locale;
@@ -66,7 +67,7 @@ const stockDetails: Record<StockStatus, StatusDetail> = {
   unknown: { severity: "warning", label: { ko: "확인 필요", en: "Needs review" } },
 };
 
-/** Unknown or invalid quantities must never imply that stock is healthy. */
+/** 알 수 없거나 잘못된 수량을 정상 재고로 보이게 하지 않습니다. */
 export function getStockStatus(stock: number | undefined): StockStatus {
   if (
     typeof stock !== "number" ||
@@ -197,7 +198,7 @@ export function AdminNotice({
 }: Readonly<AdminNoticeProps>) {
   const details = statusDetails[status];
   const name = details.label[locale];
-  // Only explicitly announced urgent or blocking errors interrupt a screen reader.
+  // assertive로 명시한 긴급·진행 불가·오류(심각도 danger) 안내만 화면 낭독을 끊고 읽게 합니다(role=alert).
   const role =
     announce === "off"
       ? undefined

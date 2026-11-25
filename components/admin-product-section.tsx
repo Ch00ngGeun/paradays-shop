@@ -1,3 +1,4 @@
+// 역할: 관리자 상품 메뉴 화면. 작업 흐름 단계와 함께 목록 보기(AdminProductList) 또는 등록·수정 폼(AdminProductEditorForm)과 고객 화면 미리보기를 고릅니다.
 "use client";
 import adminProductSectionStyles from "./admin-product-section.module.css";
 import adminSharedStyles from "./admin-shared.module.css";

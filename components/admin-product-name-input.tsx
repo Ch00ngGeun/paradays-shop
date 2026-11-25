@@ -1,3 +1,4 @@
+// 역할: 상품명 2줄 제한·커서 보정 함수, 길면 접히며 늘어나는 한 줄 입력칸(GrowingLineInput), 관리자 검색어 정규화 함수를 제공합니다.
 "use client";
 import {
   useCallback,
@@ -18,7 +19,7 @@ export function limitProductNameLines(value: string) {
     .replace(/\r\n?/g, "\n")
     .replace(/\n{2,}/g, "\n")
     .split("\n");
-  // Empty extra lines (such as a trailing break) are dropped without adding a space.
+  // 끝 줄바꿈 같은 빈 추가 줄은 공백을 붙이지 않고 버립니다.
   const joined = extra.filter(Boolean);
   if (second === undefined) return { value: first, merged: false };
   return {
@@ -102,8 +103,8 @@ export function GrowingLineInput({
       onKeyDown={(event) => {
         if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
         event.preventDefault();
-        // Like a one-line input's implicit submission: only through the form's first submit button,
-        // and nothing at all while that button is disabled (for example, the form is incomplete).
+        // 한 줄 입력칸의 암묵적 제출처럼 폼의 첫 submit 버튼으로만 제출하고,
+        // 그 버튼이 비활성(예: 폼 미완성)이면 아무것도 하지 않습니다.
         const form = event.currentTarget.form;
         const submitter = Array.from(form?.elements ?? []).find(
           (element): element is HTMLButtonElement | HTMLInputElement =>

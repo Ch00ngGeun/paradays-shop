@@ -1,3 +1,4 @@
+// 역할: 실제 운영 매출 원장 화면. 영업일 리포트를 불러와 요약·전표 목록·전표 편집·재고 미리보기·전표 상세·온라인 이벤트·일마감 패널을 묶고, 원장 요청 실행과 결과 미확인 재시도를 관리합니다.
 "use client";
 import { useRef, useState, useSyncExternalStore } from "react";
 import { useAuth } from "@/contexts/auth-context";
@@ -97,7 +98,7 @@ export function ActualSalesLedgerPanel({
       if (value) sessionStorage.setItem(storageKey, JSON.stringify(value));
       else sessionStorage.removeItem(storageKey);
     } catch {
-      /* The in-memory lock still protects this mounted panel. */
+      /* sessionStorage에 못 써도 메모리의 잠금이 마운트된 이 패널을 계속 보호합니다. */
     }
     for (const notify of pendingListeners) notify();
   }

@@ -1,3 +1,4 @@
+// 역할: 입고 OCR 검토 훅. 검토본 저장(작업 버전 확인, 늦은 응답 무시)과 영역 지정 결과로 검토 행 재매핑(미리보기·적용)을 서버에 요청합니다.
 "use client";
 import { getOcrReviewRowValidationMessage } from "@/lib/admin-ui/ocr-input-validation";
 import type {

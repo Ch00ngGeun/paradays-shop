@@ -1,3 +1,4 @@
+// 역할: 상품명 입력 훅. 상품명을 2줄 이하로 정리하고 줄 제한 알림을 관리하며, 자동 높이와 편집 뒤 커서 위치를 맞춥니다.
 "use client";
 import type { AdminProductDraft } from "@/lib/admin-ui/types";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
@@ -47,8 +48,8 @@ export function useAdminProductName({
   const [nameLineNotice, setNameLineNotice] = useState<"blocked" | "merged" | null>(
     null,
   );
-  // field-sizing grows the box in supporting browsers; elsewhere the height follows the content and the width.
-  // Stable, so a re-render never reconnects the observer and skips a width change it should see.
+  // field-sizing을 지원하는 브라우저는 상자가 스스로 늘어나고, 그 밖에서는 내용과 폭에 맞춰 높이를 맞춥니다.
+  // 콜백을 고정해 다시 렌더해도 observer를 다시 연결하지 않으므로, 봐야 할 폭 변화를 놓치지 않습니다.
   const attachNameInput = useCallback((input: HTMLTextAreaElement | null) => {
     nameInputRef.current = input;
     nameResizeRef.current?.disconnect();
@@ -68,7 +69,7 @@ export function useAdminProductName({
     const input = nameInputRef.current;
     if (!input) return;
     if (!CSS.supports("field-sizing", "content")) fitProductNameInput(input);
-    // A rewritten value would put the caret at the end, so it goes back to where the edit was.
+    // 값을 다시 쓰면 커서가 끝으로 가므로, 편집하던 위치로 되돌립니다.
     const caret = nameCaretRef.current;
     nameCaretRef.current = null;
     if (caret !== null && document.activeElement === input)

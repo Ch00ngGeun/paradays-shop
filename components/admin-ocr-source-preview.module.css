@@ -1,3 +1,4 @@
+/* 역할: 입고 OCR 원본 이미지 미리보기와 확대 보기 대화상자 스타일입니다. */
 .ocrSourceFigure {
   display: grid;
   gap: 0.8rem;

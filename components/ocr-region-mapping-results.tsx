@@ -1,3 +1,4 @@
+// 역할: OCR 영역 지정의 미리보기 표(상품명·브랜드·옵션·수량)와 경고 목록, 저장 영역 양식 불러오기·저장·재사용·삭제 영역을 그립니다.
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";

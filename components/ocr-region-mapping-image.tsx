@@ -1,3 +1,4 @@
+// 역할: OCR 영역 지정 이미지 도구줄(확대 배율·이미지 이동)과 이미지 위에 지정한 영역·표 끝·두 번째 상품 표시를 겹쳐 그립니다.
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";

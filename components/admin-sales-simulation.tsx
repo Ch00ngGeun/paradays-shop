@@ -1,3 +1,4 @@
+// 역할: 매출·일마감의 연습하기(모의) 화면. 합성 TEST 상품·전표·가상 금액만으로 전표 입력·재고 확정·일마감·마감 스냅샷 흐름을 메모리에서 연습하게 합니다.
 "use client";
 import { useRef, useState } from "react";
 import {
@@ -30,7 +31,7 @@ import {
   SimulationSlipList,
 } from "./admin-sales-simulation-slips";
 
-/** No real products, tokens, transport or persistent browser data enter this panel. */
+/** 실제 상품·토큰·네트워크 전송·브라우저 영구 저장 데이터는 이 패널에 들어오지 않습니다. */
 export function AdminSalesSimulationPanel({
   onExit,
   locale = "ko",

@@ -1,3 +1,4 @@
+// 역할: 운영 홈의 주문 취소·반품 재고 패널. 주문을 조회해 출고 여부 확인, 재입고 수량, 환불 금액을 따로 처리하고 서버 기록 기준으로 결과를 알립니다.
 "use client";
 import { useRef, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
@@ -15,7 +16,7 @@ import {
   stateLabels,
   type Notice,
 } from "./admin-order-inventory-model";
-/** Lives inside the existing admin overview. No unrelated sales menu or automatic provider polling. */
+/** 기존 운영 홈 안에만 둡니다. 별도 매출 메뉴나 결제사 자동 폴링은 만들지 않습니다. */
 export function AdminOrderInventoryPanel() {
   const { getAccessToken } = useAuth();
   const { locale } = useLocale();

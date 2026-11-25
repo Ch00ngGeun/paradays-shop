@@ -1,3 +1,4 @@
+// 역할: 입고 OCR 메뉴의 원본 파일·인식 상태·원문·검토 행·작업 id/버전·표 분석·입고 반영 상태와 입고 시도 기록 저장소를 묶은 상태 훅입니다.
 "use client";
 import type {
   AdminOcrRecognitionResult,

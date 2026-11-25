@@ -1,3 +1,4 @@
+/* 역할: 관리자 여러 메뉴가 함께 쓰는 보조 스타일(운영 홈 기록·바로가기, 도움말 버튼 배치, 줄 끝 밀기·줄바꿈 유틸리티)입니다. */
 .workspace {
   grid-column: 2;
   grid-row: 2;
@@ -178,14 +179,14 @@
   }
 }
 
-/* A '?' help button beside a label keeps its 44px target without making the line taller. */
+/* 라벨 옆 '?' 도움말 버튼이 44px 터치 영역을 유지하면서 줄 높이는 늘리지 않게 합니다. */
 .fieldHelp {
   align-items: center;
   display: inline-flex;
   margin-block: -0.75rem;
 }
 
-/* A heading or label followed by its '?' help button on the same line. */
+/* 제목이나 라벨 바로 뒤에 '?' 도움말 버튼을 같은 줄로 둡니다. */
 .titleWithHelp {
   align-items: center;
   display: flex;
@@ -193,12 +194,12 @@
   min-width: 0;
 }
 
-/* Pushes one item in a flex row to the far end, leaving the row's own children and selectors unchanged. */
+/* flex 줄의 항목 하나를 끝으로 밀며, 줄의 자식 구조와 기존 선택자는 바꾸지 않습니다. */
 .pushEnd {
   margin-inline-start: auto;
 }
 
-/* Lets a header row put its button group on the next line when the screen is too narrow. */
+/* 화면이 좁으면 머리말 줄의 버튼 묶음을 다음 줄로 넘길 수 있게 합니다. */
 .wrapRow {
   flex-wrap: wrap;
 }

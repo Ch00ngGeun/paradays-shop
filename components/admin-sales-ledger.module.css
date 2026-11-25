@@ -1,3 +1,4 @@
+/* 역할: 매출·일마감(실제 운영·모의 연습) 화면 스타일. 결제수단 칩(.methodChip)은 카드 파랑·현금 초록·이체 회색이며 글자로 항상 수단을 밝힙니다. */
 .panel {
   --ledger-muted: color-mix(in srgb, var(--color-ink) 72%, var(--color-paper));
   --ledger-line: color-mix(in srgb, var(--color-ink) 18%, var(--color-paper));
@@ -401,7 +402,6 @@
   max-width: 280px;
   white-space: normal;
 }
-/* Payment method chips: card blue, cash green, transfer gray. Text always names the method. */
 .methodChip {
   --method-background: #f1f3f5;
   --method-border: #abb0ba;

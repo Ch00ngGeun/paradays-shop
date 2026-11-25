@@ -1,3 +1,4 @@
+// 역할: 재고 메뉴 훅. 최신 재고 다시 읽기와 재고 변경(기대 버전·수량 확인, 범위 검증, 서버 저장 또는 이 화면 임시 변경)을 처리하고 알림·운영 기록을 남깁니다.
 "use client";
 import type { AdminCatalogListItem, AdminDashboardActions } from "@/lib/admin-ui/types";
 import { type RefObject } from "react";

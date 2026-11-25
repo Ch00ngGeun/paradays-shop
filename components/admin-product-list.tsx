@@ -1,3 +1,4 @@
+// 역할: 관리자 상품 메뉴의 목록 화면. 상품을 검색·공개 상태·재고로 거르고 선택·전체 선택, 수정·삭제와 새 상품 등록으로 이어 줍니다.
 "use client";
 import adminSharedStyles from "./admin-shared.module.css";
 import adminProductSectionStyles from "./admin-product-section.module.css";

@@ -1,3 +1,4 @@
+/* 역할: 입고 OCR 영역 지정 패널(단계 조작부·이미지와 영역 겹침 표시·미리보기 표·양식 영역) 스타일입니다. */
 .panel {
   border: 1px solid var(--color-rule);
   display: grid;

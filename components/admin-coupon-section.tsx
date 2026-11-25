@@ -1,3 +1,4 @@
+// 역할: 관리자 쿠폰 메뉴 화면. 쿠폰명·코드·할인 방식·값·만료 시각 초안을 입력·검증하고 고객 노출 미리보기와 초안 저장을 제공합니다(고객 발급은 미연결).
 "use client";
 import adminCouponSectionStyles from "./admin-coupon-section.module.css";
 import adminSharedStyles from "./admin-shared.module.css";
@@ -95,7 +96,7 @@ export function CouponSection({
         </div>
         <AdminGuideButton locale={locale} steps={adminGuideSteps("coupons", locale)} />
       </header>
-      {/* A safety notice, so it stays on screen instead of inside the help. */}
+      {/* 안전 안내라서 도움말 안이 아니라 화면에 계속 보여 줍니다. */}
       <p className={adminCouponSectionStyles.couponSaveNote}>
         {isKorean
           ? "이 화면은 쿠폰 초안만 저장합니다. 고객에게 발급하거나 결제에 적용하지 않습니다."
@@ -179,7 +180,7 @@ export function CouponSection({
                   placeholder="WELCOME10"
                   value={couponCode}
                 />
-                {/* Still the input's description; seen on screen through the help button. */}
+                {/* 화면에서는 도움말 버튼으로 보이지만, 입력칸의 설명으로 계속 연결해 둡니다. */}
                 <small className="srOnly" id="coupon-code-help">
                   {isKorean
                     ? "영문·숫자로 시작하는 3–32자 · 영문 대문자·숫자·_·- 사용"

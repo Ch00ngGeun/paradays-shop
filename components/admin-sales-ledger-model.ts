@@ -1,3 +1,4 @@
+// 역할: 실제 매출 원장 화면들이 함께 쓰는 타입, 결과 미확인 요청의 sessionStorage 보관·구독, 금액·시각 표기, 상태·결제 구분·경고 문구(한·영)와 입력 검증 도우미를 둡니다.
 import type { Locale } from "@/types/store";
 import {
   validSalesDay,

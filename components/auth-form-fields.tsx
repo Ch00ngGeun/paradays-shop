@@ -1,3 +1,4 @@
+// 역할: 회원가입 폼의 추가 입력칸. 비밀번호 규칙 표시·비밀번호 확인, 본인 확인 방식(이메일·SMS)과 휴대폰 번호, 약관·개인정보·연령·마케팅 동의 줄(전문 보기 포함)을 그립니다.
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";

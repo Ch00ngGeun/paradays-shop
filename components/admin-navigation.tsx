@@ -1,3 +1,4 @@
+// 역할: 관리자 그룹 이름, 데스크톱 화면 판별, 메뉴 섹션 이름(한·영)과 메뉴 아이콘 SVG를 제공합니다.
 "use client";
 import { type AdminSection } from "@/lib/admin-ui/navigation";
 import type { Locale } from "@/types/store";

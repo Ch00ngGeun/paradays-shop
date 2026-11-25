@@ -1,3 +1,4 @@
+// 역할: 입고 OCR 검토본을 실제 재고에 반영하는 패널. 재고 상품을 불러와 행마다 기존 상품 입고·신규 등록을 정하고, 반영 계획을 확인받아 한 번만 실행하며 결과를 표로 보여 줍니다.
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
@@ -25,7 +26,7 @@ export type OcrInventoryAttempt = Readonly<{
   result?: Awaited<ReturnType<typeof executeOcrIntakePlan>>;
 }>;
 
-/** One workspace-owned ledger survives panel unmounts and notifies returning panels. */
+/** 워크스페이스가 가진 하나의 시도 기록이라, 패널이 언마운트돼도 남고 다시 붙은 패널에 알립니다. */
 export class OcrInventoryAttemptStore {
   private readonly records = new Map<string, OcrInventoryAttempt>();
   private readonly listeners = new Set<() => void>();
@@ -45,7 +46,7 @@ export class OcrInventoryAttemptStore {
 
 type Notice = string | Readonly<Record<Locale, string>>;
 
-/** Saving an OCR review does not mutate catalog products: intake is a separate confirmation. */
+/** OCR 검토본 저장은 상품을 바꾸지 않으며, 입고 반영은 별도 확인 단계입니다. */
 export function OcrInventoryCommitPanel({
   job,
   actions,
@@ -181,7 +182,7 @@ export function OcrInventoryCommitPanel({
     }
   };
   const commit = async () => {
-    // Synchronous workspace ledger blocks double clicks/remounts before hashing or any write.
+    // 워크스페이스 시도 기록을 동기로 먼저 확인해, 해시 계산이나 쓰기 전에 중복 클릭·재마운트를 막습니다.
     if (!plan || !confirmed || !actions?.applyOcrIntake || attempts.has(job.jobId))
       return;
     attempts.set(job.jobId, { plan, status: "running" });

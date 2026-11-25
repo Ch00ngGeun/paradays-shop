@@ -1,3 +1,4 @@
+// 역할: 모의 매출 연습의 전표 목록(판매 시간순)과 전표 입력 폼(예시 채우기·상품 줄·금액 합계)을 그립니다.
 "use client";
 import type { Dispatch, SetStateAction } from "react";
 import {

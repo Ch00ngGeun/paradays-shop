@@ -1,3 +1,4 @@
+// 역할: 관리자 워크스페이스 틀. 사이드바와 운영 메뉴(햄버거) 버튼, 메뉴 서랍(데스크톱은 navigation, 좁은 화면은 dialog)의 메뉴 탭·스토어 복귀 링크를 그리고 본문 패널을 붙입니다.
 "use client";
 import adminWorkspaceLayoutStyles from "./admin-workspace-layout.module.css";
 import Link from "next/link";

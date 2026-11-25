@@ -1,3 +1,4 @@
+// 역할: OCR 영역 지정의 좌표·필드·모드 타입, 필드·모드·경고 이름(한·영), 양식 표시 이름, 빈 초안·표 분석 결과 초안 생성과 영역 CSS 위치 계산을 둡니다.
 import type { CSSProperties } from "react";
 import type { Locale } from "@/types/store";
 import { isOcrRegionMapping } from "../infra/lambda/ocr-table-parser.js";

@@ -1,3 +1,4 @@
+// 역할: 입고 OCR 원본 이미지를 로컬 blob URL로 미리보기·확대 보기하고, OCR 신뢰도·좌표 표기 함수를 제공합니다.
 "use client";
 import adminOcrSourcePreviewStyles from "./admin-ocr-source-preview.module.css";
 import { useLocale } from "@/contexts/locale-context";

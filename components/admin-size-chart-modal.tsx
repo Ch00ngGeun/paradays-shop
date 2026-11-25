@@ -121,7 +121,7 @@ function toInputs(kind: SizeChartKind, values?: SizeChartValues): Inputs {
   return Object.fromEntries(
     SIZE_CHART_KIND_INFO[kind].fields.map(({ key }) => [
       key,
-      // A blank field comes back empty, never as the word null.
+      // 비운 칸은 "null" 글자가 아니라 빈 칸으로 되돌립니다.
       values && Object.hasOwn(values, key) && values[key] !== null
         ? String(values[key])
         : "",
@@ -153,7 +153,7 @@ export function AdminSizeChartForm({
   const [pendingKind, setPendingKind] = useState<SizeChartKind | null>(null);
   const kindRef = useRef<HTMLSelectElement>(null);
   const changeRef = useRef<HTMLButtonElement>(null);
-  // The confirm buttons disappear with the old form, so focus lands on the drawing select instead.
+  // 확인 버튼은 이전 폼과 함께 사라지므로, 대신 도면 종류 선택칸에 포커스를 둡니다.
   useEffect(() => {
     if (focusKind) kindRef.current?.focus();
   }, [focusKind]);
@@ -170,7 +170,7 @@ export function AdminSizeChartForm({
   );
   const kinds = sizeChartKindsFor(category);
   const canSave = ready && !saving && pendingKind === null;
-  // Why the drawing cannot be switched here, if it cannot.
+  // 여기서 도면 종류를 바꿀 수 없으면 그 이유입니다.
   const kindNote =
     size !== undefined
       ? isKorean
@@ -182,7 +182,7 @@ export function AdminSizeChartForm({
           : "This category has only one drawing."
         : undefined;
 
-  // Shared by saving values and changing the drawing: one busy state and one failure line.
+  // 값 저장과 도면 종류 변경이 함께 쓰며, 진행 중 상태와 실패 문구를 하나씩만 둡니다.
   const run = async (action: () => Promise<void>) => {
     setSaving(true);
     onBusyChange?.(true);
@@ -199,7 +199,7 @@ export function AdminSizeChartForm({
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // The portal still bubbles React events into the product form, which must not save too.
+    // portal이어도 React 이벤트는 상품 폼까지 전파되므로, 상품 폼이 함께 저장되지 않게 막습니다.
     event.stopPropagation();
     if (canSave) void run(() => onSave(values, size, sizeName));
   };
@@ -214,7 +214,7 @@ export function AdminSizeChartForm({
           <select
             ref={kindRef}
             aria-describedby={kindNote ? kindNoteId : undefined}
-            // Options follow the product's drawing; only the default screen switches it.
+            // 옵션은 상품의 도면 종류를 따르고, 종류는 기본값 화면에서만 바꿉니다.
             disabled={saving || kindNote !== undefined}
             name="sizeChartKind"
             onChange={(event) => {
@@ -245,7 +245,7 @@ export function AdminSizeChartForm({
               disabled={saving}
               onClick={async () => {
                 await run(() => onChangeKind(pendingKind));
-                // Success remounts the form for the new drawing; a failure keeps this button to retry.
+                // 성공하면 새 도면으로 폼을 다시 마운트하고, 실패하면 이 버튼을 남겨 다시 시도하게 합니다.
                 setTimeout(() => changeRef.current?.focus());
               }}
               ref={changeRef}
@@ -302,7 +302,7 @@ export function AdminSizeChartForm({
           const value = inputs[key] ?? "";
           const parsed = parseSizeChartValue(kind, value);
           const invalid = isInvalid(kind, value);
-          // Clothes show the inch conversion beside the cm input; wheels stay in mm.
+          // 의류는 cm 입력 옆에 인치 환산을 보여 주고, 휠은 mm만 씁니다.
           const inches =
             parsed !== null && info.unit === "cm"
               ? formatSizeChartValue(kind, parsed).split(" ")[1]
@@ -328,7 +328,7 @@ export function AdminSizeChartForm({
             </label>
           );
         })}
-        {/* The range shows again as an error only when a value is out of it. */}
+        {/* 범위 안내는 값이 범위를 벗어났을 때만 오류로 다시 보여 줍니다. */}
         {info.fields.some(({ key }) => isInvalid(kind, inputs[key] ?? "")) ? (
           <p className={deckStyles.error} id={rangeErrorId}>
             {sizeChartRangeText(kind, isKorean)}
@@ -417,8 +417,8 @@ export function AdminSizeChartModal({
   const layer = useModalLayer(isOpen);
   const busyRef = useRef(false);
   const titleId = useId();
-  // Once the drawing changes while open, every new form for a changed drawing takes the focus,
-  // including a switch back to the drawing the modal opened with.
+  // 열린 동안 도면 종류가 한 번 바뀌면, 이후 바뀐 도면의 새 폼은 모두 포커스를 가져갑니다.
+  // 모달을 열 때의 도면으로 되돌아가는 경우도 포함합니다.
   const [shownKind, setShownKind] = useState(form.kind);
   const [kindChanged, setKindChanged] = useState(false);
   if (shownKind !== form.kind) {
@@ -445,7 +445,7 @@ export function AdminSizeChartModal({
           {form.locale === "en" ? "Size chart" : "상세사이즈"} · {productName}
           {form.size === undefined ? "" : ` · ${form.size}`}
         </h2>
-        {/* A new drawing has other fields, so the form starts over with it. */}
+        {/* 새 도면은 입력 항목이 달라 폼을 새로 시작합니다. */}
         <AdminSizeChartForm
           key={form.kind}
           {...form}

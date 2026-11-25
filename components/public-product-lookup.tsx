@@ -62,7 +62,7 @@ function ProductLookupContent({ slug }: Readonly<{ slug: string }>) {
     };
   }, [slug]);
 
-  // Once commerce is configured, static/legacy IDs must never enter a new cart.
+  // 공개 카탈로그 API가 설정되면 정적·예전 상품 ID가 새 장바구니에 들어가지 않게 정적 상품을 쓰지 않습니다.
   const product =
     remoteProduct ?? (readPublicCatalogApiBaseUrl() ? null : staticProduct);
 

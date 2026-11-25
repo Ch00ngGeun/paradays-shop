@@ -1,4 +1,4 @@
-/* A 44px touch target around a small round '?' mark. */
+/* 역할: 컨트롤 옆 '?' 도움말 버튼(작은 원형 표시를 감싼 44px 터치 영역)과 도움말 모달을 그립니다. */
 .button {
   align-items: center;
   background: transparent;

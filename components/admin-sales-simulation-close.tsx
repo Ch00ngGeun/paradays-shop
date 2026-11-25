@@ -1,3 +1,4 @@
+// 역할: 모의 매출 연습의 재고 확정, 모의 일마감, 마감 스냅샷 목록 패널을 그립니다.
 "use client";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import {

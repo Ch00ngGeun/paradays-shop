@@ -1,3 +1,4 @@
+// 역할: 매출 원장의 영업일 조회 도구줄, 처리 결과 미확인 요청 보호(재시도·재조회·잠금 해제), 확정 순매출 요약·마감 경고, 온라인 순매출 집계 근거 이벤트 목록을 그립니다.
 "use client";
 import type { Dispatch, SetStateAction } from "react";
 import type { Locale } from "@/types/store";

@@ -51,7 +51,7 @@ export function SizeChartValue({
   rotate?: number;
   anchor?: "start" | "middle" | "end";
 }>) {
-  // A blank field formats as "null" alone, so it gets no smaller inch part.
+  // 비운 칸은 "null" 하나로만 표기되므로 작은 인치 부분을 붙이지 않습니다.
   const [main, sub] = formatSizeChartValue(kind, value).split(" ");
   return (
     <text

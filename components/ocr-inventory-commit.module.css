@@ -1,3 +1,4 @@
+/* 역할: 입고 OCR 재고 반영 패널과 행별 입고 방식 입력·결과 표 스타일입니다. */
 .panel {
   background: var(--color-paper);
   border: 1px solid var(--color-rule);

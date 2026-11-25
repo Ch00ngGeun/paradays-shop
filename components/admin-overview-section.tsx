@@ -1,3 +1,4 @@
+// 역할: 관리자 운영 홈 화면. 운영 지표를 불러와 지표 카드로 보여 주고, 메뉴 바로가기·새 상품 버튼·최근 운영 기록(이어서 열기)을 그립니다.
 "use client";
 import adminSharedStyles from "./admin-shared.module.css";
 import { useLocale } from "@/contexts/locale-context";
@@ -176,7 +177,7 @@ export function OverviewSection({
               : overviewDescription}
           </p>
         </div>
-        {/* Pushed to the end so "New product" stays a direct child with its header styles. */}
+        {/* 안내 버튼만 감싸 끝으로 밀어, "새 상품" 버튼은 머리말의 직접 자식으로 남아 머리말 스타일을 그대로 받게 합니다. */}
         <span className={adminSharedStyles.pushEnd}>
           <AdminGuideButton locale={locale} steps={adminGuideSteps("home", locale)} />
         </span>

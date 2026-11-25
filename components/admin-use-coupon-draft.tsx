@@ -1,3 +1,4 @@
+// 역할: 관리자 쿠폰 메뉴의 쿠폰명·코드·할인 방식·값·만료 시각·알림·저장 중 상태와 중복 저장 방지 ref를 묶은 상태 훅입니다.
 "use client";
 import { useRef, useState } from "react";
 import { Notice } from "./admin-shared";

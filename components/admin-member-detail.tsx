@@ -1,3 +1,4 @@
+// 역할: 회원 메뉴에서 고른 회원의 상세 정보와 admin·support 권한 추가·제거 미리보기를 보여 주고, 확인 체크·재확인 후 권한 변경을 요청합니다(자기 admin 권한 해제는 막음).
 "use client";
 import adminMembersSectionStyles from "./admin-members-section.module.css";
 import { useLocale } from "@/contexts/locale-context";

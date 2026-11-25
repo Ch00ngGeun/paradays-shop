@@ -1,3 +1,4 @@
+// 역할: 회원 메뉴 훅. 관리자가 명시적으로 누를 때만 회원 목록을 조회하고, admin·support 권한 변경 뒤 목록을 다시 읽으며 조회·저장 상태와 결과 알림을 갱신합니다.
 "use client";
 import { useAuth } from "@/contexts/auth-context";
 import type { AdminDashboardActions } from "@/lib/admin-ui/types";

@@ -21,7 +21,7 @@
 }
 
 .productInfo h1 {
-  /* A product name entered on two lines keeps its break here only; cards and the cart show one line. */
+  /* 두 줄로 입력한 상품명은 여기서만 줄바꿈을 유지하고, 카드와 장바구니는 한 줄로 보여 줍니다. */
   white-space: pre-line;
   font-family: var(--font-nav-product);
   font-size: clamp(2.6rem, 4vw, 4.5rem);

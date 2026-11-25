@@ -130,7 +130,7 @@
   padding: 0;
 }
 
-/* .cartActions — UPDATE CART | Continue shopping */
+/* .cartActions — 장바구니 갱신 버튼·계속 쇼핑 링크 줄(UPDATE CART | Continue shopping) */
 .cartActions {
   display: flex;
   font-family: var(--font-display);

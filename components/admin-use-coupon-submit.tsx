@@ -1,3 +1,4 @@
+// 역할: 쿠폰 초안 제출 훅. 입력을 검증하고, 서버 저장 action이 있으면 초안을 서버에 저장하고 없으면 이 화면에만 준비한 뒤 알림·운영 기록을 남깁니다(고객 발급 없음).
 "use client";
 import type { AdminCouponDraft, AdminDashboardActions } from "@/lib/admin-ui/types";
 import { type FormEvent, type RefObject } from "react";
