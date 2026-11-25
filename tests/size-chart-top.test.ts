@@ -1,3 +1,4 @@
+// 역할: 상의 사이즈 도면의 cm·인치 표시·측정 순서·큰 값/빈 값 처리와 화살표 방향을 검증함.
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -104,7 +105,7 @@ describe("top size chart diagram", () => {
     expect(markup.match(/>null<\/text>/g)).toHaveLength(2);
     expect(markup).not.toContain("nullcm");
     expect(markup).not.toContain("(null");
-    // Filled fields keep their cm and inches, and every field still has one label.
+    // 채운 필드는 cm와 인치를 유지하고 모든 필드는 라벨을 하나씩 가짐.
     expect(markup).toContain(">72cm<tspan");
     expect(markup.match(/<text/g)).toHaveLength(7);
     expect(markup).toContain(
@@ -117,7 +118,7 @@ describe("top size chart diagram", () => {
   });
 
   it("points arrow heads back along the line", () => {
-    // A head at the right end of a horizontal line opens to the left.
+    // 가로선 오른쪽 끝의 화살촉은 왼쪽으로 벌어짐.
     expect(arrowHead(100, 50, 0, 50)).toBe("M 93.7 47.0 L 100 50 L 93.7 53.0");
   });
 });

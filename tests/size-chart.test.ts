@@ -1,3 +1,4 @@
+// 역할: 사이즈표 종류별 측정 필드·단위·범주별 기본값과 측정값 범위·null 저장 규칙을 검증함.
 import { describe, expect, it } from "vitest";
 
 import {
@@ -60,7 +61,7 @@ describe("size chart kinds and fields", () => {
     expect(defaultSizeChartKind("Outerwear")).toBe("raglanLongSleeve");
     expect(defaultSizeChartKind("Bottom")).toBe("longPants");
     expect(defaultSizeChartKind("Wheels")).toBe("wheel");
-    // Deck keeps its own deckSpec; unknown and inherited names get nothing.
+    // 데크는 자기 deckSpec을 유지하고, 모르는 이름과 상속된 이름은 아무것도 받지 않음.
     for (const category of ["Deck", "Bottoms", "toString", "__proto__"]) {
       expect(sizeChartKindsFor(category)).toEqual([]);
       expect(defaultSizeChartKind(category)).toBeNull();
@@ -100,13 +101,13 @@ describe("size chart values", () => {
         contactWidth: "20",
       }),
     ).toEqual({ diameter: 54, width: 33.5, contactWidth: 20 });
-    // A blank or missing field is saved as null, keeping every key of the drawing.
+    // 비었거나 없는 필드는 null로 저장되며 도면의 모든 키를 유지함.
     expect(parseSizeChartInputs("wheel", { diameter: "54", width: " " })).toEqual({
       diameter: 54,
       width: null,
       contactWidth: null,
     });
-    // One wrong field still blocks the whole save.
+    // 잘못된 필드가 하나라도 있으면 전체 저장을 막음.
     expect(
       parseSizeChartInputs("wheel", {
         diameter: "54",
@@ -117,7 +118,7 @@ describe("size chart values", () => {
     expect(
       parseSizeChartInputs("wheel", { diameter: "", width: "abc", contactWidth: "" }),
     ).toBeNull();
-    // With no number at all there is nothing to save as values; that is a delete instead.
+    // 숫자가 하나도 없으면 값으로 저장할 것이 없으므로 대신 삭제가 됨.
     expect(
       parseSizeChartInputs("wheel", { diameter: "", width: "", contactWidth: "" }),
     ).toBeNull();
@@ -126,7 +127,7 @@ describe("size chart values", () => {
   it("checks stored values for exactly the kind's fields within range", () => {
     const wheel = { diameter: 54, width: 33.5, contactWidth: 20 };
     expect(isSizeChartValues("wheel", wheel)).toBe(true);
-    // Blank fields are null, as long as one number remains.
+    // 숫자가 하나라도 남아 있으면 빈 필드는 null임.
     expect(
       isSizeChartValues("wheel", { ...wheel, width: null, contactWidth: null }),
     ).toBe(true);
@@ -146,7 +147,7 @@ describe("size chart values", () => {
       JSON.parse('{"diameter":54,"width":33.5,"__proto__":{"contactWidth":20}}'),
     ])
       expect(isSizeChartValues("wheel", bad), JSON.stringify(bad)).toBe(false);
-    // The same numbers are not valid for a kind with other fields.
+    // 같은 숫자라도 필드가 다른 종류에는 유효하지 않음.
     expect(isSizeChartValues("shorts", wheel)).toBe(false);
   });
 
