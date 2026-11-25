@@ -1,3 +1,4 @@
+/** 역할: 매출 장부 저장소 테스트용 영업일·주문 저장 도우미와 batch를 먼저 검증하는 메모리 DynamoDB fixture를 제공함. */
 import assert from "node:assert/strict";
 import type { TestContext } from "node:test";
 import {
@@ -80,7 +81,7 @@ export function fixture(t: TestContext) {
       callback();
     }
     const items = c.input.TransactItems!;
-    // Validate the entire batch before mutation, just as DynamoDB does.
+    // DynamoDB처럼 변경 전에 batch 전체를 먼저 검증함.
     for (const w of items) {
       const op = w.Put ?? w.Update!;
       const item = w.Put?.Item ?? w.Update!.Key!;

@@ -1,3 +1,4 @@
+/** 역할: 계좌이체 매출이 기록·취소·마감에서 현금과 분리되고 현금 비교에 포함되지 않는지 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { operateSalesDay, readSalesDay } from "../lambda/sales-ledger-store.js";
@@ -34,7 +35,7 @@ test("transfer sales post, reverse and close apart from cash; the cash compariso
   assert.equal(reversal.method, "TRANSFER");
   assert.equal(reversal.kind, "REVERSAL");
   assert.equal(f.products.get("prd_deck")!.inventoryQuantity, 8);
-  // The cash draft is voided so the day can close with transfers only.
+  // 현금 초안을 무효 처리해 계좌이체만으로 마감할 수 있게 함.
   await operateSalesDay(
     day,
     { action: "void", entryId: "sale_cash", version: 1, reason: "중복 입력" },
