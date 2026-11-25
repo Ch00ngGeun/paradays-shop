@@ -1,4 +1,4 @@
-/** Isolated OCR browser tests: copied source, mock public settings, no live API. */
+// 역할: 관리자 OCR e2e spec을 복사한 임시 소스·모의 공개 설정의 개발 서버(포트 3137)에서 실제 API 없이 실행합니다.
 import { cpSync, existsSync, mkdirSync, mkdtempSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -11,8 +11,8 @@ const workspace =
   process.env.PARADAYS_OCR_E2E_WORKSPACE ??
   mkdtempSync(join(tmpdir(), "paradays-ocr-e2e-"));
 if (!process.env.PARADAYS_OCR_E2E_WORKSPACE) {
-  // Explicit source allowlist excludes .env, infra credentials, models, and user
-  // build artifacts. Next may regenerate config/types/AGENTS only in this copy.
+  // 명시한 소스 허용 목록만 복사해 .env·infra 자격정보·모델·사용자 빌드 출력을 제외합니다.
+  // Next가 설정·타입·AGENTS 파일을 다시 만들더라도 이 복사본 안에서만 만듭니다.
   for (const name of [
     "app",
     "components",
@@ -75,7 +75,7 @@ export default defineConfig({
       NEXT_TELEMETRY_DISABLED: "1",
       NEXT_PUBLIC_LOCAL_OCR_ENABLED: "false",
       NEXT_PUBLIC_LOCAL_OCR_API_URL: "",
-      // Deliberate test-only pin; ambient demo settings must never enter a run.
+      // 테스트 전용으로 고정한 값이며, 실행 환경의 데모 설정이 섞여 들어오지 않게 합니다.
       NEXT_PUBLIC_OCR_DEMO_ENABLED: remoteDemo ? "true" : "false",
       NEXT_PUBLIC_OCR_DEMO_API_URL: remoteDemo ? "https://ocr-relay.demo.test" : "",
       NEXT_PUBLIC_OCR_DEMO_ALLOWED_API_ORIGIN: remoteDemo
