@@ -1,3 +1,4 @@
+/** 역할: 주문 재고 snapshot 검증, 상품별 재고 집계, 차감량 이내 복원, 작업 fingerprint와 손상 ledger 거부를 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import {

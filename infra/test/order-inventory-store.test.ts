@@ -1,3 +1,4 @@
+/** 역할: 재고 예약·차감·해제가 재고·revision·주문을 함께 쓰고, 재고 부족과 잔액 0 승인 실패를 안전하게 처리하는지 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { GetCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";

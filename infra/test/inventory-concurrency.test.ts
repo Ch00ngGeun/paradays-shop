@@ -1,3 +1,4 @@
+/** 역할: 동시 결제·예약 해제·재고 소진·transaction 응답 유실·OCR 카탈로그 경합에서 재고 CAS가 중복 차감 없이 동작하는지 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
