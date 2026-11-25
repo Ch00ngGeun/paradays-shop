@@ -1,3 +1,4 @@
+// 역할: 관리자 워크스페이스 context 타입(AdminWorkspaceContext). 현재 메뉴·언어·메뉴 서랍 상태와 각 메뉴의 상태값·처리 함수 묶음을 정의합니다.
 "use client";
 import { useAuth } from "@/contexts/auth-context";
 import { useLocale } from "@/contexts/locale-context";

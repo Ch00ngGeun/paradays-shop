@@ -1,3 +1,4 @@
+// 역할: 현재 메뉴에 맞는 관리자 본문 패널을 고릅니다. 운영 홈에는 주문 재고·모의 주문 패널을 함께 두고, 매출 패널은 숨김 상태로 계속 마운트합니다.
 "use client";
 import adminSharedStyles from "./admin-shared.module.css";
 import { navigateToAdminProductEditor } from "@/lib/admin-ui/navigation";
