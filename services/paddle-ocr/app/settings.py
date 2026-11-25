@@ -1,3 +1,4 @@
+# 역할: PADDLE_OCR_* 환경변수에서 OCR 서비스 설정(host·port·model 언어·공유 비밀값)을 읽음.
 """Typed configuration for the private PaddleOCR service."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# 역할: 비공개 OCR 서비스가 Lambda에 돌려주는 PaddleOCR provider 응답 형식(pydantic model)을 정의함.
 """PaddleOCR provider payloads exposed by the private OCR service."""
 
 from __future__ import annotations
@@ -29,7 +30,7 @@ def _read_bounding_box(value: Any) -> Polygon | None:
     if not isinstance(value, list):
         return None
 
-    # PaddleOCR may supply native [left, top, right, bottom] boxes.
+    # PaddleOCR는 기본 [left, top, right, bottom] 형식 box를 줄 수 있음.
     if len(value) == 4 and all(
         _is_bounding_coordinate(coordinate) for coordinate in value
     ):
@@ -55,7 +56,7 @@ def _read_bounding_box(value: Any) -> Polygon | None:
         ):
             return None
 
-        # Lambda retains only x/y when a provider includes extra point fields.
+        # provider가 점에 추가 필드를 넣어도 Lambda는 x/y만 유지함.
         points.append([point[0], point[1]])
 
     return points
@@ -105,7 +106,7 @@ class PaddleOcrResponse(BaseModel):
             elif poly is not None:
                 merged_boxes.append(poly)
             else:
-                # Keep later entries at their source index; Lambda ignores this slot.
+                # 뒤쪽 항목은 원래 index에 두고, Lambda는 이 칸을 무시함.
                 merged_boxes.append([])
 
         normalized["rec_boxes"] = merged_boxes

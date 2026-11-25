@@ -1,3 +1,4 @@
+# 역할: PaddleOCR 결과의 텍스트·신뢰도·box 좌표 값을 안전한 범위와 UTF-16 길이 기준으로 정규화하는 도우미임.
 from __future__ import annotations
 
 import math
