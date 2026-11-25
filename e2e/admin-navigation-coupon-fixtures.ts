@@ -1,9 +1,10 @@
+// 역할: 쿠폰 초안 검사용 입력 선택·양식 채우기·저장 응답 도우미를 제공함.
 import { type Page, type Route } from "@playwright/test";
 import { DAY, respond } from "./admin-navigation-base-fixtures";
 
 const couponWorkspace = (page: Page) => page.locator("#admin-panel-coupons");
 
-// Form controls only: a '?' help button named "<label> 도움말" shares the label text.
+// 양식 입력 요소만 고름: "<label> 도움말" 이름의 '?' 도움말 버튼도 같은 라벨 글자를 포함함.
 const couponField = (page: Page, label: string) =>
   couponWorkspace(page)
     .getByLabel(label, { exact: false })
