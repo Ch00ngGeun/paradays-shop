@@ -1,3 +1,4 @@
+// 역할: 상품 편집 검사용 양식 입력·옵션 칩 추가/삭제·미리보기·상품 행 선택 도우미를 제공함.
 import { expect, type Locator, type Page } from "@playwright/test";
 import { active } from "./admin-navigation-base-fixtures";
 
@@ -56,7 +57,7 @@ function productPreview(page: Page) {
   return page.locator("#admin-panel-products aside").first();
 }
 
-// Product rows only; the menu-top work flow is a separate list.
+// 상품 행만 고름. 메뉴 상단 작업 단계는 별도 목록임.
 const productRows = (panel: Locator) =>
   panel.getByRole("list", { name: "상품 목록", exact: true }).getByRole("listitem");
 
