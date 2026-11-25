@@ -1,3 +1,4 @@
+// 역할: 관리자 브랜드 메뉴 화면. 상품에 연결된 브랜드 목록을 검색·연결 여부로 거르고, 새 브랜드를 서버 등록(또는 이 화면 임시 추가)하는 폼을 그립니다.
 "use client";
 import adminBrandSectionStyles from "./admin-brand-section.module.css";
 import adminSharedStyles from "./admin-shared.module.css";
