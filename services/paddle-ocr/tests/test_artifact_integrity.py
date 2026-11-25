@@ -1,3 +1,4 @@
+# 역할: model manifest 무결성 검증(손상·누락·symlink·경로 이탈 등)과 main.py lifespan의 초기화 차단을 표준 라이브러리 stub으로 검증함.
 """Dependency-free model fixtures and actual lifespan code with API/runtime stubs."""
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ class ArtifactTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        # macOS /var itself is a symlink; fixtures use the resolved absolute root.
+        # macOS의 /var 자체가 symlink이므로 fixture는 실제 경로로 푼 절대 root를 씀.
         self.cache = Path(self.temp.name).resolve() / "cache"
         self.models = self.cache / "official_models"
         self.records = {}
@@ -187,8 +188,8 @@ class ArtifactTests(unittest.TestCase):
                 integrity.verify_baked_model_artifacts()
 
     def load_main(self):
-        # Execute real main.py. Minimal API/settings stubs keep these tests runnable
-        # with stdlib alone and avoid initializing/installing Paddle or FastAPI.
+        # 실제 main.py를 실행함. 최소 API/settings stub으로 표준 라이브러리만으로 돌게 하고
+        # Paddle·FastAPI 설치나 초기화를 피함.
         package = types.ModuleType("ocr_test_app")
         package.__path__ = [str(APP)]
         fastapi = types.ModuleType("fastapi")

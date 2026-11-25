@@ -1,3 +1,4 @@
+# 역할: OCR 요청 이미지의 크기·base64·JSON 형식·PNG/JPEG/WebP header 검증을 OCR·디코더 import 없이 검사함.
 """Exercise real stdlib request/header validation without importing OCR/decoders.
 
 Fixtures contain bounded headers, not complete pixel streams. Acceptance here
@@ -31,7 +32,7 @@ def png(width=1, height=1):
 
 
 def jpeg(width=1, height=1):
-    # One component, SOF segment length 8 + 3*N (including length bytes).
+    # component 1개, SOF segment 길이는 8 + 3*N(길이 byte 포함).
     return b"\xff\xd8\xff\xc0" + struct.pack(">HBHHB", 11, 8, height, width, 1) + b"\x01\x11\x00"
 
 
@@ -67,7 +68,7 @@ class InputLimitsTests(unittest.TestCase):
     def assert_rejected(self, image, error=validation.InvalidOcrRequest):
         with self.assertRaises(error) as caught:
             validation.parse_ocr_request(request(image))
-        # Public validation failures must not expose input/path content.
+        # 공개 검증 실패 응답에 입력·경로 내용이 드러나면 안 됨.
         self.assertEqual(str(caught.exception), "")
 
     def test_limits_are_not_relaxed(self):
@@ -95,7 +96,7 @@ class InputLimitsTests(unittest.TestCase):
                         self.assertEqual(len(validation.parse_ocr_request(request(image)).data), validation.MAX_IMAGE_BYTES)
 
     def test_webp_exact_4mib_and_plus_one(self):
-        # Unknown metadata chunks are allowed; RIFF/chunk lengths remain exact.
+        # 알 수 없는 metadata chunk는 허용하되 RIFF/chunk 길이는 정확해야 함.
         image = webp(vp8(), chunk(b"JUNK", bytes(validation.MAX_IMAGE_BYTES - 38)))
         self.assertEqual(len(image), validation.MAX_IMAGE_BYTES)
         self.assertEqual(len(validation.parse_ocr_request(request(image)).data), validation.MAX_IMAGE_BYTES)
@@ -145,8 +146,8 @@ class InputLimitsTests(unittest.TestCase):
             self.assert_rejected(image, validation.UnsupportedOcrImage)
 
     def test_every_truncated_png_jpeg_webp_header(self):
-        # Keep the complete format signature so the expected error is a malformed
-        # request rather than an unsupported format. No unchecked read may escape.
+        # 형식 서명은 온전히 두어 기대 오류가 미지원 형식이 아니라 잘못된 요청이
+        # 되게 함. 검사되지 않은 읽기가 새어 나가면 안 됨.
         for image, signature_length in ((png(), 8), (jpeg(), 3), (webp(vp8()), 12),
                                         (webp(vp8l()), 12), (webp(vp8x(), vp8()), 12)):
             for length in range(signature_length, len(image)):

@@ -1,3 +1,4 @@
+# 역할: 실제 main.py OCR 경로의 응답 기한(504)·단일 permit·취소·종료 시 permit 해제를 제어된 native 작업 stub으로 검증함.
 """Run actual main.py endpoint/gate/executor with a controlled native-work stub.
 
 FastAPI/settings shells only register routes and hold responses. Admission,
@@ -75,7 +76,7 @@ class Request:
     headers = {"authorization": "Bearer test-only-secret", "content-type": "application/json"}
 
     async def stream(self):
-        # Real parse_ocr_request reads a valid bounded 1x1 PNG IHDR.
+        # 실제 parse_ocr_request가 유효한 1x1 PNG IHDR을 읽음.
         image = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR" + struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0) + bytes(4)
         body = json.dumps({"file": base64.b64encode(image).decode(), "fileType": 1, "visualize": False}).encode()
         yield body[:20]
@@ -145,14 +146,14 @@ class DeadlineTests(unittest.IsolatedAsyncioTestCase):
         self.tasks = []
 
     async def asyncTearDown(self):
-        # Always free the controlled thread, even after an assertion fails.
+        # 단언이 실패한 뒤에도 제어 중인 thread를 항상 풀어 줌.
         self.worker.allow_finish.set()
         for task in self.tasks:
             if not task.done():
                 task.cancel()
         await asyncio.gather(*self.tasks, return_exceptions=True)
         self.executor.shutdown(wait=True, cancel_futures=True)
-        # Process real asyncio future completion/release callbacks before closing.
+        # 닫기 전에 실제 asyncio future 완료/해제 callback을 처리함.
         await asyncio.sleep(0)
         await asyncio.sleep(0)
         await self.lifespan.__aexit__(None, None, None)
@@ -290,8 +291,8 @@ class DeadlineTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(0)
             gc.collect()
             await asyncio.sleep(0)
-            # An abandoned shielded future must not expose native exceptions via
-            # asyncio's default logging when it finishes after the HTTP timeout.
+            # 버려진 shield future가 HTTP 시간 초과 뒤에 끝나더라도 asyncio 기본
+            # logging으로 native 예외를 드러내면 안 됨.
             self.assertEqual(len(contexts), 0, "abandoned native future raised an unhandled loop error")
             self.worker.error = None
             await self.assert_readmitted()
