@@ -1,4 +1,4 @@
-/** Run isolated local development processes without touching the user's dev server. */
+// 역할: 사용자 개발 서버를 건드리지 않고 로컬 OCR 중계 서버와 임시 프런트엔드 개발 프로세스를 격리해 실행합니다.
 import { randomBytes } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { cp, mkdir, mkdtemp, symlink, writeFile } from "node:fs/promises";
@@ -34,7 +34,7 @@ const allowedPublic = [
   "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
 ];
 
-/** Only an explicit desktop opt-in enables the fixed Firebase demo origin. */
+/** 데스크톱에서 명시적으로 켠 경우에만 고정된 Firebase 데모 origin을 허용합니다. */
 export function resolveLocalOcrProfile(demoSetting) {
   if (demoSetting !== undefined && !["true", "false"].includes(demoSetting))
     throw new Error("LOCAL_OCR_DEMO_CONFIGURATION_INVALID");
@@ -116,7 +116,7 @@ async function startLocalOcr() {
     const runtime = await mkdtemp(path.join(os.tmpdir(), "paradays-local-ocr-"));
     const source = path.join(runtime, "frontend");
     await mkdir(source, { mode: 0o700 });
-    // Copy application source only. Private env files, OCR fixtures and outputs are excluded.
+    // 애플리케이션 소스만 복사하며 비공개 env 파일·OCR fixture·출력물은 제외합니다.
     for (const directory of [
       "app",
       "components",
@@ -219,7 +219,7 @@ async function startLocalOcr() {
     );
     children.push(relay);
     await ready(`http://127.0.0.1:${relayPort}/healthz`, relay);
-    // Only public settings enter the frontend child; provider configuration never does.
+    // 프런트엔드 자식 프로세스에는 공개 설정만 넘기고 provider 설정은 넘기지 않습니다.
     const frontendEnv = Object.fromEntries(
       Object.entries(process.env).filter(
         ([key]) =>
