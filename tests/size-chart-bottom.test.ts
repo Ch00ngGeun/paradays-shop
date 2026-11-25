@@ -1,3 +1,4 @@
+// 역할: 하의 사이즈 도면이 도면과 측정 항목 이름을 화면 언어로 표시하는지 검증함.
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
