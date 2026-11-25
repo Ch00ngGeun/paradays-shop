@@ -110,7 +110,7 @@ export async function createProduct(
       ? commitCatalogIntake(catalogTableName, intake, userSub)
       : jsonResponse(400, { code: "OCR_INTAKE_INVALID" });
   }
-  // 옵션별 사이즈 표는 전용 sizeDeckSpec PATCH로만 저장하고,
+  // 옵션별 사이즈 표는 데크 sizeDeckSpec·의류/휠 sizeChartValues 전용 PATCH로만 저장하고,
   // 의류/휠 사이즈 표는 저장된 상품에 대한 PATCH로만 저장함.
   const input = parseProductInput(
     isRecord(body)

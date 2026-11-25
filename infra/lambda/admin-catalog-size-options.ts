@@ -82,7 +82,7 @@ export function readDeckSpecsBySize(
     return null;
   }
 
-  // fromEntries는 자기 속성 key를 정의하므로 __proto__ 이름 옵션도 다른 옵션처럼 저장됨.
+  // 위 검증을 통과한 옵션 key를 fromEntries로 자기 속성으로 구성함.
   return entries.length ? Object.fromEntries(entries) : undefined;
 }
 

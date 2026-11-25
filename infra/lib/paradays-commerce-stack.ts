@@ -365,7 +365,7 @@ export class CommerceStack extends Stack {
       },
     );
     orderTable.grantReadWriteData(paymentConfirmFunction);
-    // 재고 transaction은 revision을 읽고 상품 행만 Put/Update함.
+    // 재고 transaction은 revision을 읽어 Put으로 갱신하고 상품 행은 Update함.
     catalogTable.grant(
       paymentConfirmFunction,
       "dynamodb:GetItem",
