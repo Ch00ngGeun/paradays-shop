@@ -2,8 +2,8 @@
  * 역할: 관리자 전용 Lambda가 Cognito JWT group claim을 같은 방식으로 검증하게 함.
  * 기능: 브라우저의 화면 숨김과 무관하게 API 경계에서 admin group과 subject를 확인함.
  *
- * Cognito access token에는 기본적으로 `cognito:groups`가 없음(ID token에만 있음).
- * claim이 비어 있으면 Cognito AdminListGroupsForUser로 서버에서 재검증함.
+ * `cognito:groups`에서 admin이 확인되지 않으면 username·USER_POOL_ID가 있을 때
+ * Cognito AdminListGroupsForUser로 서버에서 재검증함.
  */
 
 import {
