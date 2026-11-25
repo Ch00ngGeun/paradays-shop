@@ -1,4 +1,4 @@
-/** Real handler with an atomic, conditional in-memory SDK transport. No credentials or network. */
+/** 역할: 관리자 카탈로그 handler 테스트용 상품·event 생성기와 원자적·조건부 메모리 SDK 전송 fixture를 제공함. 자격증명·네트워크는 쓰지 않음. */
 import assert from "node:assert/strict";
 import { type TestContext } from "node:test";
 import { CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";
@@ -176,7 +176,7 @@ export function fixture(
         const operations = command.input.TransactItems!;
         assert.ok(operations.length >= 2 && operations.length <= 99);
         assert.equal(operations[0].Put!.Item!.productId, REVISION);
-        // Validate every condition before changing any item, exactly as a transaction must.
+        // transaction처럼 item을 바꾸기 전에 모든 조건을 먼저 검사함.
         for (const operation of operations) {
           const write = operation.Put ?? operation.Delete!;
           assert.equal(write.TableName, "test-catalog");
