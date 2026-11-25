@@ -1,4 +1,6 @@
 # 역할: 이미지 build 중 실제 PaddleOCR model로 메모리 안 인식을 한 번 실행해 응답 형식을 확인하는 점검 도구임.
+# 참고: 아래 docstring은 Docker build가 이 점검을 하지 않는다고 적지만, 현재 Dockerfile은 `RUN paddle-ocr-smoke`로 실행함.
+# docstring은 문자열 값이라 원문을 보존함.
 """Opt-in, in-memory real-model smoke check for the PaddleOCR service image.
 
 It is deliberately not imported by the API or Docker build. Running the console

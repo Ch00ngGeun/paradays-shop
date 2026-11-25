@@ -1,4 +1,5 @@
-# PaddlePaddle's CPU runtime is packaged and tested for Linux x86_64 here.
+# 역할: 비공개 PaddleOCR provider 서비스 이미지를 만들고, 한국어 model을 미리 넣어 manifest로 고정함.
+# PaddlePaddle CPU runtime은 여기서 Linux x86_64 기준으로 설치·검증함.
 FROM --platform=linux/amd64 python:3.11.17-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -10,8 +11,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PADDLE_PDX_CACHE_HOME=/home/paddleocr/.paddlex \
     PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True
 
-# libgomp is required by the CPU Paddle runtime; glib and libGL are needed by
-# OpenCV, including PaddleOCR's contrib wheel. No runtime credential is included.
+# libgomp는 CPU Paddle runtime에, glib·libGL은 PaddleOCR contrib wheel을 포함한
+# OpenCV에 필요함. 실행용 자격증명은 넣지 않음.
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends libglib2.0-0 libgomp1 libgl1 \
     && rm -rf /var/lib/apt/lists/* \
@@ -22,8 +23,8 @@ WORKDIR /app
 COPY pyproject.toml ./
 COPY app ./app
 
-# Direct runtime versions match the validated CPU smoke. Transitive dependencies
-# and upstream model bytes are recorded in the built image, not a complete lock.
+# 직접 의존 runtime 버전은 검증된 CPU smoke와 같음. 간접 의존성과 상류 model
+# byte는 완전한 lock이 아니라 build된 이미지 안에 기록됨.
 RUN pip install --no-cache-dir . \
     && chown --recursive paddleocr:paddleocr /app \
     && mkdir --parents /home/paddleocr/.paddlex/func_ret \
@@ -32,13 +33,13 @@ RUN pip install --no-cache-dir . \
 
 USER paddleocr
 
-# Bake the two Korean pipeline models into the image as the runtime user. Builds
-# need model-download access; the deployed service uses these files without it.
-# A model or warm-inference failure fails the image build before it can deploy.
+# 실행 사용자로 한국어 pipeline model 2개를 이미지에 넣음. build에는 model 다운로드
+# 접근이 필요하지만, 배포된 서비스는 그 접근 없이 이 파일을 씀.
+# model이나 예열 추론이 실패하면 배포 전에 이미지 build가 실패함.
 RUN paddle-ocr-smoke
 
-# Record and verify the model artifacts shipped in this particular image. Deploy
-# the tested immutable image digest; this manifest does not pin remote rebuilds.
+# 이 이미지에 들어간 model 파일을 기록하고 검증함. 검증한 불변 이미지 digest를
+# 배포하며, 이 manifest가 원격 재build 결과를 고정하지는 않음.
 RUN python - <<'PY'
 import hashlib
 import importlib.metadata
@@ -91,8 +92,8 @@ PY
 
 USER root
 
-# Keep model bytes read-only while PaddleX's generic lock/function/temp cache
-# remains writable to UID 10001. The service never mounts customer image files.
+# model byte는 읽기 전용으로 두고, PaddleX의 일반 lock/function/temp cache만
+# UID 10001이 쓸 수 있게 둠. 서비스는 고객 이미지 파일을 mount하지 않음.
 RUN chown --recursive root:root /home/paddleocr/.paddlex/official_models \
     && chown root:root /home/paddleocr/.paddlex/model-manifest.json \
     && chmod --recursive a-w /home/paddleocr/.paddlex/official_models \
