@@ -1,3 +1,4 @@
+// 역할: 매출 모의 실행의 전표·재고 차감·마감 계산과 메모리 유지·폐기, 이체·모바일·작업 단계를 검증함.
 import { expect, test } from "@playwright/test";
 import {
   ORIGIN,

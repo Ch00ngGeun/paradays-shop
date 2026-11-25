@@ -1,3 +1,4 @@
+// 역할: 상점에서 관리자로 진입한 뒤 원래 상품·질의·앵커로 돌아오는 경로와 안전하지 않은 복귀 대상의 홈 대체를 검증함.
 import { expect, test, type Page, type Route } from "@playwright/test";
 
 const ORIGIN = "http://127.0.0.1:3139";
