@@ -1,4 +1,4 @@
-/** Unsigned webhook input only locates a payment. Server lookup + shared CAS ledger provide proof. */
+/** 역할: Toss 결제 webhook을 받아 서버 조회 결과로 주문 결제·환불 상태를 맞추고, 같은 event를 다시 처리하지 않도록 기록함. 서명 없는 webhook 입력은 결제를 찾는 데만 쓰며, 증빙은 서버 조회와 공용 CAS ledger가 맡음. */
 import { GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
 import { documentClient, getRequiredEnvironment } from "./dynamodb-client.js";
@@ -48,7 +48,7 @@ export async function handler(
     const payment = await getTossPayment({ credentials, paymentKey });
     if (payment.paymentKey !== paymentKey)
       return jsonResponse(503, { code: "PAYMENT_WEBHOOK_IDENTITY_MISMATCH" });
-    const order = await readOrder(payment.orderId); // storage errors must NOT become not-found/consumed events
+    const order = await readOrder(payment.orderId); // 저장소 오류를 not-found나 처리 완료 이벤트로 바꾸면 안 됨
     if (!order) return jsonResponse(200, { received: true, ignored: true });
     if (
       !["DONE", "CANCELED", "PARTIAL_CANCELED", "ABORTED", "EXPIRED"].includes(

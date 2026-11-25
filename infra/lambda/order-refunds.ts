@@ -1,4 +1,4 @@
-/** Money cancellation and physical inspection are separate durable operations. */
+/** 역할: 관리자 출고 확인·반품 수령·환불 시작·환불 결제 동기화를 처리함. 금액 취소와 실물 검수는 별개의 영속 작업임. */
 import {
   aggregateStock,
   checkOperation,
@@ -32,7 +32,7 @@ const financialLedger = (order: OrderRecord) => {
     throw new InventoryError("REFUND_PAYMENT_PROOF_REQUIRED");
   return order.inventory;
 };
-/** LEGACY is monetary bookkeeping only, never proof of a stock debit. */
+/** LEGACY는 금액 장부일 뿐이며 재고 차감의 증빙이 아님. */
 export async function ensureLegacyFinancialLedger(
   order: OrderRecord,
 ): Promise<OrderRecord> {
@@ -194,7 +194,7 @@ export function refundIntent(
     providerReason: `pd:${operationKey(order.orderId + ":" + operationId).slice(0, 32)}:${reason}`,
   };
 }
-/** Check op proof before any provider call, including a retry after the order is fully refunded. */
+/** 주문이 전액 환불된 뒤의 재시도를 포함해, provider 호출 전에 작업 증빙을 먼저 확인함. */
 export async function startRefund(
   order: OrderRecord,
   intent: RefundIntent,
@@ -300,7 +300,7 @@ export async function syncRefundPayment(
     matches[0]!.cancelStatus !== "DONE" ||
     matches[0]!.cancelAmount !== pending.amount
   ) {
-    // Preserve the lock until the exact provider transaction is proven; never attribute an unrelated cancel.
+    // 정확한 provider 거래가 증명될 때까지 잠금을 유지하며, 무관한 취소를 이 작업으로 돌리지 않음.
     return settleInventoryPayment(order, payment);
   }
   if (
