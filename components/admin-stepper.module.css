@@ -1,3 +1,4 @@
+/* 역할: 관리자 작업 흐름 단계 표시(AdminStepper)의 단계 원·연결선·상태별 색과 좁은 화면·강제 색상 모드 대응 스타일입니다. */
 .stepper {
   --stepper-ink: var(--color-ink);
   --stepper-paper: var(--color-paper);
@@ -23,7 +24,7 @@
   text-align: center;
 }
 
-/* Connector into this step; dark once this step is reached. */
+/* 이 단계로 들어오는 연결선이며, 이 단계에 도달하면 진하게 바뀝니다. */
 .step:not(:first-child)::before {
   background: var(--stepper-line);
   content: "";

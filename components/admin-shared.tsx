@@ -1,3 +1,4 @@
+// 역할: 관리자 화면들이 함께 쓰는 한·영 문구 타입·선택, OCR 오류 문구 변환, 운영 기록 상태, 빈 상품 초안, 지표 카드·바로가기·빈 상태·알림 컴포넌트와 쿠폰·캠페인 초안 검증을 제공합니다.
 "use client";
 import adminSharedStyles from "./admin-shared.module.css";
 import { useLocale } from "@/contexts/locale-context";
@@ -62,7 +63,7 @@ export const operationStatusLabels = {
   },
 } as const;
 
-/** Capture wall-clock time only when an administrator event is handled, never in render. */
+/** 현재 시각은 관리자 이벤트를 처리할 때만 읽고, 렌더 중에는 읽지 않습니다. */
 export function operationEventTime() {
   return Date.now();
 }
