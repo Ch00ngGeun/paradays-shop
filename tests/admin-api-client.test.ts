@@ -1,4 +1,4 @@
-// 역할: 관리자 API 클라이언트가 Cognito 토큰을 사용하고, 민감한 OCR 입력을 브라우저에서 먼저 검증하는지 확인합니다.
+// 역할: 관리자 API 클라이언트의 영어 OCR 오류 문구, 개요 지표 응답 검증, rawText의 인증된 PATCH 전송과 사전 검증을 확인합니다.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminApiRequestError } from "@/lib/commerce/admin-api-client";
 import {

@@ -1,3 +1,4 @@
+// 역할: 개발용 로컬 OCR 전송과 고정 HTTPS OCR 시연 전송의 활성화 조건·인증·경로를 검증함.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AdminApiRequestError,
