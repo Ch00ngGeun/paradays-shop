@@ -1,3 +1,4 @@
+/* 역할: 관리자 워크스페이스 각 메뉴(운영 홈·상품·재고·매출·브랜드·회원·쿠폰·마케팅·입고 OCR)가 함께 쓰는 레이아웃·폼·목록·반응형 공통 스타일입니다. */
 .adminHeader h1,
 .previewHeader h2,
 .listPanelHeading h2 {
@@ -8,7 +9,6 @@
   line-height: 0.94;
   margin: 0;
 }
-
 .loadingLine {
   align-items: center;
   display: inline-flex;
@@ -1601,7 +1601,7 @@
   min-height: 2.75rem;
 }
 
-/* The product name may span two lines; the box grows with its content instead of scrolling. */
+/* 상품명은 두 줄까지 쓸 수 있어 스크롤 대신 내용에 맞춰 상자가 늘어납니다. */
 .productScreen .editorForm .productNameInput {
   field-sizing: content;
   overflow: hidden;
@@ -1877,7 +1877,7 @@
   color: var(--product-danger);
 }
 
-/* The bordered box is the name and its chart mark; the remove button sits just outside it. */
+/* 테두리 상자는 옵션 이름과 상세사이즈 표시만 감싸고, 삭제 버튼은 바로 바깥에 둡니다. */
 .productScreen .productOptionChipBox {
   align-items: center;
   background: transparent;
@@ -1894,7 +1894,7 @@
   padding: 0 0.55rem;
 }
 
-/* A deck chip box opens its size chart, so it fills like the product form's secondary buttons. */
+/* 버튼인 옵션 칩 상자는 그 옵션의 상세사이즈 모달을 열므로 호버·포커스 때 보조 버튼처럼 검게 채웁니다. */
 .productScreen button.productOptionChipBox {
   cursor: pointer;
 }
@@ -3075,7 +3075,7 @@
   }
 }
 
-/* Shared menu-top work flow (AdminStepper). */
+/* 각 메뉴 상단에 공통으로 두는 작업 흐름(AdminStepper) 영역입니다. */
 .screenStepper {
   border-bottom: 1px solid var(--color-rule);
   padding-bottom: 1.25rem;
@@ -3114,14 +3114,14 @@
   }
 }
 
-/* One-line values that wrap and grow while typing instead of being cut off; Enter never adds a line. */
+/* 한 줄 값이지만 입력 중 잘리지 않고 줄이 접히며 늘어나는 칸입니다. Enter로 줄이 추가되지 않습니다. */
 .adminPage textarea.growingInput {
   field-sizing: content;
   overflow: hidden;
   resize: none;
 }
 
-/* Fields whose label wraps the input get the '?' at the label line's right end instead. */
+/* 라벨이 입력칸을 감싸는 옵션·이미지 필드는 '?' 버튼을 라벨 줄 오른쪽 끝(.fieldHelpCorner)에 둡니다. */
 .productScreen :is(.productOptionField, .productImageField) {
   position: relative;
 }
@@ -3136,7 +3136,7 @@
   top: -0.7rem;
 }
 
-/* A field whose label wraps its input; its '?' sits at the label line's right end. */
+/* 라벨이 입력칸을 감싸는 필드이며, '?' 버튼은 라벨 줄 오른쪽 끝에 둡니다. */
 .helpField {
   min-width: 0;
   position: relative;
