@@ -1,3 +1,4 @@
+// 역할: 관리자 메뉴 상단의 작업 흐름 단계 표시(AdminStepper)와 완료 여부로 현재 단계를 정하는 함수를 제공합니다.
 import type { Locale } from "@/types/store";
 
 import styles from "./admin-stepper.module.css";
