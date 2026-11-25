@@ -1,3 +1,4 @@
+// 역할: 상품 편집 폼의 옵션 칩 입력. 데크 폭·휠 지름/경도 선택이나 직접 입력으로 옵션을 추가·삭제하고, 저장된 옵션 칩에서 상세사이즈 모달을 엽니다.
 "use client";
 import adminProductSectionStyles from "./admin-product-section.module.css";
 import { useLocale } from "@/contexts/locale-context";
@@ -47,7 +48,7 @@ export function ProductOptionControls({
       : category === "Wheels"
         ? formatProductWheelOption(wheelDiameter, wheelHardness)
         : null;
-  // Typed text wins over a pending choice, so what the admin sees in the input is what gets added.
+  // 입력한 글자가 선택값보다 우선해, 관리자가 입력칸에서 보는 값이 그대로 추가됩니다.
   const option = typed.trim() || chosen;
   const addOption = () => {
     if (!option) return;
@@ -80,7 +81,7 @@ export function ProductOptionControls({
     setWheelDiameter("");
     setWheelHardness("");
   };
-  // Removes by position, so one chip of a legacy duplicate such as "M, M, L" goes alone.
+  // 위치로 지워서 "M, M, L" 같은 예전 중복 옵션도 칩 하나만 빠집니다.
   const removeOption = (index: number) => {
     const removed = options[index];
     onChange(options.filter((_, position) => position !== index).join(", "));
@@ -117,7 +118,7 @@ export function ProductOptionControls({
             setTyped(event.target.value);
           }}
           onKeyDown={(event) => {
-            // Enter adds the typed option instead of submitting the product form; IME input is still composing.
+            // Enter는 상품 폼을 제출하지 않고 입력한 옵션을 추가합니다. IME 조합 중인 Enter는 무시합니다.
             if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
             event.preventDefault();
             addOption();
@@ -199,7 +200,7 @@ export function ProductOptionControls({
                 {isKorean ? "상세" : "chart"}
               </small>
             ) : null;
-            // The box holds the name and its chart mark; the remove button sits outside it.
+            // 상자는 옵션 이름과 상세사이즈 표시만 감싸고, 삭제 버튼은 상자 바깥에 둡니다.
             return (
               <li
                 className={adminProductSectionStyles.productOptionChip}

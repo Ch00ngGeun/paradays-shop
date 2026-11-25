@@ -1,3 +1,4 @@
+// 역할: 상품 편집 중인 초안을 고객 상품상세처럼 보여 주는 미리보기(이미지·브랜드·이름·가격·옵션·설명)입니다.
 "use client";
 import adminProductSectionStyles from "./admin-product-section.module.css";
 import adminSharedStyles from "./admin-shared.module.css";
