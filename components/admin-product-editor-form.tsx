@@ -1,3 +1,4 @@
+// 역할: 상품 등록·수정 폼. 기본 정보·판매 정보 칸, 대표 이미지 선택, 상품 설명, 공개 설정과 저장 버튼을 묶습니다.
 "use client";
 import adminProductSectionStyles from "./admin-product-section.module.css";
 import adminSharedStyles from "./admin-shared.module.css";
