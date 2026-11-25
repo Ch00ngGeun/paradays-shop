@@ -1,3 +1,4 @@
+// 역할: 상품 예시 이미지·실제 이미지·깨진 이미지 대체 표시와 모바일·테마별 작업 카드 표시를 검증함.
 import { expect, test } from "@playwright/test";
 import {
   operationRows,
