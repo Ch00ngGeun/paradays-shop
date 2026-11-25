@@ -1,3 +1,4 @@
+// 역할: 주문 취소·반품 재고 패널이 쓰는 금액 표기, 재고 원장 상태 이름(한·영), 서버가 확정 거절한 오류 코드 목록을 둡니다.
 import type { Locale } from "@/types/store";
 
 export const money = (amount: number, locale: Locale) =>
