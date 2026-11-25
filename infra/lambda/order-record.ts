@@ -175,7 +175,7 @@ export function isOrderRecord(value: unknown): value is OrderRecord {
   );
 }
 
-/** Audit additions are bounded and unique; a money mutation still uses the order CAS. */
+/** 감사 항목 추가는 개수 제한과 중복 금지를 지키며, 금액 변경은 여전히 주문 CAS를 씀. */
 export function validFinancialEvents(
   value: unknown,
   total: number,
