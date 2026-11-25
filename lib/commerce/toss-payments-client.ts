@@ -195,7 +195,7 @@ export async function requestTossPayment({
   customerEmail?: string;
   loadSdk?: () => Promise<TossPaymentsFactory>;
 }>): Promise<void> {
-  // Own the validated values before SDK loading yields to other browser code.
+  // SDK 로딩 중 다른 브라우저 코드가 실행되기 전에 검증할 값을 복사해 고정합니다.
   const paymentSession = { ...session };
   if (isSyntheticIdentifier(paymentSession.orderId))
     throw new TossPaymentsClientUnavailableError(

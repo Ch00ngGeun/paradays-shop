@@ -175,7 +175,7 @@ export async function buildProductI18nFields(input: {
   nameI18n: Readonly<{ en: string; ko: string }>;
   descriptionI18n: Readonly<{ en: string[]; ko: string[] }>;
 }> {
-  // A name may span lines; blank lines are dropped so the source and translation keep the same line count.
+  // 상품명은 여러 줄일 수 있으며, 빈 줄을 버려 원문과 번역문의 줄 수를 맞춥니다.
   const nameLines = input.name
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -194,7 +194,7 @@ export async function buildProductI18nFields(input: {
     .map((line) => line.trim())
     .filter(Boolean);
 
-  // Each line is translated on its own, because joined chunks would lose the line break.
+  // 합친 덩어리로 번역하면 줄바꿈이 사라지므로 줄마다 따로 번역합니다.
   const translatedName =
     nameLines.length > 1
       ? (await translateLines(nameLines, sourceLocale, targetLocale)).join("\n")
