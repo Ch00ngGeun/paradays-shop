@@ -1,3 +1,4 @@
+// 역할: 매출 원장의 일마감 패널. 결제 구분별 순매출과 현금 수기 대조액을 확인해 선택일을 마감·재개방(사유 입력)하고, 마감표·재개방 이력을 보여 줍니다.
 "use client";
 import type { Dispatch, SetStateAction } from "react";
 import type { Locale } from "@/types/store";

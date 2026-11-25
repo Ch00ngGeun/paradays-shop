@@ -1,3 +1,4 @@
+// 역할: 매출 원장의 오프라인 전표 목록(판매 시간순), 판매 확정 전 예정 재고 변동표, 전표 상세와 원전표 반대전표 기록 화면을 그립니다.
 "use client";
 import type { Dispatch, SetStateAction } from "react";
 import type { Locale } from "@/types/store";
