@@ -1,3 +1,4 @@
+// 역할: 관리자 영어 화면 검사에 쓰는 합성 날짜·주문·카탈로그·회원·매출 보고서·OCR 토큰·PNG 데이터를 제공함.
 import { deflateSync } from "node:zlib";
 import { type OcrTableToken } from "../infra/lambda/ocr-table-parser.js";
 import {
@@ -243,7 +244,7 @@ const initialOcrJob = () => ({
   >,
 });
 
-/** The storefront contract for one admin catalog row. */
+/** 관리자 카탈로그 한 행을 상점 공개 응답 형식으로 바꿈. */
 function publicShape(item: Record<string, unknown>) {
   const { productId, brandName, ...rest } = item;
   return { ...rest, id: productId, brand: brandName };
