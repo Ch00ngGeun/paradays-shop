@@ -397,7 +397,7 @@ def _read_vp8_dimensions(value: bytes) -> tuple[int, int]:
 def _read_vp8l_dimensions(value: bytes) -> tuple[int, int]:
     """Read dimensions from the fixed VP8L image header."""
 
-    # 네 번째 byte의 상위 3 bit는 VP8L version이며 0이어야 함.
+    # 인덱스 4(다섯 번째 byte)의 상위 3 bit는 VP8L version이며 0이어야 함.
     if len(value) < 5 or value[0] != 0x2F or value[4] & 0xE0:
         raise InvalidOcrRequest
 
