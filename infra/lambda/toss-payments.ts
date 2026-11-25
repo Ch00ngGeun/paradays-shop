@@ -1,6 +1,6 @@
 /**
  * 역할: 서버에서만 Toss Payments Core API를 호출하고, Secrets Manager 비밀키를 캐시함.
- * 기능: 결제 승인·조회·전체 취소 요청과 응답 검증을 제공하며 비밀값·PG 원문 오류를 외부로 노출하지 않음.
+ * 기능: 결제 승인·조회·전체·부분 취소 요청과 응답 검증을 제공하며 비밀값·PG 원문 오류를 외부로 노출하지 않음.
  */
 
 import {
@@ -46,7 +46,7 @@ export class TossPaymentsApiError extends Error {
   }
 }
 
-/** Lambda 컨테이너당 한 번만 Secrets Manager를 조회합니다. */
+/** Lambda 컨테이너에서 secret ARN별 조회를 공유하며, 실패한 조회는 캐시에서 제거해 재시도할 수 있게 함. */
 const secretsManagerClient = new SecretsManagerClient({});
 const credentialsBySecretArn = new Map<string, Promise<TossPaymentsCredentials>>();
 
@@ -106,7 +106,7 @@ export async function getTossPayment({
   });
 }
 
-/** 관리자 full refund 요청을 PG에 전달합니다. 부분 취소는 정책 확정 후 별도 계약으로 추가합니다. */
+/** 관리자 취소 요청을 PG에 전달함. cancelAmount가 있으면 취소액을 보내고, operationId가 있으면 작업별 멱등 키를 씀. */
 export async function cancelTossPayment({
   credentials,
   paymentKey,

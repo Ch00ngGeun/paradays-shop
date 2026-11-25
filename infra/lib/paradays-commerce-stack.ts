@@ -588,8 +588,8 @@ export class CommerceStack extends Stack {
       : { authorizationScopes: [commerceOAuthScope.scopeName] };
 
     /**
-     * Access token에는 cognito:groups가 없으므로, 관리자 Lambda가 Cognito에서
-     * admin 그룹 소속을 재확인할 수 있게 최소 IAM을 부여합니다.
+     * JWT group claim으로 admin이 확인되지 않을 때 관리자 Lambda가 Cognito에서
+     * admin 그룹 소속을 재확인할 수 있게 최소 IAM을 부여함.
      */
     const adminGroupLookupStatement = new iam.PolicyStatement({
       actions: ["cognito-idp:AdminListGroupsForUser"],
