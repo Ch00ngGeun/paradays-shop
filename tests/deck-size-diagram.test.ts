@@ -1,3 +1,4 @@
+// 역할: 데크 사이즈 도면의 인치→cm 환산·측정값 표시·빈 값 null·정밀도 보존을 검증함.
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -16,7 +17,7 @@ describe("deck size diagram", () => {
     expect(formatDeckCm(14.25)).toBe("36.2cm");
     expect(formatDeckCm(8)).toBe("20.3cm");
     expect(formatDeckInches(14.25)).toBe('14.25"');
-    // A blank field has no inch mark.
+    // 빈 필드에는 인치 표시가 없음.
     expect(formatDeckInches(null)).toBe("null");
   });
 
@@ -37,7 +38,7 @@ describe("deck size diagram", () => {
       expect(markup).toContain(`${inches}&quot;<tspan`);
       expect(markup).toContain(`>(${cm}cm)</tspan>`);
     }
-    // Each conversion starts a new centered line, so it cannot lengthen its inch label.
+    // 각 환산값은 가운데 정렬된 새 줄에서 시작하므로 인치 라벨을 길게 만들지 않음.
     expect(markup.match(/<tspan[^>]*x="0" dy="24"/g)).toHaveLength(5);
     expect(markup.match(/<text/g)).toHaveLength(7);
     expect(markup).toMatch(/<text[^>]*y="20"[^>]*>nose<\/text>/);
@@ -56,7 +57,7 @@ describe("deck size diagram", () => {
     expect(markup.match(/>null</g)).toHaveLength(2);
     expect(markup).not.toContain("null&quot;");
     expect(markup).not.toContain("(nullcm)");
-    // The filled fields keep their inches and cm.
+    // 채운 필드는 인치와 cm를 유지함.
     expect(markup).toContain("6.5&quot;<tspan");
     expect(markup).toContain(">(16.5cm)</tspan>");
     expect(markup).toContain(

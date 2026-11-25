@@ -1,3 +1,4 @@
+// 역할: Firebase 전화 인증이 공개 설정 외에 명시적 활성화 플래그를 요구하는지 검증함.
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 describe("isFirebasePhoneAuthAvailable", () => {
