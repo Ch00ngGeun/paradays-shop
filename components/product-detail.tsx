@@ -68,7 +68,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
     Object.hasOwn(product.deckSpecsBySize, selectedSize)
       ? product.deckSpecsBySize[selectedSize]
       : product.deckSpec;
-  // Clothing and wheels follow the same rule with their own drawing; a deck keeps the deck chart.
+  // 의류·휠도 같은 규칙으로 자기 도면 값을 고르고, 데크는 데크 도면을 그대로 씁니다.
   const chartValues =
     selectedSize &&
     product.sizeChartsBySize &&
@@ -76,8 +76,8 @@ export function ProductDetail({ product }: ProductDetailProps) {
       ? product.sizeChartsBySize[selectedSize]
       : product.sizeChart?.values;
   const chartKind = product.sizeChartKind ?? product.sizeChart?.kind;
-  // The product's current category picks the chart: a deck spec left from an earlier category
-  // never shows on a top or a wheel, and the parser already keeps only kinds the category offers.
+  // 현재 카테고리가 도면을 고릅니다. 예전 카테고리에서 남은 데크 값은 상의·휠에 보이지 않고,
+  // 파서도 카테고리가 제공하는 도면 종류만 남깁니다.
   const sizeChartDiagram =
     product.category === "Deck" ? (
       deckSpec ? (
