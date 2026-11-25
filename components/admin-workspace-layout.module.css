@@ -1,3 +1,4 @@
+/* 역할: 관리자 워크스페이스 틀 스타일. 머리말 상태 줄·사이드바·운영 메뉴(햄버거) 버튼과 서랍·메뉴 탭·스토어 복귀 링크의 데스크톱·좁은 화면 배치를 정합니다. */
 .headerStatusRow {
   align-items: center;
   display: flex;
@@ -199,7 +200,7 @@
     white-space: nowrap;
   }
 
-  /* 사이드바 intro만 숨김. OPERATIONS drawer 목록·각주는 데스크톱과 동일하게 유지 */
+  /* 767px 이하에서는 사이드바 intro만 숨기고, 운영 메뉴 서랍의 메뉴 탭·스토어 복귀 링크는 데스크톱과 같게 유지 */
   .sidebarIntro {
     display: none;
   }

@@ -73,7 +73,7 @@
   gap: 2rem;
   grid-column: 1 / -1;
   justify-content: space-between;
-  /* 고정 OPERATIONS 햄버거와 제목이 겹치지 않게 */
+  /* 고정된 운영 메뉴(햄버거) 버튼과 제목이 겹치지 않게 */
   padding-bottom: clamp(1.35rem, 3vw, 2.35rem);
   padding-left: 3.35rem;
 }
