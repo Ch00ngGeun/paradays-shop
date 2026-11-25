@@ -1,3 +1,4 @@
+// 역할: 상품 편집 세션 훅. 새 상품·기존 상품 편집기 열기와 닫기, 이 화면 임시 상품 기억, 입력·공개 토글 변경, 대표 이미지 파일 선택을 처리합니다.
 "use client";
 import {
   getAdminProductEditorId,

@@ -1,3 +1,4 @@
+// 역할: 관리자 상품 메뉴의 편집 세션(ProductEditorSessions) 구독과 현재 보기·초안, 로컬 상품 목록·불러오기/삭제/저장 상태·알림을 묶은 상태 훅입니다.
 "use client";
 import { ProductEditorSessions } from "@/lib/admin-ui/navigation";
 import type { AdminCatalogListItem } from "@/lib/admin-ui/types";
