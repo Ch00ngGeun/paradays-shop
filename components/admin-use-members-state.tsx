@@ -1,3 +1,4 @@
+// 역할: 관리자 회원 메뉴의 회원 목록·조회/저장 상태·새로고침 필요 여부·목록 갱신 번호와 중복 요청 방지 ref를 묶은 상태 훅입니다.
 "use client";
 import type { AdminMember } from "@/lib/admin-ui/types";
 import { useRef, useState } from "react";
