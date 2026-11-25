@@ -1,3 +1,4 @@
+// 역할: 관리자 화면 안내의 대상 테두리·단계 이동·키보드·숨김 처리와 화면별 도움말, 좁은 화면 배치를 검증함.
 import { expect, test } from "@playwright/test";
 import {
   boxOf,
@@ -39,7 +40,7 @@ test("screen guide walks the home steps around the real elements with keys, butt
   await setup(page, { path: "/admin?section=overview" });
   const open = page.getByRole("button", { name: "화면 도움말", exact: true });
   await expect(open).toContainText("도움말");
-  // It sits just left of "New product", which keeps its header button style.
+  // 머리말 버튼 모양을 유지하는 "New product" 바로 왼쪽에 놓임.
   const newProduct = page
     .locator("main")
     .getByRole("button", { name: "새 상품", exact: false })
@@ -56,7 +57,7 @@ test("screen guide walks the home steps around the real elements with keys, butt
   await expect(bubble).toContainText("1/4단계");
   await expect(bubble.getByRole("heading")).toHaveText("오늘 숫자 보기");
 
-  // The ring sits around the marked element, and the page behind is inert.
+  // 표시한 요소 둘레에 테두리가 생기고 뒤쪽 페이지는 비활성(inert)이 됨.
   const metrics = page.locator('[data-admin-guide="home.metrics"]');
   await expect
     .poll(async () => {
@@ -87,7 +88,7 @@ test("screen guide walks the home steps around the real elements with keys, butt
     bubble.getByRole("button", { name: "이전", exact: true }),
   ).toBeDisabled();
 
-  // The last step names its button Done; the order number input is underlined.
+  // 마지막 단계 버튼 이름은 Done이고 주문 번호 입력란에 밑줄이 그어짐.
   for (let step = 0; step < 3; step += 1)
     await bubble.getByRole("button", { name: "다음", exact: true }).click();
   await expect(bubble).toContainText("4/4단계");
@@ -125,7 +126,7 @@ test("headers with the guide button fit a 320px screen in English without sidewa
   await setup(page, { path: "/admin?section=products", products: true });
   for (const section of ["products", "overview", "inventory"]) {
     await page.goto(`/admin?section=${section}`);
-    // The setup script resets the language on every load, so switch on each screen.
+    // setup 스크립트가 매번 로드할 때 언어를 초기화하므로 화면마다 전환함.
     await page.getByRole("button", { name: "영어", exact: true }).click();
     const help = page.getByRole("button", { name: "Screen help", exact: true });
     await expect(help).toBeVisible();
@@ -144,7 +145,7 @@ test("screen guide skips steps whose element is not on the screen", async ({
   await setup(page, { path: "/admin?section=products", products: true });
   await page.getByRole("button", { name: "화면 도움말", exact: true }).click();
   const bubble = page.getByRole("dialog");
-  // The list view has no editor fields, so only the list step remains.
+  // 목록 화면에는 편집 입력란이 없으므로 목록 단계만 남음.
   await expect(bubble).toContainText("1/1단계");
   await expect(bubble.getByRole("heading")).toHaveText("상품 고르기");
   await bubble.getByRole("button", { name: "완료", exact: true }).click();
@@ -159,7 +160,7 @@ test("screen guide closes when the screen holding its button gets hidden", async
   await open.click();
   const bubble = page.getByRole("dialog");
   await expect(bubble).toContainText("1/1단계");
-  // Sales stays mounted and is only hidden when Back leaves it; the same `hidden` toggle here.
+  // 매출은 마운트된 채 뒤로 가기로 벗어날 때만 숨겨지므로 여기서도 같은 `hidden` 전환을 씀.
   await open.evaluate((button) =>
     button.closest("section")!.setAttribute("hidden", ""),
   );
@@ -173,7 +174,7 @@ test("screen guide moves from the empty state to a step whose element shows up l
   const loaded = new Promise<void>((resolve) => (release = resolve));
   await setup(page, {
     path: "/admin?section=products",
-    // The held catalog request keeps the network busy until release().
+    // 붙잡아 둔 카탈로그 요청은 release() 전까지 네트워크를 바쁜 상태로 둠.
     waitForIdle: false,
     handleCatalog: async (route) => {
       await loaded;
@@ -205,7 +206,7 @@ test("screen guide underlines the stock input and keeps the bubble on a 375px sc
   await page.keyboard.press("ArrowRight");
   await expect(bubble.getByRole("heading")).toHaveText("새 수량 넣기");
   const input = page.locator('[data-admin-guide="inventory.quantity"]');
-  // The first line is the underline, drawn just below the input across its width.
+  // 첫 선은 밑줄이며 입력란 바로 아래에 입력란 너비만큼 그어짐.
   await expect
     .poll(async () => {
       const target = await boxOf(input);
@@ -251,14 +252,14 @@ test("coupon and campaign help opens on demand while their draft-only warnings s
   await setup(page, { path: "/admin?section=coupons" });
   const dialog = page.getByRole("dialog");
   const panel = couponWorkspace(page);
-  // Warnings that were inside the collapsed help are always on screen now.
+  // 접힌 도움말 안에 있던 경고는 이제 항상 화면에 표시됨.
   await expect(
     page.getByText(
       "이 화면은 쿠폰 초안만 저장합니다. 고객에게 발급하거나 결제에 적용하지 않습니다.",
     ),
   ).toBeVisible();
   await expect(panel.getByText("서버에 초안만 저장합니다")).toBeVisible();
-  // The code format stays the input's description while hidden from the screen.
+  // 코드 형식 안내는 화면에서 숨겨도 입력란의 설명으로 남음.
   await expect(couponField(page, "쿠폰 코드 (필수)")).toHaveAccessibleDescription(
     /영문·숫자로 시작하는 3–32자/,
   );
@@ -302,7 +303,7 @@ test("stock help explains the range while the input keeps its description and th
     .getByRole("button", { name: `${products[0]!.name} 재고 조정`, exact: true })
     .click();
   const input = page.getByRole("textbox", { name: "변경 후 재고 수량", exact: true });
-  // Hidden from the screen, but still read as the input's description.
+  // 화면에서는 숨겨도 입력란 설명으로는 계속 읽힘.
   await expect(input).toHaveAccessibleDescription(/0~1,000,000개/);
   const hint = page.locator("#inventory-input-hint");
   expect(
@@ -330,7 +331,7 @@ test("product help: explanations stay behind '?' buttons that open, close with E
   await setup(page, { path: "/admin?section=products" });
   await newProduct(page);
   const panel = page.locator("#admin-panel-products");
-  // The explanations are not on the screen until asked for.
+  // 설명은 요청하기 전까지 화면에 없음.
   for (const text of [
     "직접 입력하거나 선택한 뒤",
     "JPEG·PNG·WebP·GIF",
@@ -358,7 +359,7 @@ test("product help: explanations stay behind '?' buttons that open, close with E
     await expect(help).toBeFocused();
   }
 
-  // The close button works the same way.
+  // 닫기 버튼도 같은 방식으로 동작함.
   const option = panel.getByRole("button", {
     name: "사이즈 / 옵션 도움말",
     exact: true,
@@ -383,7 +384,7 @@ test("screen guide walks the brand list, name and register button", async ({
   await expect(bubble.getByRole("heading")).toHaveText("있는 브랜드 확인");
   await page.keyboard.press("ArrowRight");
   await expect(bubble.getByRole("heading")).toHaveText("브랜드 이름 쓰기");
-  // The name box is underlined right below it.
+  // 이름 입력란 바로 아래에 밑줄이 그어짐.
   await expect
     .poll(async () => {
       const target = await boxOf(brandNameInput(page));
@@ -407,7 +408,7 @@ test("screen guide on members adds the permission step once a member is open", a
   await expect(panel.locator("summary", { hasText: /^도움말$/ })).toHaveCount(0);
   await open.click();
   const bubble = page.getByRole("dialog");
-  // Nothing is selected yet, so the permission area is not on the screen.
+  // 아직 아무도 선택하지 않았으므로 권한 영역은 화면에 없음.
   await expect(bubble).toContainText("1/2단계");
   await expect(bubble.getByRole("heading")).toHaveText("회원 불러오기");
   await page.keyboard.press("ArrowRight");
@@ -416,7 +417,7 @@ test("screen guide on members adds the permission step once a member is open", a
   await expect(bubble).toHaveCount(0);
 
   await loadMembers(page);
-  // The list title's '?' keeps what the old header help said.
+  // 목록 제목의 '?'가 예전 머리말 도움말 내용을 담음.
   await panel.getByRole("button", { name: "회원 목록 도움말", exact: true }).click();
   const listHelp = page.getByRole("dialog", { name: "회원 목록 도움말", exact: true });
   await expect(listHelp).toContainText(
