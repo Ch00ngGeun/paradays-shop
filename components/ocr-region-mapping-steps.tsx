@@ -1,3 +1,4 @@
+// 역할: OCR 영역 지정 단계 조작부(첫 상품 필드별 영역·표 끝·두 번째 상품 위치 지정, 전체 지우기)와 수량 영역 확인·영역 미리보기·적용 확인 영역을 그립니다.
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
@@ -150,7 +151,7 @@ export function OcrRegionStepControls({
               ? " · 첫 상품의 해당 글자를 둘러싸도록 드래그하세요."
               : " · Drag around the matching text of the first product."}
       </p>
-      {/* Still the image area's description; seen on screen through the help button below. */}
+      {/* 화면에서는 아래 도움말 버튼으로 보이지만, 이미지 영역의 설명으로 계속 연결해 둡니다. */}
       <p className="srOnly" id={`${id}-keyboard`}>
         {isKorean
           ? "키보드로는 이미지에 초점을 둔 뒤 방향키로 이동하고 Space로 시작, Enter로 끝을 지정합니다. Shift와 방향키를 함께 누르면 더 크게 이동합니다."
@@ -208,7 +209,7 @@ export function OcrRegionConfirmation({
         <div className={styles.help}>
           <AdminHelpButton
             locale={locale}
-            // Not the mode button's name, so a search for that button finds only the button.
+            // 모드 버튼 이름과 다르게 지어, 그 버튼 이름으로 찾으면 버튼만 찾히게 합니다.
             target={isKorean ? "반복 간격" : "Row spacing"}
           >
             <p>
