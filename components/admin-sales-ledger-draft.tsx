@@ -1,3 +1,4 @@
+// 역할: 실제 매출 원장의 판매 전표 편집기. 상품 줄·수량·금액·결제 구분을 입력해 초안을 저장하고, 재고 반영 미리보기와 보류 초안 폐기(사유 입력)를 요청합니다.
 "use client";
 import type { Dispatch, SetStateAction } from "react";
 import type { AdminCatalogListItem } from "@/lib/admin-ui/types";
@@ -191,7 +192,7 @@ export function SalesDraftEditor({
                       ...draft.lines,
                       {
                         productId: p.id,
-                        // The ledger server refuses control characters, so a two-line product name becomes one line.
+                        // 원장 서버는 제어 문자를 거부하므로 두 줄 상품명은 한 줄로 바꿉니다.
                         name: p.name.replace(/\s+/g, " ").trim(),
                         option: options.length === 1 ? options[0] : "",
                         quantity: "1",
