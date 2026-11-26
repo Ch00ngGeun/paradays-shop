@@ -191,12 +191,15 @@ for (const fixture of responsiveCharts)
       } as unknown as typeof SPEC;
     else {
       const chart = item.sizeChart!;
-      chart.values = Object.fromEntries(
-        Object.keys(chart.values).map((key, index) => [
-          key,
-          index % 2 ? null : fixture.kind === "wheel" ? 99.9 : 299.9,
-        ]),
-      );
+      item.sizeChart = {
+        ...chart,
+        values: Object.fromEntries(
+          Object.keys(chart.values).map((key, index) => [
+            key,
+            index % 2 ? null : fixture.kind === "wheel" ? 99.9 : 299.9,
+          ]),
+        ),
+      };
     }
     await page.setViewportSize({ width: 320, height: 900 });
     await page.reload();

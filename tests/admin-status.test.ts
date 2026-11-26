@@ -192,7 +192,7 @@ describe("admin notices and announcement opt in", () => {
 const css = readFileSync(
   new URL("../components/admin-status.module.css", import.meta.url),
   "utf8",
-);
+).replace(/\/\*[\s\S]*?\*\//g, "");
 
 function ruleBody(selector: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

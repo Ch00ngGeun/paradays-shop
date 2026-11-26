@@ -1,3 +1,4 @@
+/* 역할: 관리자 공통 상태 배지(AdminStatusBadge·StockStatusBadge)와 안내 상자(AdminNotice)의 심각도별 색 토큰·점·아이콘과 고대비·동작 줄이기 대응 스타일입니다. */
 .badge,
 .notice {
   background: var(--status-background);
