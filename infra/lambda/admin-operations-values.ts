@@ -1,3 +1,4 @@
+/** 역할: 관리자 운영 레코드의 형식 판별, 리소스별 table·ID 규칙, 상태·할인 방식 등 입력값 읽기를 맡는 도우미임. */
 import { isRecord, readBoundedString } from "./request-helpers.js";
 import {
   type StoredResource,
@@ -190,8 +191,8 @@ export function readCouponDiscountType(value: unknown): CouponDiscountType | und
     return value;
   }
 
-  // Earlier internal drafts used FIXED_AMOUNT. Keep reads compatible while
-  // persisting the public admin API's AMOUNT vocabulary from now on.
+  // 초기 내부 초안은 FIXED_AMOUNT를 썼음. 읽기 호환은 유지하되
+  // 이제부터 저장은 공개 관리자 API의 AMOUNT 용어로 함.
   return value === "FIXED_AMOUNT" ? "AMOUNT" : undefined;
 }
 

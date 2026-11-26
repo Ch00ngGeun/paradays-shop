@@ -1,4 +1,4 @@
-/** Redirect is not payment proof. Reserve before approval; an unknown result retains its hold. */
+/** 역할: Toss 결제 redirect 뒤 서버에서 결제를 승인·조회해 주문을 확정함. redirect는 결제 증빙이 아니며, 승인 전에 재고를 예약하고 결과를 모르면 예약을 유지함. */
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
 import { getRequiredEnvironment } from "./dynamodb-client.js";
 import { jsonResponse } from "./http-response.js";
@@ -50,7 +50,7 @@ export async function handler(
       (order.inventory?.paymentKey ?? order.providerPaymentKey) !== paymentKey
     )
       return jsonResponse(409, { code: "PAYMENT_KEY_CONFLICT" });
-    // Legacy PAID orders (no ledger, or a LEGACY ledger added for refunds) replay success as before.
+    // 기존 PAID 주문(ledger가 없거나 환불용 LEGACY ledger가 붙은 주문)은 예전처럼 성공을 재응답함.
     if (
       order.status === "PAID" &&
       (!order.inventory || ["DEBITED", "LEGACY"].includes(order.inventory.state))
@@ -60,12 +60,12 @@ export async function handler(
         status: order.status,
         paymentStatus: order.paymentStatus,
       });
-    // An older webhook could mark PAID while the hold is still RESERVED; settle it by lookup.
+    // 예전 webhook이 예약이 RESERVED인 채로 PAID를 표시했을 수 있으므로 조회로 정산함.
     const paidWithHold =
       order.status === "PAID" && order.inventory?.state === "RESERVED";
     if (order.status !== "PENDING_PAYMENT" && !paidWithHold)
       return jsonResponse(409, { code: "PAYMENT_ALREADY_RESOLVED" });
-    // An unreadable expiry fails closed: never start a fresh approval on it.
+    // 만료 시각을 읽을 수 없으면 fail-closed로 처리하며 새 승인을 시작하지 않음.
     const expiresAt = Date.parse(order.checkoutReturnExpiresAt);
     const expired = !Number.isFinite(expiresAt) || expiresAt <= Date.now();
     if (expired && !order.inventory)
@@ -73,8 +73,8 @@ export async function handler(
     const credentials = await getTossPaymentsCredentials(
       getRequiredEnvironment("TOSS_PAYMENTS_SECRET_ARN"),
     );
-    // Do not require pre-approval GET support: official lookup describes approved payments.
-    // An already-attempted approval is recovered by lookup, never sent a second time.
+    // 승인 전 GET 조회 지원을 요구하지 않음: 공식 조회는 승인된 결제를 설명함.
+    // 이미 시도한 승인은 조회로 복구하며 두 번 보내지 않음.
     const recoveryOnly =
       expired || paidWithHold || Boolean(order.inventory?.approvalAttemptedAt);
     if (!recoveryOnly) {

@@ -1,3 +1,4 @@
+/** 역할: 매출 요청 시간 예산이 공용 reader·Cognito·DynamoDB 호출과 transaction에 전파되고, 기한 뒤에는 쓰기를 시작하지 않는지 검증함. */
 import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import { createHash } from "node:crypto";
@@ -88,7 +89,7 @@ function deferred<T>() {
   });
   return { promise, resolve };
 }
-// Production timers are unref'ed; the fixture keeps the test process alive only.
+// 운영 timer는 unref 상태이므로 fixture가 테스트 프로세스만 살려 둠.
 function keepAlive(t: TestContext) {
   const timer = setTimeout(() => {}, 1_000);
   t.after(() => clearTimeout(timer));

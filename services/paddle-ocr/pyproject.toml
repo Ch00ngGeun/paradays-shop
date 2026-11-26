@@ -1,3 +1,4 @@
+# 역할: 비공개 PaddleOCR 서비스의 Python 패키지·고정 의존성·실행 script(paddle-ocr-api·paddle-ocr-smoke)를 정의함.
 [build-system]
 requires = ["setuptools==79.0.1"]
 build-backend = "setuptools.build_meta"

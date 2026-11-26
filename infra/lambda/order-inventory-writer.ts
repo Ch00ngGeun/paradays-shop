@@ -1,3 +1,4 @@
+/** 역할: 주문 증빙·상품 버전·OCR 카탈로그 revision을 한 DynamoDB transaction으로 함께 commit하는 공용 writer임. */
 import {
   GetCommand,
   TransactWriteCommand,
@@ -15,7 +16,7 @@ import { type StockDelta, readOrder, readProducts } from "./order-inventory-stor
 
 type Write = NonNullable<TransactWriteCommandInput["TransactItems"]>[number];
 
-/** Whole order CAS serializes fulfillment, refund intents and all inventory operations. */
+/** 주문 전체 CAS로 출고·환불 의도·모든 재고 작업을 직렬화함. */
 export async function writeInventoryOrder(
   order: OrderRecord,
   next: OrderRecord,

@@ -1,8 +1,9 @@
+/** 역할: 저장 주문 레코드 검증이 기존 주문 호환, 선택 결제 필드, 합계 불일치 거부, 재무 event 한도를 지키는지 확인함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { isOrderRecord, validFinancialEvents } from "../lambda/order-record.js";
 
-// A record stored before inventory/financial fields existed.
+// 재고·재무 필드가 생기기 전에 저장된 레코드임.
 const legacy = {
   orderId: "order_legacy_001",
   userSub: "user-sub",

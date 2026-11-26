@@ -1,4 +1,4 @@
-// 역할: OCR inline image parser가 대형 base64에서도 정규식 RangeError 없이 경계를 지키는지 확인합니다.
+// 역할: PaddleOCR 응답 stream의 크기 상한·UTF-8/JSON 오류 처리·공용 12초 기한·취소와 정리 동작을 실제 네트워크 없이 검증함.
 import assert from "node:assert/strict";
 import type { ReadableStreamReadResult } from "node:stream/web";
 import test, { type TestContext } from "node:test";
@@ -31,7 +31,7 @@ function safeProviderError(kind: PaddleOcrProviderError["kind"]) {
   };
 }
 
-/** A fetch/reader harness records cleanup without real network or clock waits. */
+/** 실제 네트워크나 시계 대기 없이 정리 동작을 기록하는 fetch/reader 시험 도구임. */
 function installResponse(
   t: TestContext,
   chunks: Uint8Array[],

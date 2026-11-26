@@ -1,4 +1,4 @@
-// 역할: OCR inline image parser가 대형 base64에서도 정규식 RangeError 없이 경계를 지키는지 확인합니다.
+// 역할: OCR inline 이미지 parser의 4MiB·base64·파일명 경계(대형 입력의 RangeError 포함)와 provider 결과 행·box 읽기를 확인함.
 import assert from "node:assert/strict";
 import test from "node:test";
 import {

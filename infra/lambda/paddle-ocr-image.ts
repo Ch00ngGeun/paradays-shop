@@ -1,3 +1,4 @@
+/** 역할: OCR 업로드 이미지의 MIME·base64·매직 바이트·파일명을 검증하고 디코딩하는 도우미임. */
 import {
   MAX_INLINE_OCR_IMAGE_BYTES,
   type ValidatedOcrImage,

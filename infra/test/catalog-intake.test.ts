@@ -1,3 +1,4 @@
+/** 역할: OCR 입고 입력의 경계값·거부 규칙과 카탈로그 이름·SKU·옵션 동일성 비교 규칙을 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import {

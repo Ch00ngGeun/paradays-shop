@@ -1,3 +1,4 @@
+/** 역할: 관리자 주문 API의 관리자 권한·GET allowlist, PG 조회 정산, 저장소 장애 처리와 기존 전액 환불의 재고 미복원을 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { handler } from "../lambda/admin-refund-handler.js";

@@ -1,3 +1,4 @@
+/** 역할: 매출 요청 시간 예산 단위 동작(요청 밖 호출, 예산 상한, 멈춘 작업 중단, 잘못된 예산 거부)을 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";

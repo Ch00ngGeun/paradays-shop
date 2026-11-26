@@ -1,3 +1,4 @@
+/** 역할: 관리자 매출 API가 인증·입력 검사를 저장소 접근 전에 하고, 빈 일 보고서를 전용 장부에서 식별정보 없이 만드는지 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";

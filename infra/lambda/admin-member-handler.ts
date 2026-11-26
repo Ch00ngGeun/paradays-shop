@@ -39,7 +39,7 @@ type MemberSummary = Readonly<{
   groups: readonly string[];
 }>;
 
-/** GET /admin/members, POST|DELETE /admin/members/{username}/groups. */
+/** GET /admin/members, POST|DELETE /admin/members/{username}/groups 요청을 처리함. */
 export async function handler(
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
 ): Promise<APIGatewayProxyResultV2> {

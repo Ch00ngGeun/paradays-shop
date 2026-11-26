@@ -83,9 +83,9 @@ export type CatalogProductRecord = Readonly<{
   /** 공개 상품 GSI가 사용할 고정 partition 값. status와 같은 값만 저장합니다. */
   publicationStatus: CatalogProductStatus;
   inventoryQuantity: number;
-  /** Server-owned holds; omitted legacy value means zero, never accepted from an admin body. */
+  /** 서버만 관리하는 예약 수량임. 값이 없는 기존 레코드는 0으로 보고, 관리자 요청 body에서는 받지 않음. */
   inventoryReserved?: number;
-  /** Outstanding proven sales keep their catalog identity until physically restored. */
+  /** 증명된 미반납 판매 수량이며, 실물 복원 전까지 상품 식별 정보를 유지하게 함. */
   inventoryCommitted?: number;
   featured: boolean;
   image?: string;

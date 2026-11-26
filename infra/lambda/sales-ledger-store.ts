@@ -1,4 +1,4 @@
-/** Dedicated ledger; stock, catalog revision, day CAS and sale proof commit atomically. */
+/** 역할: 매출 일자 조회·온라인 매출 집계·수동 매출 작업을 처리하는 전용 장부임. 재고·카탈로그 revision·일자 CAS·매출 증빙을 원자적으로 commit함. */
 import { ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { getRequiredEnvironment } from "./dynamodb-client.js";
 import { validFinancialEvents } from "./order-record.js";
@@ -34,7 +34,7 @@ import {
   stockWrites,
 } from "./sales-ledger-entries.js";
 
-/** Completion is mandatory. Legacy refunds without dated evidence are never assigned to a guessed day. */
+/** 완전한 읽기가 필수임. 날짜 증빙이 없는 기존 환불은 추측한 날짜에 배정하지 않음. */
 export async function readOnline(day: string) {
   const events: OnlineEvent[] = [],
     warnings = new Set<string>();
@@ -292,7 +292,7 @@ export async function operateSalesDay(
     ]);
     return { report: await readSalesDay(day) };
   }
-  // Matching replay succeeds even after close, but can never add a second stock delta.
+  // 일치하는 재실행은 마감 뒤에도 성공하지만, 재고 변경을 두 번 더하지는 않음.
   const previous = (await get(day, command.entryId)) as StoredEntry | undefined;
   if (command.action === "save" && previous?.fingerprint === fingerprint)
     return { entry: publicEntry(previous) };

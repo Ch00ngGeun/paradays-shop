@@ -1,3 +1,4 @@
+/** 역할: 매출 장부 DynamoDB 항목의 읽기·쓰기 단위(일 상태·매출 항목·재고 변경·transaction)를 제공하는 저장소 도우미임. */
 import { createHash } from "node:crypto";
 import {
   GetCommand,
@@ -50,7 +51,7 @@ const catalogTable = () => getRequiredEnvironment("CATALOG_TABLE_NAME");
 
 export const now = () => new Date().toISOString();
 
-/** A stalled SDK cannot turn a bounded complete read into an eventual partial success. */
+/** 멈춘 SDK 호출 때문에 제한된 전체 읽기가 결국 부분 성공으로 끝나지 않게 함. */
 export async function readPage(
   command: QueryCommand | ScanCommand,
   deadline: number,

@@ -1,3 +1,4 @@
+/** 역할: context로 켤 때만 비공개 PaddleOCR 서비스(ECS·private REST API·VPC link)를 CDK로 만드는 opt-in 구성임. */
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecs from "aws-cdk-lib/aws-ecs";
@@ -9,7 +10,7 @@ import { CfnOutput, Duration, RemovalPolicy, Stack, Token } from "aws-cdk-lib";
 import type { Construct } from "constructs";
 import { type CommerceFunctionOptions } from "./paradays-commerce-functions.js";
 
-/** CLI context is a string, while programmatic context can be a boolean. */
+/** CLI context는 문자열이고, 코드에서 넣은 context는 boolean일 수 있음. */
 export function privateOcrIsEnabled(scope: Construct): boolean {
   const value: unknown = scope.node.tryGetContext("paddleOcrPrivateService");
 
@@ -25,11 +26,11 @@ export function privateOcrIsEnabled(scope: Construct): boolean {
 }
 
 /**
- * Opt-in requires context paddleOcrImageUri containing a tested, published ECR
- * URI: ACCOUNT.dkr.ecr.REGION.amazonaws.com/REPOSITORY@sha256:64-lowercase-hex.
- * The repository must be in this stack's account and region. Unresolved stack
- * environments fail closed; provide a concrete deployment environment first.
- * Importing the repository creates no registry and changes no bootstrap policy.
+ * opt-in에는 검증·게시된 ECR URI를 담은 context paddleOcrImageUri가 필요함:
+ * ACCOUNT.dkr.ecr.REGION.amazonaws.com/REPOSITORY@sha256:64-소문자-hex.
+ * repository는 이 stack과 같은 account·region에 있어야 함. stack 환경이 정해지지
+ * 않으면 fail-closed로 처리하므로 먼저 구체적인 배포 환경을 지정해야 함.
+ * repository import는 registry를 만들지 않고 bootstrap 정책도 바꾸지 않음.
  */
 function readPrivateOcrImage(scope: Construct): ecs.EcrImage {
   const value: unknown = scope.node.tryGetContext("paddleOcrImageUri");
@@ -70,16 +71,16 @@ function readPrivateOcrImage(scope: Construct): ecs.EcrImage {
     "PaddleOcrImageRepository",
     match[4],
   );
-  // CDK binds an exact @sha256 image and grants only ECR pull permissions to
-  // the task execution role; repository access is scoped to this imported repo.
+  // CDK는 정확한 @sha256 이미지를 연결하고 task execution role에 ECR pull 권한만 줌.
+  // repository 접근 범위는 import한 이 repository로 한정됨.
   return ecs.ContainerImage.fromEcrRepository(repository, match[5]);
 }
 
 /**
- * Provide trusted AWS HTTPS without requiring an owned DNS domain. The REST
- * endpoint is PRIVATE and the HTTP backend is reachable only through its VPC
- * link. Model artifacts are built into the image; no runtime internet route
- * exists. Opt-out creates none of these resources and preserves the old secret.
+ * 자체 DNS domain 없이 신뢰할 수 있는 AWS HTTPS를 제공함. REST endpoint는
+ * PRIVATE이고 HTTP backend는 VPC link로만 접근할 수 있음. model 파일은 이미지에
+ * 포함되어 실행 중 internet 경로가 없음. opt-out이면 이 리소스를 하나도 만들지
+ * 않고 기존 secret을 보존함.
  */
 export function createPrivateOcrService(
   scope: Construct,
@@ -124,9 +125,9 @@ export function createPrivateOcrService(
   );
   endpointSecurityGroup.addIngressRule(lambdaSecurityGroup, ec2.Port.tcp(443));
   endpointSecurityGroup.addIngressRule(taskSecurityGroup, ec2.Port.tcp(443));
-  // Gateway endpoints use AWS public service prefixes, but isolated subnet
-  // route tables have no default internet/NAT route. HTTPS can leave only via
-  // the listed AWS endpoints; OCR model downloads cannot run in this VPC.
+  // Gateway endpoint는 AWS 공개 서비스 prefix를 쓰지만, 격리 subnet route table에는
+  // 기본 internet/NAT 경로가 없음. HTTPS는 나열한 AWS endpoint로만 나갈 수 있어
+  // 이 VPC에서는 OCR model 다운로드가 실행될 수 없음.
   lambdaSecurityGroup.addEgressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443));
   taskSecurityGroup.addEgressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443));
 
@@ -264,8 +265,8 @@ export function createPrivateOcrService(
     internetFacing: false,
     crossZoneEnabled: true,
     securityGroups: [nlbSecurityGroup],
-    // API Gateway VPC link traffic arrives through AWS PrivateLink. The NLB
-    // has no direct inbound rule, and worker ingress still requires this SG.
+    // API Gateway VPC link 트래픽은 AWS PrivateLink로 들어옴. NLB에는 직접 inbound
+    // 규칙이 없고, worker 수신은 여전히 이 SG를 거쳐야 함.
     enforceSecurityGroupInboundRulesOnPrivateLinkTraffic: false,
   });
   taskSecurityGroup.addIngressRule(nlbSecurityGroup, ec2.Port.tcp(8000));

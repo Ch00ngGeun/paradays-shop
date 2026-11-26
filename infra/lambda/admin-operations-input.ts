@@ -1,3 +1,4 @@
+/** 역할: 관리자 브랜드·쿠폰·캠페인 요청 body를 검증하고, 저장 레코드 생성·교체·PATCH 병합과 응답 변환을 맡음. */
 import { isRecord, readBoundedString } from "./request-helpers.js";
 import {
   type StoredResource,

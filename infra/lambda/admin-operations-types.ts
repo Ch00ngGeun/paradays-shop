@@ -1,3 +1,4 @@
+/** 역할: 관리자 운영 API의 리소스 이름과 브랜드·쿠폰·캠페인 레코드·상태 타입을 정의함. */
 export type OperationResource = "brands" | "coupons" | "campaigns" | "members";
 
 export type StoredResource = Exclude<OperationResource, "members">;

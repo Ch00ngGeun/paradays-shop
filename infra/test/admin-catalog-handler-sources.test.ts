@@ -1,4 +1,4 @@
-/** Real handler with an atomic, conditional in-memory SDK transport. No credentials or network. */
+/** 역할: OCR 입고 원본 행의 중복 소비 방지·정규 순서·경합·원자적 거부를 실제 handler와 메모리 저장소로 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { handler, type CatalogProductRecord } from "../lambda/admin-catalog-handler.js";

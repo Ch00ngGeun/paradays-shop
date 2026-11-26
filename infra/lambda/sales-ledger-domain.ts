@@ -1,4 +1,4 @@
-/** Shared, pure sales contracts. Amounts are gross KRW; no card/customer data. */
+/** 역할: 수동 매출 장부의 공용 순수 계약과 요청 검증을 정의함. 금액은 총액 원화이며 카드·고객 데이터는 다루지 않음. */
 export type SaleLine = Readonly<{
   productId: string | null;
   name: string;
@@ -6,7 +6,7 @@ export type SaleLine = Readonly<{
   quantity: number;
   unitAmount: number;
 }>;
-/** Offline payment methods. Each is totalled separately; none falls back to cash. */
+/** 오프라인 결제 수단임. 수단별로 따로 합산하며 어느 것도 현금으로 대체하지 않음. */
 export const SALE_METHODS = ["CARD", "CASH", "TRANSFER"] as const;
 export type SaleMethod = (typeof SALE_METHODS)[number];
 export type SaleInput = Readonly<{
@@ -51,7 +51,7 @@ export type OnlineEvent = Readonly<{
 export type DayTotals = Readonly<{
   card: number;
   cash: number;
-  /** Absent only in snapshots closed before transfers existed; read as 0. */
+  /** 계좌이체가 생기기 전에 마감한 snapshot에만 없으며, 없으면 0으로 읽음. */
   transfer?: number;
   offlineRefunds: number;
   offlineNet: number;

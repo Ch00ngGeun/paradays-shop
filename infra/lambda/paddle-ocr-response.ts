@@ -1,3 +1,4 @@
+/** 역할: PaddleOCR provider 응답에서 인식 결과 node·신뢰도·bounding box를 안전하게 찾아 읽는 도우미임. */
 import { isRecord } from "./request-helpers.js";
 import { type OcrBoundingBox } from "./paddle-ocr.js";
 

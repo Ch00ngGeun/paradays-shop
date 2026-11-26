@@ -1,4 +1,4 @@
-/** Pure, bounded stock contracts. Money refunds never imply physical returns. */
+/** 역할: 주문 재고 ledger·환불 의도·수량 집계의 순수 계약과 검증을 정의함. 금액 환불이 실물 반품을 뜻하지는 않음. */
 import { createHash } from "node:crypto";
 import type { OrderLineSnapshot } from "./order-domain.js";
 

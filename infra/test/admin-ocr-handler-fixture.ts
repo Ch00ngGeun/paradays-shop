@@ -1,4 +1,4 @@
-/** Real handler PATCH/GET cycles with in-memory SDK transport and no network. */
+/** 역할: 관리자 OCR handler 테스트용 job·event·provider 응답 생성기와 네트워크 없는 메모리 SDK 전송 fixture를 제공함. */
 import assert from "node:assert/strict";
 import { type TestContext } from "node:test";
 import { CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";

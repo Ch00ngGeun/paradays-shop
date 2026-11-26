@@ -1,4 +1,4 @@
-/** Real handler with an atomic, conditional in-memory SDK transport. No credentials or network. */
+/** 역할: 실제 관리자 카탈로그 handler로 공개 재고 계산, OCR 입고 receipt·재실행, 예약 재고 보호, 동시 요청과 중복 상품 차단을 메모리 SDK 전송으로 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { handler, toPublicCatalogProduct } from "../lambda/admin-catalog-handler.js";
@@ -222,7 +222,7 @@ for (const [kind, body] of [
     const committed = snapshot();
     const winnerWrites = db.transactions.length;
     restore(initial);
-    // The winner commits right after the loser's first receipt read.
+    // 이긴 요청은 진 요청이 receipt를 처음 읽은 직후 commit함.
     const firstRead = db.reads.length + 1;
     db.beforeRead((count) => {
       if (count === firstRead + 1) restore(committed);
@@ -238,7 +238,7 @@ test("an intake whose committed product was deleted before the loser read replay
   const db = fixture(t);
   assert.equal(unpack(await handler(event("POST", existing()))).status, 200);
   const writes = db.transactions.length;
-  // The loser misses the receipt on its first read; then it lands and the product is gone.
+  // 진 요청은 첫 읽기에서 receipt를 못 보고, 그 뒤 receipt가 생기고 상품은 사라짐.
   const receipts = [...db.records].filter(
     ([, value]) => value.recordType === "CATALOG_INTAKE_RECEIPT",
   );
@@ -260,7 +260,7 @@ test("a failed receipt recheck before an early intake failure is a 503, not an u
   const db = fixture(t, [product({ version: 9 })]);
   const firstRead = db.reads.length + 1;
   db.beforeRead((count) => {
-    // receipt, revision, product, then the recheck read fails
+    // receipt, revision, 상품 순으로 읽은 뒤 재확인 읽기가 실패함
     if (count === firstRead + 3) throw new Error("private read details");
   });
   const response = unpack(await handler(event("POST", existing())));

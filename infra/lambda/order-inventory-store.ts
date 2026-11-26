@@ -1,4 +1,4 @@
-/** Shared transactional writer: order proof, product versions and OCR catalog revision commit together. */
+/** 역할: 주문·상품 재고 조회와 결제 전 재고 예약·승인 시도 표시·승인 거절·미시도 예약 해제·결제 결과 정산을 처리함. 원자적 쓰기는 order-inventory-writer.ts에 맡김. */
 import { GetCommand } from "@aws-sdk/lib-dynamodb";
 import { randomUUID } from "node:crypto";
 import { documentClient, getRequiredEnvironment } from "./dynamodb-client.js";
@@ -124,13 +124,13 @@ export async function reserveInventory(
   );
 }
 
-/** Persist the boundary BEFORE calling approval. No attempted marker means this code has not sent approval. */
+/** 승인 호출 전에 경계 표시를 먼저 저장함. 시도 표시가 없으면 이 코드가 승인을 보내지 않았다는 뜻임. */
 export async function markApprovalAttempt(order: OrderRecord): Promise<OrderRecord> {
   if (!order.inventory || order.inventory.state !== "RESERVED")
     throw new InventoryError("INVENTORY_RESERVATION_REQUIRED");
   if (order.inventory.approvalAttemptedAt)
     throw new InventoryError("PAYMENT_APPROVAL_ALREADY_ATTEMPTED");
-  // Unique claim prevents two simultaneous callers from treating the same CAS success as their own.
+  // 고유 claim으로 동시에 호출한 두 쪽이 같은 CAS 성공을 각자 자기 것으로 여기지 않게 함.
   return writeInventoryOrder(order, {
     ...order,
     inventory: {
@@ -172,7 +172,7 @@ export async function rejectApproval(
   );
 }
 
-/** Expired reservation with no approval claim is provably unattempted. CAS excludes a late approval claimant. */
+/** 승인 claim이 없는 만료 예약은 승인 미시도임이 증명됨. 늦게 온 승인 claim은 CAS로 배제함. */
 export async function releaseUnattemptedReservation(
   order: OrderRecord,
 ): Promise<OrderRecord> {
@@ -206,7 +206,7 @@ export async function releaseUnattemptedReservation(
   );
 }
 
-/** Server lookup, never event/body status. Expiry alone is NOT proof of payment failure. */
+/** event/body 상태가 아니라 서버 조회 결과만 씀. 만료만으로는 결제 실패의 증거가 아님. */
 export async function settleInventoryPayment(
   order: OrderRecord,
   payment: TossPayment,
@@ -236,7 +236,7 @@ export async function settleInventoryPayment(
   );
   if (failed && payment.cancels.length)
     throw new InventoryError("PAYMENT_PROVIDER_MISMATCH", 502);
-  // Failure/expiry proves no new refund. A zero provider balance is not cancellation evidence.
+  // 실패·만료는 새 환불이 없다는 증거임. provider 잔액이 0이라는 것은 취소 증거가 아님.
   const refundedAmount = failed ? beforeRefund : order.total - payment.balanceAmount;
   if (
     refundedAmount < beforeRefund ||
@@ -284,7 +284,7 @@ export async function settleInventoryPayment(
   }
   const status = failed ? "FAILED" : fullCancel ? "REFUNDED" : "PAID";
   if (!ledger) {
-    // Legacy has no stock proof: update money only; never invent a debit/restoration marker.
+    // LEGACY에는 재고 증빙이 없으므로 금액만 갱신하고, 차감·복원 표시를 임의로 만들지 않음.
     if (
       order.status !== "PENDING_PAYMENT" &&
       order.status !== "PAID" &&

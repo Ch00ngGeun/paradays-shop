@@ -1,3 +1,4 @@
+/** 역할: Toss 결제 응답 정규화, 취소 시각 검증, 취소 증빙 확인, 부분 취소 요청 형식을 네트워크 없이 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import {

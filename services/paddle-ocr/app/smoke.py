@@ -1,3 +1,6 @@
+# 역할: 이미지 build 중 실제 PaddleOCR model로 메모리 안 인식을 한 번 실행해 응답 형식을 확인하는 점검 도구임.
+# 참고: 아래 docstring은 Docker build가 이 점검을 하지 않는다고 적지만, 현재 Dockerfile은 `RUN paddle-ocr-smoke`로 실행함.
+# docstring은 문자열 값이라 원문을 보존함.
 """Opt-in, in-memory real-model smoke check for the PaddleOCR service image.
 
 It is deliberately not imported by the API or Docker build. Running the console
@@ -108,8 +111,8 @@ def _assert_canonical_response(value: Any) -> None:
     ):
         raise RuntimeError
 
-    # In addition to the structural check, reject accidental NumPy/Paddle values
-    # that may have a surprising JSON encoder implementation.
+    # 구조 검사와 별도로, JSON encoder 동작이 예상과 다를 수 있는
+    # NumPy/Paddle 값이 섞여 들어오면 거부함.
     json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
 
 

@@ -97,7 +97,7 @@ export async function handler(
     userSub,
   );
   const timestamp = new Date().toISOString();
-  // Replay compares the saved snapshot, never today's price/catalog; changed cart input still conflicts.
+  // 재실행은 현재 가격·카탈로그가 아니라 저장된 snapshot과 비교하며, 바뀐 장바구니 입력은 여전히 충돌로 처리함.
   const replayExisting = (previous: OrderRecord) => {
     try {
       const snapshotCatalog = previous.lines.map((line) => ({
@@ -138,7 +138,7 @@ export async function handler(
     return jsonResponse(503, { code: "ORDER_STORAGE_UNAVAILABLE" });
   }
   if (previous) return replayExisting(previous);
-  // A concurrent identical request may save while this one validates a since-changed catalog.
+  // 이 요청이 그 사이 바뀐 카탈로그를 검증하는 동안 동시에 들어온 같은 요청이 먼저 저장될 수 있음.
   const failUnlessSaved = async (response: APIGatewayProxyResultV2) => {
     let saved;
     try {
@@ -223,7 +223,7 @@ export async function handler(
       return jsonResponse(409, { code: "CHECKOUT_REQUEST_CONFLICT" });
     }
 
-    // A concurrent identical request may have saved first at an older price.
+    // 동시에 들어온 같은 요청이 이전 가격으로 먼저 저장했을 수 있음.
     return replayExisting(existingOrder);
   }
 

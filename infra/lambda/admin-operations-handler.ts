@@ -89,7 +89,7 @@ export async function handler(
   return jsonResponse(405, { code: "METHOD_NOT_ALLOWED" });
 }
 
-/** Cognito Identity Provider SDK/권한이 아직 연결되지 않았으므로 회원 PII나 가짜 회원을 절대 반환하지 않습니다. */
+/** 이 handler의 members 경로는 GET·PATCH에 구성 미완료 응답을 반환하며 회원 데이터는 반환하지 않음. */
 function memberDirectoryUnavailable(method: string) {
   if (method !== "GET" && method !== "PATCH") {
     return jsonResponse(405, { code: "METHOD_NOT_ALLOWED" });

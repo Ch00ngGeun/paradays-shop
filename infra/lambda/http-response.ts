@@ -1,11 +1,11 @@
 /**
- * 역할: API Gateway HTTP API용 Lambda placeholder의 공통 JSON 응답을 만듦.
- * 기능: 민감한 내부 오류·PG payload를 노출하지 않는 일관된 응답 형식을 제공함.
+ * 역할: API Gateway HTTP API용 상거래 Lambda handler가 함께 쓰는 공통 JSON 응답을 만듦.
+ * 기능: 호출자가 넘긴 상태 코드·body에 JSON Content-Type과 직렬화를 적용함.
  */
 
 import type { APIGatewayProxyResultV2 } from "aws-lambda";
 
-/** 공개 가능한 오류 코드와 메시지만 반환하도록 JSON 응답을 생성함. */
+/** 전달받은 body를 JSON 문자열로 직렬화해 지정한 상태 코드로 반환함. */
 export function jsonResponse(
   statusCode: number,
   body: Record<string, unknown>,

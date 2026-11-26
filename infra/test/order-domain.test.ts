@@ -16,10 +16,10 @@ test("a product name on two lines becomes a one-line order name", () => {
   const order = calculateOrder([line("a")], [product("a", "Synthetic\nDeck  \t 8.25")]);
 
   assert.equal(order.orderName, "Synthetic Deck 8.25");
-  // The line snapshot keeps the stored name; only the payment order name is joined.
+  // 주문 행 snapshot은 저장된 이름을 유지하고, 결제 주문명만 한 줄로 이음.
   assert.equal(order.lines[0]?.name, "Synthetic\nDeck  \t 8.25");
 
-  // Joining happens before the cut, so a break near the limit cannot push the name past it.
+  // 자르기 전에 이어 붙이므로 한도 근처의 줄바꿈이 이름을 한도 밖으로 밀어내지 못함.
   const broken = calculateOrder(
     [line("a")],
     [product("a", `${"가".repeat(99)}\n\n나다`)],

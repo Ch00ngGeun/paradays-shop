@@ -1,4 +1,4 @@
-/** One invocation-wide budget; late SDK completion cannot start a subsequent write. */
+/** 역할: 매출 요청 하나에 호출 전체 시간 예산과 AbortSignal을 두어, 늦게 끝난 SDK 호출이 이어지는 쓰기를 시작하지 못하게 함. */
 import { AsyncLocalStorage } from "node:async_hooks";
 import { SalesError } from "./sales-ledger-domain.js";
 
@@ -12,7 +12,7 @@ function expired(budget: Budget): boolean {
 function deadlineError() {
   return new SalesError("SALES_REQUEST_DEADLINE_EXCEEDED", 503);
 }
-/** Outside a sales request, shared admin/inventory callers keep their original SDK behavior. */
+/** 매출 요청 밖에서는 공용 관리자·재고 호출부가 원래 SDK 동작을 유지함. */
 export function salesRequestSignal(): AbortSignal | undefined {
   const budget = requests.getStore();
   if (!budget) return undefined;
@@ -25,7 +25,7 @@ export function salesRequestDeadline(localDeadline: number): number {
   if (expired(budget)) throw deadlineError();
   return Math.min(localDeadline, budget.deadline);
 }
-/** budgetMs is server-controlled/test-only; it is never read from an HTTP event. */
+/** budgetMs는 서버나 테스트만 정하며 HTTP event에서 읽지 않음. */
 export async function withSalesRequest<T>(
   operation: () => Promise<T>,
   budgetMs = SALES_REQUEST_BUDGET_MS,
@@ -54,7 +54,7 @@ export async function withSalesRequest<T>(
     });
   } finally {
     if (timer) clearTimeout(timer);
-    // Stop a still-running sibling when a complete read fails closed.
+    // 전체 읽기가 fail-closed로 실패하면 아직 실행 중인 형제 작업도 멈춤.
     budget.controller.abort();
   }
 }

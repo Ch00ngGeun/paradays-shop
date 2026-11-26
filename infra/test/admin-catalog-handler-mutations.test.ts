@@ -1,4 +1,4 @@
-/** Real handler with an atomic, conditional in-memory SDK transport. No credentials or network. */
+/** 역할: 실제 관리자 카탈로그 handler로 버전 충돌·transaction 실패·식별 scan 실패 시 무쓰기, revision 원자 갱신, deckSpec·옵션별 사양 PATCH를 메모리 SDK 전송으로 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
@@ -206,7 +206,7 @@ test("deckSpec-only PATCH saves, publishes, survives other edits and clears with
     wheelbase: 14.25,
   };
 
-  // A reserved product still accepts a size-spec edit because it is not part of its identity.
+  // 사이즈 사양은 식별 정보가 아니므로 예약 재고가 있는 상품도 편집을 받음.
   const saved = unpack(
     await handler(event("PATCH", { version: 3, deckSpec }, "prd_deck")),
   );
@@ -288,7 +288,7 @@ test("sizeDeckSpec PATCH saves and clears one option, keeps the default, and dro
   });
   assert.deepEqual(toPublicCatalogProduct(stored())?.deckSpec, base);
 
-  // A default-only save leaves the option values alone.
+  // 기본값만 저장하면 옵션 값은 그대로 둠.
   const defaultEdit = await patch({ version: 6, deckSpec: { ...base, tail: 6.625 } });
   assert.deepEqual(defaultEdit.body.product.deckSpecsBySize, {
     "8.0": small,
@@ -310,7 +310,7 @@ test("sizeDeckSpec PATCH saves and clears one option, keeps the default, and dro
   ]) {
     assert.equal((await patch(invalid)).status, 400, JSON.stringify(invalid));
   }
-  // The full map is server-built and cannot be replaced directly through PATCH.
+  // 전체 map은 서버가 만들며 PATCH로 직접 바꿀 수 없음.
   const ignored = await patch({ version: 7, deckSpecsBySize: { "8.25": base } });
   assert.equal(ignored.status, 200);
   assert.deepEqual(ignored.body.product.deckSpecsBySize, {
@@ -328,7 +328,7 @@ test("sizeDeckSpec PATCH saves and clears one option, keeps the default, and dro
   assert.deepEqual(cleared.body.product.deckSpecsBySize, { "8.5": large });
   assert.deepEqual(cleared.body.product.deckSpec, { ...base, tail: 6.625 });
 
-  // Renaming 8.5 through a product save drops its value; the empty map leaves the row.
+  // 상품 저장으로 8.5 이름을 바꾸면 그 값이 빠지고, 빈 map은 행에서 사라짐.
   const renamed = await patch({ version: 9, sizes: "8.0, 8.25, 8.75" });
   assert.equal(renamed.status, 200);
   assert.equal(renamed.body.product.deckSpecsBySize, undefined);
@@ -338,7 +338,7 @@ test("sizeDeckSpec PATCH saves and clears one option, keeps the default, and dro
 
 test("only option values whose size still exists are kept or returned", async (t) => {
   const spec = { nose: 6.875, tail: 6.5, width: 8.25, length: 31.75, wheelbase: 14.25 };
-  // A row written while an older server ignored the pruning may still hold a removed option.
+  // 이전 서버가 정리를 하지 않던 때 쓴 행에는 삭제된 옵션이 남아 있을 수 있음.
   const legacy = product({
     status: "PUBLISHED",
     publicationStatus: "PUBLISHED",
@@ -405,13 +405,13 @@ test("unsafe option names are refused and saved option charts survive DynamoDB m
     ),
   );
   assert.equal(saved.status, 200);
-  // The in-memory transport skips the SDK conversion, so round-trip the stored row through it.
+  // 메모리 전송은 SDK 변환을 거치지 않으므로 저장된 행을 변환에 한 번 왕복시킴.
   const row = db.records.get("prd_deck")!;
   const restored = unmarshall(marshall(row, { removeUndefinedValues: true }));
   assert.deepEqual(restored.deckSpecsBySize, { "8.25": spec });
   assert.equal(isCatalogProductRecord(restored), true);
 
-  // A row that somehow holds such a key never returns it.
+  // 어떤 이유로든 그런 key를 가진 행이라도 응답에 그 key를 돌려주지 않음.
   const legacy = product({
     status: "PUBLISHED",
     publicationStatus: "PUBLISHED",

@@ -1,6 +1,6 @@
 /**
  * 역할: 서버에서만 Toss Payments Core API를 호출하고, Secrets Manager 비밀키를 캐시함.
- * 기능: 결제 승인·조회·전체 취소 요청과 응답 검증을 제공하며 비밀값·PG 원문 오류를 외부로 노출하지 않음.
+ * 기능: 결제 승인·조회·전체·부분 취소 요청과 응답 검증을 제공하며 비밀값·PG 원문 오류를 외부로 노출하지 않음.
  */
 
 import {
@@ -35,7 +35,7 @@ export type TossPayment = Readonly<{
   approvedAt?: string;
 }>;
 
-/** 외부 PG 통신 실패를 Lambda handler가 안전한 502로 바꾸기 위한 오류입니다. */
+/** PG 통신·응답 검증·자격증명 조회 실패를 내부 오류로 감싸며, 외부 응답 상태와 코드는 호출부가 정함. */
 export class TossPaymentsApiError extends Error {
   constructor(
     readonly status: number | null = null,
@@ -46,7 +46,7 @@ export class TossPaymentsApiError extends Error {
   }
 }
 
-/** Lambda 컨테이너당 한 번만 Secrets Manager를 조회합니다. */
+/** Lambda 컨테이너에서 secret ARN별 조회를 공유하며, 실패한 조회는 캐시에서 제거해 재시도할 수 있게 함. */
 const secretsManagerClient = new SecretsManagerClient({});
 const credentialsBySecretArn = new Map<string, Promise<TossPaymentsCredentials>>();
 
@@ -106,7 +106,7 @@ export async function getTossPayment({
   });
 }
 
-/** 관리자 full refund 요청을 PG에 전달합니다. 부분 취소는 정책 확정 후 별도 계약으로 추가합니다. */
+/** 관리자 취소 요청을 PG에 전달함. cancelAmount가 있으면 취소액을 보내고, operationId가 있으면 작업별 멱등 키를 씀. */
 export async function cancelTossPayment({
   credentials,
   paymentKey,
@@ -209,7 +209,7 @@ async function requestTossPayment({
       )
         code = error.code;
     } catch {
-      /* no verified structured rejection */
+      /* 검증된 구조화 거절 응답이 아님 */
     }
     throw new TossPaymentsApiError(response.status, code);
   }
@@ -287,7 +287,7 @@ export function parseTossPayment(value: unknown): TossPayment | null {
   };
 }
 
-/** Monetary proof only: physical restocking additionally needs the order's debit/fulfillment ledger. */
+/** 금액 증빙만 확인함: 실물 재입고에는 주문의 차감·출고 ledger가 추가로 필요함. */
 export function paymentMatchesOrder(
   payment: TossPayment,
   order: { orderId: string; total: number },
@@ -301,7 +301,7 @@ export function paymentMatchesOrder(
     payment.currency === "KRW"
   );
 }
-/** Only explicit, documented non-processing rejections qualify. Never classify timeout/5xx/already-processing as failure. */
+/** 문서화된 명시적 미처리 거절만 해당함. 시간 초과·5xx·이미 처리 중은 실패로 분류하지 않음. */
 export function definitiveApprovalRejection(
   error: unknown,
 ): error is TossPaymentsApiError {

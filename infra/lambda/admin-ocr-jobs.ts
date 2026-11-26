@@ -1,3 +1,4 @@
+/** 역할: 관리자 OCR 검토 job을 만들고 조회·수정하며, 7일 TTL과 버전 조건으로 DynamoDB에 저장함. */
 import { randomUUID } from "node:crypto";
 import { GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 import type {
@@ -175,8 +176,8 @@ export async function updateOcrJob(
     return jsonResponse(400, { code: "OCR_JOB_ROWS_INVALID" });
   }
 
-  // Preserve the exact edited text (including empty strings and whitespace).
-  // Omission keeps the old text; this shares the stored rawText validation.
+  // 편집한 텍스트를 빈 문자열·공백까지 정확히 보존함.
+  // 값이 없으면 이전 텍스트를 유지하며, 저장된 rawText와 같은 검증을 씀.
   if (reviewedRawText !== undefined && !isBoundedRawText(reviewedRawText)) {
     return jsonResponse(400, { code: "OCR_JOB_RAW_TEXT_INVALID" });
   }

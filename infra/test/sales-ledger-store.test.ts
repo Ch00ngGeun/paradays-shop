@@ -1,3 +1,4 @@
+/** 역할: 매출 장부 저장소의 재실행·CAS 경합·마감 snapshot·페이지 불완전·오프라인 차감·취소·마감 조건·온라인 매출 날짜 규칙을 검증함. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { GetCommand, QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
